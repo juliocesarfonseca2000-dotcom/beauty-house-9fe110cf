@@ -83,6 +83,12 @@ function ClientsPage() {
           ))}
         </div>
         <button
+          onClick={() => setOpenScan(true)}
+          className="px-4 py-2.5 rounded-lg border-2 border-gold text-gold font-semibold hover:bg-gold/10 flex items-center gap-2"
+        >
+          <IconCamera size={18} /> Escanear ficha
+        </button>
+        <button
           onClick={() => setOpenNew(true)}
           className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
         >
