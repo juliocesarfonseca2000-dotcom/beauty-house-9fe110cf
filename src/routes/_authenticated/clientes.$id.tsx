@@ -4,6 +4,7 @@ import { IconArrowLeft, IconEdit, IconCheck } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SessionsTab } from "@/components/clients/SessionsTab";
+import { PhotosTab } from "@/components/clients/PhotosTab";
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
   component: ClientDetailPage,
@@ -90,7 +91,7 @@ function ClientDetailPage() {
       {tab === "dados" && <DadosTab client={client} onSaved={load} />}
       {tab === "prontuario" && <ProntuarioTab client={client} onSaved={load} />}
       {tab === "sessoes" && <SessionsTab clientId={client.id} />}
-      {tab === "fotos" && <div className="bh-card p-12 text-center text-text3">Aba de fotos — em construção</div>}
+      {tab === "fotos" && <PhotosTab clientId={client.id} />}
       {tab === "historico" && <HistoricoTab clientId={client.id} />}
     </div>
   );
