@@ -24,6 +24,7 @@ function ClientsPage() {
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("active");
   const [q, setQ] = useState("");
   const [openNew, setOpenNew] = useState(false);
+  const [openScan, setOpenScan] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
