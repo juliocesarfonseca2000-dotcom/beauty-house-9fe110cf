@@ -24,35 +24,38 @@ type Appt = {
   procedures: { name: string } | null;
 };
 
-const HOURS = Array.from({ length: 13 }, (_, i) => 8 + i); // 8h..20h
+const START_HOUR = 8;
+const END_HOUR = 18;
+const SLOT_MIN = 30;
+const SLOT_PX = 32; // height per 30min slot
+const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
+
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-gold/15 text-navy border-l-gold",
-  confirmed: "bg-blue/15 text-navy border-l-blue",
+  confirmed: "bg-blue-500/15 text-navy border-l-blue-500",
   done: "bg-success/15 text-success border-l-success",
   cancelled: "bg-danger/10 text-danger border-l-danger line-through",
 };
 
-function startOfWeek(d: Date) {
-  const x = new Date(d);
-  const day = x.getDay(); // 0=Sun
-  const diff = day === 0 ? -6 : 1 - day; // Monday
-  x.setDate(x.getDate() + diff);
-  x.setHours(0, 0, 0, 0);
-  return x;
+function fmtDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-function fmtDate(d: Date) { return d.toISOString().slice(0, 10); }
 
 function AgendaPage() {
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
   const [proFilter, setProFilter] = useState<string>("all");
   const [appts, setAppts] = useState<Appt[]>([]);
-  const [creating, setCreating] = useState<{ date: Date; hour: number } | null>(null);
+  const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const days = useMemo(() => Array.from({ length: 6 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  const dayStart = useMemo(() => { const d = new Date(date); d.setHours(0,0,0,0); return d; }, [date]);
+  const dayEnd = useMemo(() => addDays(dayStart, 1), [dayStart]);
 
   const load = async () => {
     setLoading(true);
@@ -61,39 +64,54 @@ function AgendaPage() {
         .or("role.eq.professional,role.eq.admin").order("name"),
       supabase.from("appointments")
         .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
-        .gte("datetime", weekStart.toISOString())
-        .lt("datetime", addDays(weekStart, 7).toISOString())
+        .gte("datetime", dayStart.toISOString())
+        .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
     ]);
     setPros((pdata as Professional[]) ?? []);
     setAppts((adata as unknown as Appt[]) ?? []);
     setLoading(false);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [weekStart]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [dayStart.getTime()]);
 
-  const filteredAppts = proFilter === "all" ? appts : appts.filter((a) => a.professional_id === proFilter);
+  const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 
-  const apptsAt = (date: Date, hour: number) =>
-    filteredAppts.filter((a) => {
-      const d = new Date(a.datetime);
-      return d.toDateString() === date.toDateString() && d.getHours() === hour;
-    });
+  const apptsByPro = useMemo(() => {
+    const map: Record<string, Appt[]> = {};
+    for (const p of visiblePros) map[p.id] = [];
+    for (const a of appts) {
+      if (!map[a.professional_id]) continue;
+      map[a.professional_id].push(a);
+    }
+    return map;
+  }, [appts, visiblePros]);
+
+  const slots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
+    const totalMin = START_HOUR * 60 + i * SLOT_MIN;
+    return { h: Math.floor(totalMin / 60), m: totalMin % 60 };
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button onClick={() => setWeekStart(addDays(weekStart, -7))} className="p-2 rounded-lg hover:bg-bg2 border border-border">
+          <button onClick={() => setDate(addDays(date, -1))} className="p-2 rounded-lg hover:bg-bg2 border border-border">
             <IconChevronLeft size={18} />
           </button>
-          <button onClick={() => setWeekStart(startOfWeek(new Date()))} className="px-3 py-2 rounded-lg text-sm font-semibold border border-border hover:bg-bg2">
+          <button onClick={() => { const d = new Date(); d.setHours(0,0,0,0); setDate(d); }} className="px-3 py-2 rounded-lg text-sm font-semibold border border-border hover:bg-bg2">
             Hoje
           </button>
-          <button onClick={() => setWeekStart(addDays(weekStart, 7))} className="p-2 rounded-lg hover:bg-bg2 border border-border">
+          <button onClick={() => setDate(addDays(date, 1))} className="p-2 rounded-lg hover:bg-bg2 border border-border">
             <IconChevronRight size={18} />
           </button>
-          <div className="font-display text-lg text-navy ml-2">
-            {weekStart.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} — {addDays(weekStart, 5).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+          <input
+            type="date"
+            value={fmtDate(date)}
+            onChange={(e) => { const [y,m,d] = e.target.value.split("-").map(Number); setDate(new Date(y, m-1, d)); }}
+            className="ml-2 px-2 py-1.5 rounded-lg border border-border text-sm"
+          />
+          <div className="hidden sm:block font-display text-lg text-navy ml-2 capitalize">
+            {date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
           </div>
         </div>
 
@@ -103,7 +121,7 @@ function AgendaPage() {
             {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <button
-            onClick={() => setCreating({ date: new Date(), hour: 9 })}
+            onClick={() => setCreating({ hour: 9, min: 0 })}
             className="px-4 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
           >
             <IconPlus size={18} /> Agendar
@@ -114,59 +132,80 @@ function AgendaPage() {
       <div className="bh-card overflow-x-auto">
         {loading ? (
           <div className="p-8 text-center text-text3">Carregando...</div>
+        ) : visiblePros.length === 0 ? (
+          <div className="p-8 text-center text-text3">Nenhum profissional ativo.</div>
         ) : (
-          <div className="min-w-[900px]">
-            <div className="grid grid-cols-[60px_repeat(6,1fr)] border-b bg-bg2 text-text2 text-xs font-semibold uppercase tracking-wide">
-              <div className="px-2 py-3"></div>
-              {days.map((d) => {
-                const isToday = d.toDateString() === new Date().toDateString();
-                return (
-                  <div key={d.toISOString()} className={`px-2 py-3 text-center border-l ${isToday ? "text-gold" : ""}`}>
-                    <div>{d.toLocaleDateString("pt-BR", { weekday: "short" })}</div>
-                    <div className={`font-display text-lg ${isToday ? "text-gold" : "text-navy"}`}>{d.getDate()}</div>
-                  </div>
-                );
-              })}
+          <div className="min-w-[640px]">
+            {/* Header */}
+            <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
+              <div className="px-2 py-3 bg-bg2 border-r" />
+              {visiblePros.map((p) => (
+                <div key={p.id} className="px-3 py-3 text-center border-r last:border-r-0 bg-bg2">
+                  <div className="font-display text-navy truncate">{p.name}</div>
+                </div>
+              ))}
             </div>
-            {HOURS.map((h) => (
-              <div key={h} className="grid grid-cols-[60px_repeat(6,1fr)] border-b min-h-[64px]">
-                <div className="px-2 py-2 text-xs text-text3 font-mono border-r">{h}:00</div>
-                {days.map((d) => {
-                  const cellAppts = apptsAt(d, h);
-                  return (
-                    <button
-                      key={d.toISOString() + h}
-                      type="button"
-                      onClick={() => cellAppts.length === 0 && setCreating({ date: d, hour: h })}
-                      className="border-l p-1 text-left hover:bg-bg2/50 transition relative"
-                    >
-                      {cellAppts.map((a) => {
-                        const prof = pros.find((p) => p.id === a.professional_id);
-                        return (
-                          <div
-                            key={a.id}
-                            onClick={(e) => { e.stopPropagation(); setViewing(a); }}
-                            className={`mb-1 p-1.5 rounded text-xs border-l-2 cursor-pointer ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending}`}
-                          >
-                            <div className="font-semibold truncate">{a.clients?.name}</div>
-                            <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
-                            <div className="text-[10px] opacity-70 truncate">{prof?.name ?? ""}</div>
-                          </div>
-                        );
-                      })}
-                    </button>
-                  );
-                })}
+
+            {/* Grid */}
+            <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
+              {/* Hours column */}
+              <div className="border-r bg-bg2/50">
+                {slots.map((s, i) => (
+                  <div key={i} className="text-[10px] text-text3 font-mono px-2 text-right" style={{ height: SLOT_PX }}>
+                    {s.m === 0 ? `${String(s.h).padStart(2,"0")}:00` : ""}
+                  </div>
+                ))}
               </div>
-            ))}
+
+              {/* Pro columns */}
+              {visiblePros.map((p) => (
+                <div key={p.id} className="relative border-r last:border-r-0">
+                  {/* Background slots */}
+                  {slots.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setCreating({ proId: p.id, hour: s.h, min: s.m })}
+                      className={`block w-full hover:bg-gold/5 ${s.m === 0 ? "border-t" : "border-t border-dashed border-border/40"}`}
+                      style={{ height: SLOT_PX }}
+                    />
+                  ))}
+
+                  {/* Appointment blocks */}
+                  {(apptsByPro[p.id] ?? []).map((a) => {
+                    const dt = new Date(a.datetime);
+                    const minFromStart = (dt.getHours() - START_HOUR) * 60 + dt.getMinutes();
+                    if (minFromStart < 0 || minFromStart >= (END_HOUR - START_HOUR) * 60) return null;
+                    const dur = a.duration_min ?? 60;
+                    const top = (minFromStart / SLOT_MIN) * SLOT_PX;
+                    const height = Math.max(SLOT_PX, (dur / SLOT_MIN) * SLOT_PX) - 2;
+                    return (
+                      <div
+                        key={a.id}
+                        onClick={() => setViewing(a)}
+                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 cursor-pointer shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending}`}
+                        style={{ top, height }}
+                      >
+                        <div className="font-semibold truncate text-[11px]">
+                          {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
+                        </div>
+                        <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
       {creating && (
         <ApptModal
-          initialDate={creating.date}
+          initialDate={date}
           initialHour={creating.hour}
+          initialMin={creating.min}
+          initialProId={creating.proId}
           pros={pros}
           onClose={() => setCreating(null)}
           onSaved={() => { setCreating(null); load(); }}
@@ -179,17 +218,17 @@ function AgendaPage() {
   );
 }
 
-function ApptModal({ initialDate, initialHour, pros, onClose, onSaved }: {
-  initialDate: Date; initialHour: number; pros: Professional[]; onClose: () => void; onSaved: () => void;
+function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, onClose, onSaved }: {
+  initialDate: Date; initialHour: number; initialMin: number; initialProId?: string; pros: Professional[]; onClose: () => void; onSaved: () => void;
 }) {
   const [client, setClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Client[]>([]);
   const [procs, setProcs] = useState<Procedure[]>([]);
   const [procId, setProcId] = useState("");
-  const [proId, setProId] = useState(pros[0]?.id ?? "");
+  const [proId, setProId] = useState(initialProId ?? pros[0]?.id ?? "");
   const [date, setDate] = useState(fmtDate(initialDate));
-  const [time, setTime] = useState(`${String(initialHour).padStart(2, "0")}:00`);
+  const [time, setTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
   const [duration, setDuration] = useState("60");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
@@ -339,7 +378,7 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
           {appt.notes && <Row label="Observações" value={appt.notes} />}
 
           <div className="flex flex-wrap gap-2 pt-3 border-t">
-            <button onClick={() => setStatus("confirmed")} disabled={busy} className="px-3 py-1.5 rounded-md bg-blue/10 text-blue text-xs font-semibold hover:bg-blue/20">Confirmar</button>
+            <button onClick={() => setStatus("confirmed")} disabled={busy} className="px-3 py-1.5 rounded-md bg-blue-500/10 text-blue-600 text-xs font-semibold hover:bg-blue-500/20">Confirmar</button>
             <button onClick={() => setStatus("done")} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/10 text-success text-xs font-semibold hover:bg-success/20">Atendido</button>
             <button onClick={() => setStatus("cancelled")} disabled={busy} className="px-3 py-1.5 rounded-md bg-danger/10 text-danger text-xs font-semibold hover:bg-danger/20">Cancelar</button>
             <button onClick={remove} disabled={busy} className="ml-auto px-3 py-1.5 rounded-md text-text2 hover:text-danger text-xs font-semibold flex items-center gap-1">

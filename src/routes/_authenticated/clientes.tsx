@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck } from "@tabler/icons-react";
+import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
+import { ScanClientCardModal } from "@/components/clients/ScanClientCardModal";
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientsPage,
@@ -23,6 +24,7 @@ function ClientsPage() {
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("active");
   const [q, setQ] = useState("");
   const [openNew, setOpenNew] = useState(false);
+  const [openScan, setOpenScan] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -80,6 +82,12 @@ function ClientsPage() {
             </button>
           ))}
         </div>
+        <button
+          onClick={() => setOpenScan(true)}
+          className="px-4 py-2.5 rounded-lg border-2 border-gold text-gold font-semibold hover:bg-gold/10 flex items-center gap-2"
+        >
+          <IconCamera size={18} /> Escanear ficha
+        </button>
         <button
           onClick={() => setOpenNew(true)}
           className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
