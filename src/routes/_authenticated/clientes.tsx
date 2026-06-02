@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck } from "@tabler/icons-react";
+import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
+import { ScanClientCardModal } from "@/components/clients/ScanClientCardModal";
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientsPage,
