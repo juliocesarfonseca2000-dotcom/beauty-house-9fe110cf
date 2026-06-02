@@ -169,6 +169,17 @@ function ClientsPage() {
           }}
         />
       )}
+
+      {openScan && (
+        <ScanClientCardModal
+          onClose={() => setOpenScan(false)}
+          onCreated={(id) => {
+            setOpenScan(false);
+            load();
+            navigate({ to: "/clientes/$id", params: { id } });
+          }}
+        />
+      )}
     </div>
   );
 }
