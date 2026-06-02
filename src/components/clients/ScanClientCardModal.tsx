@@ -153,7 +153,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
   );
 }
 
-function UploadBox({ label, file, onFile, inputRef }: { label: string; file: File | null; onFile: (f: File | null) => void; inputRef: React.RefObject<HTMLInputElement> }) {
+function UploadBox({ label, file, onFile, inputRef }: { label: string; file: File | null; onFile: (f: File | null) => void; inputRef: React.RefObject<HTMLInputElement | null> }) {
   const url = file ? URL.createObjectURL(file) : null;
   return (
     <div>
