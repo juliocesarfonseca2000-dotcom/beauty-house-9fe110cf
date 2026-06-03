@@ -211,18 +211,17 @@ function SignSessionModal({
   };
 
   const markMissed = async () => {
-    if (!confirm) return;
     if (!window.confirm("Marcar como falta? A sessão não será descontada — um novo slot será adicionado ao final do pacote.")) return;
     setBusy(true);
     try {
       // marca falta
-      await supabase.from("sessions").update({ status: "missed", done_at: new Date().toISOString() }).eq("id", session.id);
+      await withTimeout(supabase.from("sessions").update({ status: "missed", done_at: new Date().toISOString() }).eq("id", session.id), 12000, "Registro da falta");
       // adiciona slot novo ao final
       const newNum = pkg.sess_total + 1;
-      await supabase.from("sessions").insert({
+      await withTimeout(supabase.from("sessions").insert({
         package_id: pkg.id, client_id: clientId, session_num: newNum, status: "pending",
-      });
-      await supabase.from("packages").update({ sess_total: newNum }).eq("id", pkg.id);
+      }), 12000, "Novo slot da sessão");
+      await withTimeout(supabase.from("packages").update({ sess_total: newNum }).eq("id", pkg.id), 12000, "Atualização do pacote");
       toast.success("Falta registrada. Slot extra adicionado.");
       onSaved();
     } catch (e) {
