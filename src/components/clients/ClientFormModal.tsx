@@ -75,26 +75,31 @@ export function ClientFormModal({
         evaluator_id: evaluatorId || null,
         notes: notes.trim() || null,
       };
-      const { data: created, error } = await supabase
-        .from("clients")
-        .insert(payload)
-        .select("id")
-        .single();
+      const { data: created, error } = await withTimeout(
+        supabase.from("clients").insert(payload).select("id").single(),
+        12000,
+        "Cadastro de cliente",
+      );
       if (error) throw error;
+      const newId = (created as { id: string }).id;
 
-      // Bônus de indicação
+      // Bônus de indicação — dispara em paralelo, não bloqueia o redirect
       if (referral === "Indicação" && referralClientId) {
-        await supabase.from("referral_bonuses").insert({
-          from_client_id: referralClientId,
-          to_client_name: name.trim(),
-          awarded: true,
-        });
-        await supabase.from("income").insert({
-          client_id: referralClientId,
-          description: "Massagem Comum 40' — 5 sessões · Bônus indicação",
-          amount: 0,
-          pay_method: "bonus",
-        });
+        const bonusPromise = Promise.all([
+          supabase.from("referral_bonuses").insert({
+            from_client_id: referralClientId,
+            to_client_name: name.trim(),
+            awarded: true,
+          }),
+          supabase.from("income").insert({
+            client_id: referralClientId,
+            description: "Massagem Comum 40' — 5 sessões · Bônus indicação",
+            amount: 0,
+            pay_method: "bonus",
+          }),
+        ]);
+        // Não await — segue o fluxo. Só logamos erro silenciosamente.
+        bonusPromise.catch((e) => console.error("Bônus indicação falhou:", e));
       }
 
       toast.success("Cliente cadastrada!");
