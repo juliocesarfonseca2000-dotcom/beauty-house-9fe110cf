@@ -120,23 +120,27 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
   });
   useEffect(() => {
     let active = true;
-    supabase.from("app_users").select("id,name").eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name").then(({ data }) => {
+    withTimeout(supabase.from("app_users").select("id,name").eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras").then(({ data }) => {
       if (active) setEvaluators((data as Evaluator[]) ?? []);
-    });
+    }).catch(() => undefined);
     return () => { active = false; };
   }, []);
   const save = async () => {
-    const { error } = await supabase.from("clients").update({
-      ...f,
-      record_num: Number(f.record_num),
-      birthdate: f.birthdate || null,
-      evaluator_id: f.evaluator_id || null,
-      referral: f.referral || null,
-    }).eq("id", client.id);
-    if (error) return toast.error(error.message);
-    toast.success("Dados atualizados");
-    setEdit(false);
-    onSaved();
+    try {
+      const { error } = await withTimeout(supabase.from("clients").update({
+        ...f,
+        record_num: Number(f.record_num),
+        birthdate: f.birthdate || null,
+        evaluator_id: f.evaluator_id || null,
+        referral: f.referral || null,
+      }).eq("id", client.id), 12000, "Atualização dos dados");
+      if (error) throw error;
+      toast.success("Dados atualizados");
+      setEdit(false);
+      onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar dados");
+    }
   };
   return (
     <div className="bh-card p-6 space-y-4">
@@ -187,15 +191,23 @@ function ProntuarioTab({ client, onSaved }: { client: Client; onSaved: () => voi
     abdomen: client.abdomen ?? "", arm: client.arm ?? "", thigh: client.thigh ?? "",
   });
   const saveAn = async () => {
-    const { error } = await supabase.from("clients").update({ anamnese: an }).eq("id", client.id);
-    if (error) return toast.error(error.message);
-    toast.success("Anamnese salva"); onSaved();
+    try {
+      const { error } = await withTimeout(supabase.from("clients").update({ anamnese: an }).eq("id", client.id), 12000, "Salvamento da anamnese");
+      if (error) throw error;
+      toast.success("Anamnese salva"); onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar anamnese");
+    }
   };
   const saveM = async () => {
     const payload = Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v === "" ? null : Number(v)]));
-    const { error } = await supabase.from("clients").update(payload).eq("id", client.id);
-    if (error) return toast.error(error.message);
-    toast.success("Medidas salvas"); onSaved();
+    try {
+      const { error } = await withTimeout(supabase.from("clients").update(payload).eq("id", client.id), 12000, "Salvamento das medidas");
+      if (error) throw error;
+      toast.success("Medidas salvas"); onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar medidas");
+    }
   };
   return (
     <div className="space-y-5">
