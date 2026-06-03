@@ -30,7 +30,7 @@ type Client = {
   created_at: string;
 };
 
-type Tab = "dados" | "prontuario" | "anamnese" | "sessoes" | "fotos" | "historico";
+type Tab = "dados" | "prontuario" | "sessoes" | "fotos" | "historico";
 type Evaluator = { id: string; name: string };
 
 function ClientDetailPage() {
@@ -90,7 +90,6 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
         {([
           ["dados", "Dados"],
           ["prontuario", "Prontuário"],
-          ["anamnese", "Anamnese"],
           ["sessoes", "Sessões"],
           ["fotos", "Fotos"],
           ["historico", "Histórico $"],
@@ -109,7 +108,6 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
 
       {tab === "dados" && <DadosTab client={client} onSaved={reloadClient} />}
       {tab === "prontuario" && <ProntuarioTab client={client} onSaved={reloadClient} />}
-      {tab === "anamnese" && <AnamneseTab client={client} onSaved={reloadClient} />}
       {tab === "sessoes" && <SessionsTab clientId={client.id} />}
       {tab === "fotos" && <PhotosTab clientId={client.id} />}
       {tab === "historico" && <HistoricoTab clientId={client.id} />}
