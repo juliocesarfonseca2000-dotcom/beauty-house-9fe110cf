@@ -29,8 +29,7 @@ export function useRealtimeSync(enabled: boolean) {
     const channel = supabase.channel("app-realtime-sync");
 
     for (const table of TABLES) {
-      channel.on(
-        // @ts-expect-error - postgres_changes é suportado pelo client v2
+      (channel as any).on(
         "postgres_changes",
         { event: "*", schema: "public", table },
         () => {
