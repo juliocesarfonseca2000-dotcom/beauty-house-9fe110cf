@@ -94,36 +94,54 @@ function ClosePackagePage() {
 
     setBusy(true);
     try {
-      // Create one package per item, applying proportional discount
-      for (const item of cart) {
-        const itemFull = item.price;
-        const itemPaid = itemFull * (1 - discountPct / 100);
-        const { data: pkg, error: pkgErr } = await supabase
-          .from("packages")
-          .insert({
-            client_id: client.id,
-            procedure_id: item.procedure.id,
-            sess_total: item.sessions,
-            sess_done: 0,
-            price_full: itemFull,
-            price_paid: itemPaid,
-            discount_pct: discountPct,
-            pay_method: payMethod,
-            status: "active",
-          })
-          .select("id")
-          .single();
-        if (pkgErr) throw pkgErr;
+      // 1) Cria todos os pacotes em paralelo
+      const pkgResults = await withTimeout<Array<{ data: { id: string } | null; error: { message: string } | null }>>(
+        Promise.all(
+          cart.map((item) => {
+            const itemFull = item.price;
+            const itemPaid = itemFull * (1 - discountPct / 100);
+            return supabase
+              .from("packages")
+              .insert({
+                client_id: client.id,
+                procedure_id: item.procedure.id,
+                sess_total: item.sessions,
+                sess_done: 0,
+                price_full: itemFull,
+                price_paid: itemPaid,
+                discount_pct: discountPct,
+                pay_method: payMethod,
+                status: "active",
+              })
+              .select("id")
+              .single();
+          }),
+        ),
+        15000,
+        "Criação dos pacotes",
+      );
 
-        const sessRows = Array.from({ length: item.sessions }, (_, i) => ({
-          package_id: (pkg as { id: string }).id,
-          client_id: client.id,
-          session_num: i + 1,
-          status: "pending",
-        }));
-        const { error: sErr } = await supabase.from("sessions").insert(sessRows);
-        if (sErr) throw sErr;
-      }
+      const allSessions: Array<{ package_id: string; client_id: string; session_num: number; status: string }> = [];
+      pkgResults.forEach((res, idx) => {
+        if (res.error || !res.data) throw new Error(res.error?.message ?? "Falha ao criar pacote");
+        const item = cart[idx];
+        for (let i = 0; i < item.sessions; i++) {
+          allSessions.push({
+            package_id: res.data.id,
+            client_id: client.id,
+            session_num: i + 1,
+            status: "pending",
+          });
+        }
+      });
+
+      // 2) Insere TODAS as sessões num único insert (em vez de N requests)
+      const { error: sErr } = await withTimeout<{ error: { message: string } | null }>(
+        supabase.from("sessions").insert(allSessions),
+        15000,
+        "Criação das sessões",
+      );
+      if (sErr) throw sErr;
 
       toast.success(`Pacote fechado! ${cart.length} item(s) adicionado(s).`);
       navigate({ to: "/clientes/$id", params: { id: client.id } });
