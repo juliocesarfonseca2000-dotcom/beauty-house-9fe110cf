@@ -237,13 +237,19 @@ function ProntuarioTab({ client, onSaved }: { client: Client; onSaved: () => voi
 const LBL: Record<string, string> = { weight: "Peso (kg)", waist: "Cintura (cm)", hip: "Quadril (cm)", abdomen: "Abdômen (cm)", arm: "Braço (cm)", thigh: "Coxa (cm)" };
 
 function HistoricoTab({ clientId }: { clientId: string }) {
-  const [rows, setRows] = useState<Array<{ id: string; description: string; amount: number; pay_method: string | null; date: string }>>([]);
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("income").select("id,description,amount,pay_method,date").eq("client_id", clientId).order("date", { ascending: false });
-      setRows((data as never) ?? []);
-    })();
-  }, [clientId]);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["client-income", clientId],
+    queryFn: async () => {
+      const { data, error } = await withTimeout(
+        supabase.from("income").select("id,description,amount,pay_method,date").eq("client_id", clientId).order("date", { ascending: false }),
+        10000,
+        "Carregamento do histórico",
+      );
+      if (error) throw error;
+      return (data as Array<{ id: string; description: string; amount: number; pay_method: string | null; date: string }>) ?? [];
+    },
+  });
+  if (isLoading) return <TableSkeleton rows={4} cols={4} />;
   const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
   const paid = rows.filter((r) => Number(r.amount) > 0);
   const avg = paid.length ? total / paid.length : 0;
