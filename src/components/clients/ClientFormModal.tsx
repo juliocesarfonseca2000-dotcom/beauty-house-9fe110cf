@@ -103,7 +103,7 @@ export function ClientFormModal({
       }
 
       toast.success("Cliente cadastrada!");
-      onCreated((created as { id: string }).id);
+      onCreated(newId);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao cadastrar";
       toast.error(msg);
