@@ -136,12 +136,17 @@ export function PhotosTab({ clientId }: { clientId: string }) {
             <input
               type="file"
               accept="image/*"
+              capture="environment"
               multiple
               className="hidden"
               onChange={onUpload}
               disabled={uploading}
             />
           </label>
+          <select value={procedureId} onChange={(e) => setProcedureId(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-card text-sm">
+            <option value="">Sem procedimento</option>
+            {procedures.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
           <div className="text-xs text-text3 ml-auto">
             Categoria selecionada será usada nas novas fotos.
           </div>
@@ -168,7 +173,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
       )}
 
       {loading ? (
-        <div className="bh-card p-8 text-center text-text3 text-sm">Carregando...</div>
+        <TableSkeleton rows={4} cols={3} />
       ) : photos.length === 0 ? (
         <div className="bh-card p-12 text-center text-text3 text-sm">
           Nenhuma foto enviada ainda.
@@ -184,13 +189,16 @@ export function PhotosTab({ clientId }: { clientId: string }) {
                   return (
                     <div key={p.id} className="relative group">
                       <button
-                        onClick={() => pickCompare(p.url)}
+                        onClick={() => setFull(p)}
                         className={`block w-full aspect-square rounded-lg overflow-hidden border-2 transition ${selected ? "border-gold ring-2 ring-gold/30" : "border-border hover:border-navy"}`}
                       >
-                        <img src={p.url} className="w-full h-full object-cover" alt="" />
+                        <img src={p.url} className="w-full h-full object-cover" alt={`Foto ${cat}`} loading="lazy" />
+                      </button>
+                      <button onClick={() => pickCompare(p.url)} className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100">
+                        comparar
                       </button>
                       <div className="absolute bottom-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
-                        {new Date(p.date).toLocaleDateString("pt-BR")}
+                        {new Date(p.date).toLocaleDateString("pt-BR")} · {p.procedures?.name ?? cat}
                       </div>
                       <button
                         onClick={() => remove(p)}
@@ -210,6 +218,14 @@ export function PhotosTab({ clientId }: { clientId: string }) {
       <div className="text-xs text-text3 text-center">
         Selecione 2 fotos para comparar lado a lado.
       </div>
+      {full && (
+        <div className="fixed inset-0 z-50 bg-navy/90 flex items-center justify-center p-4" onClick={() => setFull(null)}>
+          <button type="button" className="absolute top-4 right-4 p-2 rounded-lg bg-card text-navy" onClick={() => setFull(null)}>
+            <IconX size={20} />
+          </button>
+          <img src={full.url} alt="Foto da cliente" className="max-w-full max-h-full object-contain rounded-lg" />
+        </div>
+      )}
     </div>
   );
 }
