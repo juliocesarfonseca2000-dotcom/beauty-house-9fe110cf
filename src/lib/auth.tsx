@@ -16,6 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const userRef = useRef<AppUser | null>(null);
+  const loadingProfileRef = useRef<string | null>(null);
 
   const setAuthUser = (next: AppUser | null) => {
     userRef.current = next;
@@ -45,23 +46,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    const syncProfile = (uid: string) => {
+      if (userRef.current?.id === uid || loadingProfileRef.current === uid) return;
+      loadingProfileRef.current = uid;
+      void loadProfile(uid).then((nextUser) => {
+        if (mounted) setAuthUser(nextUser);
+      }).catch((error) => {
+        console.error("Falha ao atualizar sessão:", error);
+        if (mounted && !userRef.current) setAuthUser(null);
+      }).finally(() => {
+        if (loadingProfileRef.current === uid) loadingProfileRef.current = null;
+      });
+    };
     (async () => {
       await refresh();
       if (mounted) setLoading(false);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-      try {
-        if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
-        if (event === "SIGNED_OUT") {
-          if (mounted) setAuthUser(null);
-          return;
-        }
-        const nextUser = session?.user ? await loadProfile(session.user.id) : null;
-        if (mounted) setAuthUser(nextUser);
-      } catch (error) {
-        console.error("Falha ao atualizar sessão:", error);
-        if (mounted && !userRef.current) setAuthUser(null);
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
+      if (event === "SIGNED_OUT") {
+        if (mounted) setAuthUser(null);
+        return;
       }
+      if (session?.user) syncProfile(session.user.id);
+      else if (mounted) setAuthUser(null);
     });
     return () => {
       mounted = false;
