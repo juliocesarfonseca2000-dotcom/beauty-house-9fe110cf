@@ -279,20 +279,52 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (!client) return toast.error("Selecione uma cliente");
     if (!proId) return toast.error("Selecione um profissional");
     setBusy(true);
-    const dt = new Date(`${date}T${time}:00`);
-    const { error } = await supabase.from("appointments").insert({
-      client_id: client.id,
-      procedure_id: procId || null,
-      professional_id: proId,
-      datetime: dt.toISOString(),
-      duration_min: Number(duration) || 60,
-      status: "pending",
-      notes: notes || null,
-    });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Agendamento criado!");
-    onSaved();
+    try {
+      const dt = new Date(`${date}T${time}:00`);
+      const dur = Number(duration) || 60;
+      const end = new Date(dt.getTime() + dur * 60_000);
+      const dayStart = new Date(dt); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+
+      const { data: existing, error: conflictErr } = await withTimeout(
+        supabase.from("appointments")
+          .select("id,datetime,duration_min,status,clients(name)")
+          .eq("professional_id", proId)
+          .neq("status", "cancelled")
+          .gte("datetime", dayStart.toISOString())
+          .lt("datetime", dayEnd.toISOString()),
+        12000,
+        "Verificação de conflito",
+      );
+      if (conflictErr) throw conflictErr;
+      const conflict = ((existing as Array<{ datetime: string; duration_min: number | null; clients: { name: string } | null }> | null) ?? []).find((a) => {
+        const aStart = new Date(a.datetime);
+        const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+        return aStart < end && aEnd > dt;
+      });
+      if (conflict) {
+        const hhmm = new Date(conflict.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        toast.error(`Este profissional já tem atendimento às ${hhmm} com ${conflict.clients?.name ?? "cliente"} (${conflict.duration_min ?? 60} min). Escolha outro horário ou profissional.`);
+        return;
+      }
+
+      const { error } = await withTimeout(supabase.from("appointments").insert({
+        client_id: client.id,
+        procedure_id: procId || null,
+        professional_id: proId,
+        datetime: dt.toISOString(),
+        duration_min: dur,
+        status: "pending",
+        notes: notes || null,
+      }), 12000, "Criação do agendamento");
+      if (error) throw error;
+      toast.success("Agendamento criado!");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao agendar");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
