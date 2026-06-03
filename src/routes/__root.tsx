@@ -9,6 +9,7 @@ import { type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "sonner";
+import { GlobalErrorBoundary, GlobalErrorFallback } from "@/components/ErrorBoundary";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -38,6 +39,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   }),
   shellComponent: RootShell,
   component: RootComponent,
+  errorComponent: ({ error }) => <GlobalErrorFallback error={error} />,
 });
 
 function RootShell({ children }: { children: ReactNode }) {
@@ -53,10 +55,12 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        <Toaster position="top-right" richColors />
-      </AuthProvider>
+      <GlobalErrorBoundary>
+        <AuthProvider>
+          <Outlet />
+          <Toaster position="top-right" richColors />
+        </AuthProvider>
+      </GlobalErrorBoundary>
     </QueryClientProvider>
   );
 }
