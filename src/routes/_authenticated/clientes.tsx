@@ -107,7 +107,7 @@ function ClientsPage() {
 
       <div className="bh-card overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-text3">Carregando...</div>
+          <TableSkeleton rows={6} cols={5} />
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <div className="font-display text-xl text-navy mb-1">Nenhuma cliente</div>
