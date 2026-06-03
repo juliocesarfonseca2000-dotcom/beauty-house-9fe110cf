@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SessionsTab } from "@/components/clients/SessionsTab";
 import { PhotosTab } from "@/components/clients/PhotosTab";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
   component: ClientDetailPage,
@@ -18,6 +19,7 @@ type Client = {
   email: string | null;
   birthdate: string | null;
   cpf: string | null;
+  referral: string | null;
   notes: string | null;
   anamnese: Record<string, unknown> | null;
   weight: number | null; waist: number | null; hip: number | null;
@@ -27,6 +29,7 @@ type Client = {
 };
 
 type Tab = "dados" | "prontuario" | "sessoes" | "fotos" | "historico";
+type Evaluator = { id: string; name: string };
 
 function ClientDetailPage() {
   const { id } = Route.useParams();
@@ -42,9 +45,18 @@ function ClientDetailPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    supabase.from("clients").select("*").eq("id", id).maybeSingle().then(({ data }) => {
+      if (!active) return;
+      setClient(data as Client | null);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [id]);
 
-  if (loading) return <div className="text-text3">Carregando...</div>;
+  if (loading) return <TableSkeleton rows={4} cols={3} />;
   if (!client) return <div className="text-text3">Cliente não encontrada.</div>;
 
   const initials = client.name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
