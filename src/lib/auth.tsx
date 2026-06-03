@@ -5,6 +5,7 @@ import { withTimeout } from "@/lib/with-timeout";
 type AuthCtx = {
   user: AppUser | null;
   loading: boolean;
+  authReady: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -15,6 +16,7 @@ const Ctx = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const userRef = useRef<AppUser | null>(null);
   const loadingProfileRef = useRef<string | null>(null);
 
@@ -36,8 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = async () => {
     try {
       const { data } = await withTimeout(supabase.auth.getSession(), 8000, "Verificação da sessão");
-      if (data.session?.user) setAuthUser(await loadProfile(data.session.user.id));
-      else setAuthUser(null);
+      if (!data.session?.user) {
+        setAuthUser(null);
+        setAuthReady(true);
+        return;
+      }
+      setAuthReady(true);
+      setAuthUser(await loadProfile(data.session.user.id));
     } catch (error) {
       console.error("Falha ao carregar sessão:", error);
     }
@@ -65,10 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
       if (event === "SIGNED_OUT") {
         if (mounted) setAuthUser(null);
+        if (mounted) setAuthReady(true);
         return;
       }
       if (session?.user) syncProfile(session.user.id);
-      else if (mounted) setAuthUser(null);
+      else if (mounted) {
+        setAuthUser(null);
+        setAuthReady(true);
+      }
     });
     return () => {
       mounted = false;
@@ -87,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthUser(null);
   };
 
-  return <Ctx.Provider value={{ user, loading, signIn, signOut, refresh }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, authReady, signIn, signOut, refresh }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {
