@@ -61,13 +61,13 @@ export function PhotosTab({ clientId }: { clientId: string }) {
     setUploading(true);
     try {
       for (const file of files) {
-        const ext = file.name.split(".").pop() ?? "jpg";
         const photoId = crypto.randomUUID();
-        const path = `${clientId}/${photoId}.${ext}`;
+        const path = `${clientId}/${photoId}.jpg`;
         const up = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
         if (up.error) throw up.error;
         const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
         const ins = await supabase.from("client_photos").insert({
+          id: photoId,
           client_id: clientId,
           url: pub.publicUrl,
           category,
