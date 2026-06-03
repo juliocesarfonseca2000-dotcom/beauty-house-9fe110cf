@@ -17,10 +17,6 @@ function FichaSearchPage() {
   const [results, setResults] = useState<Array<{ id: string; name: string; phone: string | null; record_num: number }>>([]);
   const nav = useNavigate();
 
-  if (searchParams.cliente) {
-    return <ClientRecordContent id={searchParams.cliente} backTo="/ficha" />;
-  }
-
   useEffect(() => {
     if (q.length < 2) { setResults([]); return; }
     const t = setTimeout(async () => {
@@ -34,6 +30,10 @@ function FichaSearchPage() {
     }, 250);
     return () => clearTimeout(t);
   }, [q]);
+
+  if (searchParams.cliente) {
+    return <ClientRecordContent id={searchParams.cliente} backTo="/ficha" />;
+  }
 
   return (
     <div className="max-w-xl mx-auto mt-10 space-y-4">
