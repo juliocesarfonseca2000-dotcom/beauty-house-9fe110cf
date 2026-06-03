@@ -111,12 +111,26 @@ function ClientDetailPage() {
 
 function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) {
   const [edit, setEdit] = useState(false);
+  const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
   const [f, setF] = useState({
-    name: client.name, phone: client.phone ?? "", email: client.email ?? "",
-    birthdate: client.birthdate ?? "", cpf: client.cpf ?? "", notes: client.notes ?? "",
+    record_num: String(client.record_num ?? ""), name: client.name, phone: client.phone ?? "", email: client.email ?? "",
+    birthdate: client.birthdate ?? "", cpf: client.cpf ?? "", referral: client.referral ?? "", evaluator_id: client.evaluator_id ?? "", notes: client.notes ?? "",
   });
+  useEffect(() => {
+    let active = true;
+    supabase.from("app_users").select("id,name").eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name").then(({ data }) => {
+      if (active) setEvaluators((data as Evaluator[]) ?? []);
+    });
+    return () => { active = false; };
+  }, []);
   const save = async () => {
-    const { error } = await supabase.from("clients").update(f).eq("id", client.id);
+    const { error } = await supabase.from("clients").update({
+      ...f,
+      record_num: Number(f.record_num),
+      birthdate: f.birthdate || null,
+      evaluator_id: f.evaluator_id || null,
+      referral: f.referral || null,
+    }).eq("id", client.id);
     if (error) return toast.error(error.message);
     toast.success("Dados atualizados");
     setEdit(false);
@@ -132,11 +146,14 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
         )}
       </div>
       <Grid>
+        <RO label="Número da ficha" v={f.record_num} edit={edit} type="number" onChange={(v) => setF({ ...f, record_num: v })} />
         <RO label="Nome" v={f.name} edit={edit} onChange={(v) => setF({ ...f, name: v })} />
         <RO label="WhatsApp" v={f.phone} edit={edit} onChange={(v) => setF({ ...f, phone: v })} />
         <RO label="Email" v={f.email} edit={edit} onChange={(v) => setF({ ...f, email: v })} />
         <RO label="Nascimento" v={f.birthdate} edit={edit} type="date" onChange={(v) => setF({ ...f, birthdate: v })} />
         <RO label="CPF" v={f.cpf} edit={edit} onChange={(v) => setF({ ...f, cpf: v })} />
+        <SelectRO label="Como conheceu" value={f.referral} edit={edit} options={["Indicação", "Instagram", "Google", "Outro"]} onChange={(v) => setF({ ...f, referral: v })} />
+        <SelectRO label="Avaliadora" value={f.evaluator_id} edit={edit} options={evaluators.map((e) => ({ value: e.id, label: e.name }))} onChange={(v) => setF({ ...f, evaluator_id: v })} display={evaluators.find((e) => e.id === f.evaluator_id)?.name} />
       </Grid>
       <div>
         <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Observações</label>
