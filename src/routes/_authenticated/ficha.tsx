@@ -1,16 +1,22 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { IconSearch } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ClientRecordContent } from "@/routes/_authenticated/clientes.$id";
 
 export const Route = createFileRoute("/_authenticated/ficha")({
   component: FichaSearchPage,
 });
 
 function FichaSearchPage() {
+  const searchParams = useSearch({ strict: false }) as { cliente?: string };
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Array<{ id: string; name: string; phone: string | null; record_num: number }>>([]);
   const nav = useNavigate();
+
+  if (searchParams.cliente) {
+    return <ClientRecordContent id={searchParams.cliente} backTo="/ficha" />;
+  }
 
   useEffect(() => {
     if (q.length < 2) { setResults([]); return; }
@@ -47,7 +53,7 @@ function FichaSearchPage() {
           {results.map((r) => (
             <button
               key={r.id}
-              onClick={() => nav({ to: "/clientes/$id", params: { id: r.id } })}
+              onClick={() => nav({ to: "/ficha", search: { cliente: r.id } })}
               className="w-full text-left px-4 py-3 hover:bg-bg2 border-b border-border last:border-0 flex items-center justify-between"
             >
               <div>
