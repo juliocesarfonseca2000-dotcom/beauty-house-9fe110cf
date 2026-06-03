@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase, type AppUser } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 
@@ -15,6 +15,12 @@ const Ctx = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const userRef = useRef<AppUser | null>(null);
+
+  const setAuthUser = (next: AppUser | null) => {
+    userRef.current = next;
+    setUser(next);
+  };
 
   const loadProfile = async (uid: string) => {
     const { data, error } = await withTimeout(
@@ -29,11 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = async () => {
     try {
       const { data } = await withTimeout(supabase.auth.getSession(), 8000, "Verificação da sessão");
-      if (data.session?.user) setUser(await loadProfile(data.session.user.id));
-      else setUser(null);
+      if (data.session?.user) setAuthUser(await loadProfile(data.session.user.id));
+      else setAuthUser(null);
     } catch (error) {
       console.error("Falha ao carregar sessão:", error);
-      setUser(null);
+      if (!userRef.current) setAuthUser(null);
     }
   };
 
@@ -43,13 +49,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await refresh();
       if (mounted) setLoading(false);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_e, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
+        if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
+        if (event === "SIGNED_OUT") {
+          if (mounted) setAuthUser(null);
+          return;
+        }
         const nextUser = session?.user ? await loadProfile(session.user.id) : null;
-        if (mounted) setUser(nextUser);
+        if (mounted) setAuthUser(nextUser);
       } catch (error) {
         console.error("Falha ao atualizar sessão:", error);
-        if (mounted) setUser(null);
+        if (mounted && !userRef.current) setAuthUser(null);
       }
     });
     return () => {
@@ -66,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
+    setAuthUser(null);
   };
 
   return <Ctx.Provider value={{ user, loading, signIn, signOut, refresh }}>{children}</Ctx.Provider>;
