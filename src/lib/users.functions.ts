@@ -120,14 +120,37 @@ export const deleteAppUser = createServerFn({ method: "POST" })
   .inputValidator((data: DeleteInput) => data)
   .handler(async ({ data }) => {
     const { serviceKey } = await assertAdmin(data.accessToken);
-    // Delete from app_users first (RLS), then from auth (cascades anyway via FK)
-    await fetch(`${SUPABASE_URL}/rest/v1/app_users?id=eq.${data.id}`, {
+    const h = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
+
+    // Limpa referências (FK) antes de excluir para evitar 23503
+    const nullifyRefs: Array<[string, string]> = [
+      ["appointments", "professional_id"],
+      ["clients", "evaluator_id"],
+      ["sessions", "professional_id"],
+      ["packages", "professional_id"],
+      ["income", "professional_id"],
+    ];
+    await Promise.all(
+      nullifyRefs.map(([table, col]) =>
+        fetch(`${SUPABASE_URL}/rest/v1/${table}?${col}=eq.${data.id}`, {
+          method: "PATCH",
+          headers: h,
+          body: JSON.stringify({ [col]: null }),
+        }).catch(() => null),
+      ),
+    );
+
+    const delRow = await fetch(`${SUPABASE_URL}/rest/v1/app_users?id=eq.${data.id}`, {
       method: "DELETE",
-      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+      headers: h,
     });
+    if (!delRow.ok) {
+      const msg = await delRow.text();
+      throw new Error(msg || "Falha ao remover perfil (registros vinculados).");
+    }
     const del = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${data.id}`, {
       method: "DELETE",
-      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+      headers: h,
     });
     if (!del.ok) throw new Error((await del.text()) || "Falha ao remover do Auth.");
     return { ok: true };
