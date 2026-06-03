@@ -11,6 +11,7 @@ export const getRouter = () => {
         // Mantém em memória 10 min depois de ninguém usar
         gcTime: 10 * 60_000,
         refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
         retry: 1,
       },
     },
