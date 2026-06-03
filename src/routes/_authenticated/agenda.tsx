@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_authenticated/agenda")({
 
 type Professional = { id: string; name: string };
 type Procedure = { id: string; name: string; duration_min: number | null };
+type PurchasedProcedure = Procedure & { available: number };
 type Client = { id: string; name: string; record_num: number };
 type Appt = {
   id: string;
@@ -243,7 +244,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [client, setClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Client[]>([]);
-  const [procs, setProcs] = useState<Procedure[]>([]);
+  const [procs, setProcs] = useState<PurchasedProcedure[]>([]);
   const [procId, setProcId] = useState("");
   const [proId, setProId] = useState(initialProId ?? pros[0]?.id ?? "");
   const [date, setDate] = useState(fmtDate(initialDate));
@@ -253,11 +254,39 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("procedures").select("id,name,duration_min").eq("active", true).order("name");
-      setProcs((data as Procedure[]) ?? []);
-    })();
-  }, []);
+    let active = true;
+    setProcId("");
+    setProcs([]);
+    if (!client) return () => { active = false; };
+    withTimeout(
+      supabase
+        .from("packages")
+        .select("id,sess_total,sess_done,procedure_id,procedures(id,name,duration_min)")
+        .eq("client_id", client.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false }),
+      10000,
+      "Carregamento dos procedimentos comprados",
+    ).then(({ data, error }) => {
+      if (!active) return;
+      if (error) throw error;
+      type PackageRow = { sess_total: number | null; sess_done: number | null; procedures: Procedure | Procedure[] | null };
+      const grouped = new Map<string, PurchasedProcedure>();
+      ((data as unknown as PackageRow[]) ?? []).forEach((pkg) => {
+        const proc = Array.isArray(pkg.procedures) ? pkg.procedures[0] : pkg.procedures;
+        if (!proc) return;
+        const available = Math.max(0, Number(pkg.sess_total ?? 0) - Number(pkg.sess_done ?? 0));
+        if (available <= 0) return;
+        const current = grouped.get(proc.id);
+        grouped.set(proc.id, { ...proc, available: (current?.available ?? 0) + available });
+      });
+      setProcs(Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name)));
+    }).catch((error) => {
+      if (!active) return;
+      toast.error(error instanceof Error ? error.message : "Erro ao carregar procedimentos comprados");
+    });
+    return () => { active = false; };
+  }, [client]);
 
   useEffect(() => {
     if (search.length < 2 || client) { setResults([]); return; }
@@ -278,6 +307,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     e.preventDefault();
     if (!client) return toast.error("Selecione uma cliente");
     if (!proId) return toast.error("Selecione um profissional");
+    if (!procId) return toast.error("Selecione um procedimento comprado por esta cliente.");
     setBusy(true);
     try {
       const dt = new Date(`${date}T${time}:00`);
@@ -312,7 +342,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 
       const { error } = await withTimeout(supabase.from("appointments").insert({
         client_id: client.id,
-        procedure_id: procId || null,
+        procedure_id: procId,
         professional_id: proId,
         datetime: dt.toISOString(),
         duration_min: dur,
