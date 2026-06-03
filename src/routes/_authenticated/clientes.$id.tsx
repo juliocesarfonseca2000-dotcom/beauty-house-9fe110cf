@@ -30,11 +30,15 @@ type Client = {
   created_at: string;
 };
 
-type Tab = "dados" | "prontuario" | "sessoes" | "fotos" | "historico";
+type Tab = "dados" | "prontuario" | "anamnese" | "sessoes" | "fotos" | "historico";
 type Evaluator = { id: string; name: string };
 
 function ClientDetailPage() {
   const { id } = Route.useParams();
+  return <ClientRecordContent id={id} backTo="/clientes" />;
+}
+
+export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; backTo?: "/clientes" | "/ficha" }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("sessoes");
@@ -65,8 +69,8 @@ function ClientDetailPage() {
 
   return (
     <div className="space-y-5">
-      <button onClick={() => navigate({ to: "/clientes" })} className="text-text2 hover:text-navy text-sm flex items-center gap-1">
-        <IconArrowLeft size={16} /> Voltar para Clientes
+      <button onClick={() => navigate({ to: backTo })} className="text-text2 hover:text-navy text-sm flex items-center gap-1">
+        <IconArrowLeft size={16} /> Voltar para {backTo === "/ficha" ? "Ficha & Sessões" : "Clientes"}
       </button>
 
       <div className="bh-card p-5 flex items-center gap-4">
@@ -86,6 +90,7 @@ function ClientDetailPage() {
         {([
           ["dados", "Dados"],
           ["prontuario", "Prontuário"],
+          ["anamnese", "Anamnese"],
           ["sessoes", "Sessões"],
           ["fotos", "Fotos"],
           ["historico", "Histórico $"],
@@ -104,6 +109,7 @@ function ClientDetailPage() {
 
       {tab === "dados" && <DadosTab client={client} onSaved={reloadClient} />}
       {tab === "prontuario" && <ProntuarioTab client={client} onSaved={reloadClient} />}
+      {tab === "anamnese" && <AnamneseTab client={client} onSaved={reloadClient} />}
       {tab === "sessoes" && <SessionsTab clientId={client.id} />}
       {tab === "fotos" && <PhotosTab clientId={client.id} />}
       {tab === "historico" && <HistoricoTab clientId={client.id} />}
