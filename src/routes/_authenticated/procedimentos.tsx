@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useState } from "react";
 import { IconPlus, IconEdit, IconArchive, IconArchiveOff, IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
