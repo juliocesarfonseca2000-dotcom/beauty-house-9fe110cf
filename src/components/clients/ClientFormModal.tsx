@@ -75,7 +75,7 @@ export function ClientFormModal({
         evaluator_id: evaluatorId || null,
         notes: notes.trim() || null,
       };
-      const { data: created, error } = await withTimeout(
+      const { data: created, error } = await withTimeout<{ data: { id: string } | null; error: { message: string } | null }>(
         supabase.from("clients").insert(payload).select("id").single(),
         12000,
         "Cadastro de cliente",
