@@ -281,6 +281,23 @@ function HistoricoTab({ clientId }: { clientId: string }) {
 function Grid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{children}</div>;
 }
+
+function ClientDetailSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="h-5 w-36 rounded-md bg-bg2 animate-pulse" />
+      <div className="bh-card p-5 flex items-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-bg2 animate-pulse" />
+        <div className="flex-1 space-y-2">
+          <div className="h-7 w-52 rounded-md bg-bg2 animate-pulse" />
+          <div className="h-4 w-80 max-w-full rounded-md bg-bg2 animate-pulse" />
+        </div>
+      </div>
+      <TableSkeleton rows={4} cols={3} />
+    </div>
+  );
+}
+
 function RO({ label, v, edit, onChange, type = "text" }: { label: string; v: string | null; edit?: boolean; onChange?: (v: string) => void; type?: string }) {
   return (
     <div>
