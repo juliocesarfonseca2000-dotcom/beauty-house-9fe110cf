@@ -114,6 +114,10 @@ function ClientsPage() {
     });
   };
 
+  const openClient = (id: string) => {
+    navigate({ to: "/ficha", search: { cliente: id } });
+  };
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["clients"] });
 
   return (
@@ -176,14 +180,18 @@ function ClientsPage() {
             </thead>
             <tbody>
               {filtered.map((r, i) => (
-                <tr key={r.id} className={i % 2 ? "bg-bg2/40" : ""}>
+                <tr
+                  key={r.id}
+                  onClick={() => openClient(r.id)}
+                  onMouseEnter={() => prefetchClient(r.id)}
+                  className={`${i % 2 ? "bg-bg2/40" : ""} cursor-pointer hover:bg-gold/5`}
+                >
                   <td className="px-5 py-3 font-mono text-text2">#{r.record_num}</td>
                   <td className="px-5 py-3">
                     <Link
                       to="/ficha"
                       search={{ cliente: r.id }}
-                      onMouseEnter={() => prefetchClient(r.id)}
-                      onFocus={() => prefetchClient(r.id)}
+                      onClick={(e) => e.stopPropagation()}
                       className="font-semibold text-navy hover:text-gold"
                     >
                       {r.name}
@@ -202,6 +210,7 @@ function ClientsPage() {
                           href={whatsappUrl(r.phone)}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="p-1.5 rounded-md hover:bg-success/10 text-success"
                           title="WhatsApp"
                         >
@@ -209,14 +218,14 @@ function ClientsPage() {
                         </a>
                       )}
                       <button
-                        onClick={() => toggleActive(r)}
+                        onClick={(e) => { e.stopPropagation(); toggleActive(r); }}
                         className="p-1.5 rounded-md hover:bg-bg2 text-text2"
                         title={r.active ? "Inativar" : "Reativar"}
                       >
                         {r.active ? <IconUserOff size={16} /> : <IconUserCheck size={16} />}
                       </button>
                       <button
-                        onClick={() => deleteClient(r)}
+                        onClick={(e) => { e.stopPropagation(); deleteClient(r); }}
                         disabled={deleteMutation.isPending}
                         className="p-1.5 rounded-md hover:bg-danger/10 text-danger disabled:opacity-40"
                         title="Excluir cliente"
