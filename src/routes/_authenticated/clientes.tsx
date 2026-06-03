@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera } from "@tabler/icons-react";
+import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera, IconTrash } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
@@ -65,10 +65,53 @@ function ClientsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (r: Row) => {
+      const { error } = await withTimeout(
+        supabase.from("clients").delete().eq("id", r.id),
+        12000,
+        "Exclusão da cliente",
+      );
+      if (error) throw error;
+      return r;
+    },
+    onSuccess: (r) => {
+      toast.success("Cliente excluída");
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.removeQueries({ queryKey: ["client", r.id] });
+    },
+    onError: (e: Error) => {
+      const msg = e.message.toLowerCase().includes("foreign key")
+        ? "Não foi possível excluir porque existe histórico ligado a esta cliente. Use inativar para preservar os registros."
+        : e.message;
+      toast.error(msg);
+    },
+  });
+
   const toggleActive = (r: Row) => {
     const verb = r.active ? "Inativar" : "Reativar";
     if (!confirm(`${verb} ${r.name}?`)) return;
     toggleMutation.mutate(r);
+  };
+
+  const deleteClient = (r: Row) => {
+    if (!confirm(`Excluir definitivamente ${r.name}? Esta ação não pode ser desfeita.`)) return;
+    deleteMutation.mutate(r);
+  };
+
+  const prefetchClient = (id: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ["client", id],
+      queryFn: async () => {
+        const { data, error } = await withTimeout(
+          supabase.from("clients").select("*").eq("id", id).maybeSingle(),
+          10000,
+          "Pré-carregamento da ficha",
+        );
+        if (error) throw error;
+        return data;
+      },
+    });
   };
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["clients"] });
@@ -136,7 +179,13 @@ function ClientsPage() {
                 <tr key={r.id} className={i % 2 ? "bg-bg2/40" : ""}>
                   <td className="px-5 py-3 font-mono text-text2">#{r.record_num}</td>
                   <td className="px-5 py-3">
-                    <Link to="/clientes/$id" params={{ id: r.id }} className="font-semibold text-navy hover:text-gold">
+                    <Link
+                      to="/ficha"
+                      search={{ cliente: r.id }}
+                      onMouseEnter={() => prefetchClient(r.id)}
+                      onFocus={() => prefetchClient(r.id)}
+                      className="font-semibold text-navy hover:text-gold"
+                    >
                       {r.name}
                     </Link>
                   </td>
@@ -166,6 +215,14 @@ function ClientsPage() {
                       >
                         {r.active ? <IconUserOff size={16} /> : <IconUserCheck size={16} />}
                       </button>
+                      <button
+                        onClick={() => deleteClient(r)}
+                        disabled={deleteMutation.isPending}
+                        className="p-1.5 rounded-md hover:bg-danger/10 text-danger disabled:opacity-40"
+                        title="Excluir cliente"
+                      >
+                        <IconTrash size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -181,7 +238,7 @@ function ClientsPage() {
           onCreated={(id) => {
             setOpenNew(false);
             invalidate();
-            navigate({ to: "/clientes/$id", params: { id } });
+            navigate({ to: "/ficha", search: { cliente: id } });
           }}
         />
       )}
@@ -192,7 +249,7 @@ function ClientsPage() {
           onCreated={(id) => {
             setOpenScan(false);
             invalidate();
-            navigate({ to: "/clientes/$id", params: { id } });
+            navigate({ to: "/ficha", search: { cliente: id } });
           }}
         />
       )}
