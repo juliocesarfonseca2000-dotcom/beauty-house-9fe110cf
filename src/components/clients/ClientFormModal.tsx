@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
 
 type Evaluator = { id: string; name: string };
