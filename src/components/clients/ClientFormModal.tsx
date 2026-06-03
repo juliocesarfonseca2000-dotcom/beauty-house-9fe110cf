@@ -29,15 +29,17 @@ export function ClientFormModal({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("app_users")
-        .select("id,name")
-        .eq("active", true)
-        .or("role.eq.admin,is_evaluator.eq.true")
-        .order("name");
-      setEvaluators((data as Evaluator[]) ?? []);
-    })();
+    let active = true;
+    supabase
+      .from("app_users")
+      .select("id,name")
+      .eq("active", true)
+      .or("role.eq.admin,is_evaluator.eq.true")
+      .order("name")
+      .then(({ data }) => {
+        if (active) setEvaluators((data as Evaluator[]) ?? []);
+      });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
