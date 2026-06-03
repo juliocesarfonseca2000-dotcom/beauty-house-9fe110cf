@@ -224,6 +224,7 @@ function ProntuarioTab({ client, onSaved }: { client: Client; onSaved: () => voi
           </div>
         ))}
       </div>
+      <AnamneseTab client={client} onSaved={onSaved} />
     </div>
   );
 }
