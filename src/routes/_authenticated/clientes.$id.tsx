@@ -291,6 +291,24 @@ function RO({ label, v, edit, onChange, type = "text" }: { label: string; v: str
     </div>
   );
 }
+function SelectRO({ label, value, edit, options, onChange, display }: { label: string; value: string; edit?: boolean; options: Array<string | { value: string; label: string }>; onChange: (v: string) => void; display?: string }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">{label}</label>
+      {edit ? (
+        <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border text-sm">
+          <option value="">Selecionar...</option>
+          {options.map((o) => {
+            const opt = typeof o === "string" ? { value: o, label: o } : o;
+            return <option key={opt.value} value={opt.value}>{opt.label}</option>;
+          })}
+        </select>
+      ) : (
+        <div className="text-text2 text-sm">{display || value || "—"}</div>
+      )}
+    </div>
+  );
+}
 function TA({ label, v, onChange }: { label: string; v: string; onChange: (v: string) => void }) {
   return (
     <div>
