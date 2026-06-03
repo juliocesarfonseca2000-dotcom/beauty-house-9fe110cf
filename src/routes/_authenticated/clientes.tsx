@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
 import { ScanClientCardModal } from "@/components/clients/ScanClientCardModal";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientsPage,
@@ -20,42 +22,49 @@ type Row = {
 };
 
 function ClientsPage() {
-  const [rows, setRows] = useState<Row[]>([]);
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("active");
   const [q, setQ] = useState("");
   const [openNew, setOpenNew] = useState(false);
   const [openScan, setOpenScan] = useState(false);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const load = async () => {
-    setLoading(true);
-    let query = supabase.from("clients").select("id,record_num,name,phone,active,created_at").order("name");
-    if (filter === "active") query = query.eq("active", true);
-    if (filter === "inactive") query = query.eq("active", false);
-    const { data, error } = await query;
-    if (error) toast.error(error.message);
-    setRows((data as Row[]) ?? []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["clients", filter],
+    queryFn: async () => {
+      let query = supabase.from("clients").select("id,record_num,name,phone,active,created_at").order("name");
+      if (filter === "active") query = query.eq("active", true);
+      if (filter === "inactive") query = query.eq("active", false);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data as Row[]) ?? [];
+    },
+  });
 
   const filtered = rows.filter(
     (r) => !q || r.name.toLowerCase().includes(q.toLowerCase()) || (r.phone ?? "").includes(q)
   );
 
-  const toggleActive = async (r: Row) => {
+  const toggleMutation = useMutation({
+    mutationFn: async (r: Row) => {
+      const { error } = await supabase.from("clients").update({ active: !r.active }).eq("id", r.id);
+      if (error) throw error;
+      return r;
+    },
+    onSuccess: (r) => {
+      toast.success(`Cliente ${r.active ? "inativada" : "reativada"}`);
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleActive = (r: Row) => {
     const verb = r.active ? "Inativar" : "Reativar";
     if (!confirm(`${verb} ${r.name}?`)) return;
-    const { error } = await supabase.from("clients").update({ active: !r.active }).eq("id", r.id);
-    if (error) return toast.error(error.message);
-    toast.success(`Cliente ${r.active ? "inativada" : "reativada"}`);
-    load();
+    toggleMutation.mutate(r);
   };
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["clients"] });
 
   return (
     <div className="space-y-4">
