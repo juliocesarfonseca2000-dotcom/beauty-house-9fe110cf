@@ -3,6 +3,8 @@ import SignatureCanvas from "react-signature-canvas";
 import { IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { withTimeout } from "@/lib/with-timeout";
 
 type Package = {
   id: string;
@@ -51,9 +53,37 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [clientId]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    (async () => {
+      const { data: pkgs } = await supabase
+        .from("packages")
+        .select("id,procedure_id,sess_total,sess_done,procedures(name)")
+        .eq("client_id", clientId)
+        .eq("status", "active")
+        .order("created_at");
+      if (!active) return;
+      const list = (pkgs as unknown as Package[]) ?? [];
+      setPackages(list);
+      if (list.length) {
+        const ids = list.map((p) => p.id);
+        const { data: sess } = await supabase
+          .from("sessions")
+          .select("id,package_id,session_num,status,done_at,signature_url,notes")
+          .in("package_id", ids)
+          .order("session_num");
+        if (!active) return;
+        setSessions((sess as Session[]) ?? []);
+      } else {
+        setSessions([]);
+      }
+      setLoading(false);
+    })();
+    return () => { active = false; };
+  }, [clientId]);
 
-  if (loading) return <div className="text-text3 text-sm">Carregando...</div>;
+  if (loading) return <TableSkeleton rows={4} cols={6} />;
   if (packages.length === 0)
     return <div className="bh-card p-12 text-center"><div className="font-display text-xl text-navy mb-1">Nenhum pacote ativo</div><div className="text-text3 text-sm">Use "Fechar pacote" para começar.</div></div>;
 
@@ -143,7 +173,7 @@ function SignSessionModal({
         .from("app_users")
         .select("id,name")
         .eq("active", true)
-        .or("role.eq.professional,role.eq.admin")
+        .eq("role", "professional")
         .order("name");
       setPros((data as Professional[]) ?? []);
     })();
@@ -159,18 +189,18 @@ function SignSessionModal({
       const dataUrl = sigRef.current!.getCanvas().toDataURL("image/png");
       const blob = await (await fetch(dataUrl)).blob();
       const path = `${clientId}/${session.id}.png`;
-      const { error: upErr } = await supabase.storage.from("signatures").upload(path, blob, { upsert: true, contentType: "image/png" });
+      const { error: upErr } = await withTimeout(supabase.storage.from("signatures").upload(path, blob, { upsert: true, contentType: "image/png" }), 12000, "Upload da assinatura");
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from("signatures").getPublicUrl(path);
-      const { error } = await supabase.from("sessions").update({
+      const { error } = await withTimeout(supabase.from("sessions").update({
         status: "done",
         done_at: new Date().toISOString(),
         professional_id: proId || null,
         signature_url: pub.publicUrl,
         notes: notes || null,
-      }).eq("id", session.id);
+      }).eq("id", session.id), 12000, "Confirmação da sessão");
       if (error) throw error;
-      await supabase.from("packages").update({ sess_done: pkg.sess_done + 1 }).eq("id", pkg.id);
+      await withTimeout(supabase.from("packages").update({ sess_done: pkg.sess_done + 1 }).eq("id", pkg.id), 12000, "Atualização do pacote");
       toast.success("Sessão confirmada!");
       onSaved();
     } catch (e: unknown) {
