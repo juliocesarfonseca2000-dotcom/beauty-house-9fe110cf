@@ -181,6 +181,57 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
 
 function ProntuarioTab({ client, onSaved }: { client: Client; onSaved: () => void }) {
   const a = (client.anamnese ?? {}) as Record<string, unknown>;
+  type Entry = { id: string; date: string; title: string; procedure: string; notes: string };
+  const entries = ((a.prontuario as Entry[] | undefined) ?? []).sort((x, y) => y.date.localeCompare(x.date));
+  const [title, setTitle] = useState("");
+  const [procedure, setProcedure] = useState("");
+  const [notes, setNotes] = useState("");
+  const save = async () => {
+    if (!title.trim() && !notes.trim()) return toast.error("Preencha a evolução do prontuário.");
+    const next: Entry[] = [{ id: crypto.randomUUID(), date: new Date().toISOString(), title: title.trim() || "Evolução", procedure: procedure.trim(), notes: notes.trim() }, ...entries];
+    try {
+      const { error } = await withTimeout(supabase.from("clients").update({ anamnese: { ...a, prontuario: next } }).eq("id", client.id), 12000, "Salvamento do prontuário");
+      if (error) throw error;
+      toast.success("Prontuário salvo");
+      setTitle(""); setProcedure(""); setNotes("");
+      onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar prontuário");
+    }
+  };
+  return (
+    <div className="space-y-5">
+      <div className="bh-card p-6 space-y-4">
+        <div className="font-display text-lg text-navy">Nova evolução do prontuário</div>
+        <Grid>
+          <RO label="Título" v={title} edit onChange={setTitle} />
+          <RO label="Procedimento/Queixa" v={procedure} edit onChange={setProcedure} />
+        </Grid>
+        <TA label="Descrição / conduta / observações" v={notes} onChange={setNotes} />
+        <div className="flex justify-end">
+          <button onClick={save} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2">Salvar prontuário</button>
+        </div>
+      </div>
+      <div className="bh-card overflow-hidden">
+        {entries.length === 0 ? (
+          <div className="p-8 text-center text-text3 text-sm">Nenhuma evolução registrada.</div>
+        ) : entries.map((e) => (
+          <div key={e.id} className="p-5 border-b border-border last:border-b-0">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="font-display text-lg text-navy">{e.title}</div>
+              <div className="text-xs text-text3">{new Date(e.date).toLocaleString("pt-BR")}</div>
+            </div>
+            {e.procedure && <div className="text-sm text-gold font-semibold mt-1">{e.procedure}</div>}
+            <div className="text-sm text-text2 whitespace-pre-wrap mt-2">{e.notes}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnamneseTab({ client, onSaved }: { client: Client; onSaved: () => void }) {
+  const a = (client.anamnese ?? {}) as Record<string, unknown>;
   const [an, setAn] = useState({
     diseases: (a.diseases as string) ?? "",
     allergies: (a.allergies as string) ?? "",
@@ -250,10 +301,6 @@ function ProntuarioTab({ client, onSaved }: { client: Client; onSaved: () => voi
       </div>
     </div>
   );
-}
-
-function AnamneseTab({ client, onSaved }: { client: Client; onSaved: () => void }) {
-  return <ProntuarioTab client={client} onSaved={onSaved} />;
 }
 
 const LBL: Record<string, string> = { weight: "Peso (kg)", waist: "Cintura (cm)", hip: "Quadril (cm)", abdomen: "Abdômen (cm)", arm: "Braço (cm)", thigh: "Coxa (cm)" };
