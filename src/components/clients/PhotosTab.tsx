@@ -3,6 +3,7 @@ import { IconUpload, IconTrash, IconArrowsExchange, IconX } from "@tabler/icons-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { withTimeout } from "@/lib/with-timeout";
 
 type Photo = {
   id: string;
@@ -29,11 +30,11 @@ export function PhotosTab({ clientId }: { clientId: string }) {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from("client_photos")
       .select("id,url,category,date,created_at,procedure_id,procedures(name)")
       .eq("client_id", clientId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }), 10000, "Carregamento das fotos");
     if (error) toast.error(error.message);
     setPhotos((data as never) ?? []);
     setLoading(false);
@@ -43,8 +44,8 @@ export function PhotosTab({ clientId }: { clientId: string }) {
     let active = true;
     setLoading(true);
     Promise.all([
-      supabase.from("client_photos").select("id,url,category,date,created_at,procedure_id,procedures(name)").eq("client_id", clientId).order("created_at", { ascending: false }),
-      supabase.from("procedures").select("id,name").eq("active", true).order("name"),
+      withTimeout(supabase.from("client_photos").select("id,url,category,date,created_at,procedure_id,procedures(name)").eq("client_id", clientId).order("created_at", { ascending: false }), 10000, "Carregamento das fotos"),
+      withTimeout(supabase.from("procedures").select("id,name").eq("active", true).order("name"), 10000, "Carregamento dos procedimentos"),
     ]).then(([photosRes, procRes]) => {
       if (!active) return;
       if (photosRes.error) toast.error(photosRes.error.message);
@@ -63,16 +64,16 @@ export function PhotosTab({ clientId }: { clientId: string }) {
       for (const file of files) {
         const photoId = crypto.randomUUID();
         const path = `${clientId}/${photoId}.jpg`;
-        const up = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
+        const up = await withTimeout(supabase.storage.from(BUCKET).upload(path, file, { upsert: false }), 12000, "Upload da foto");
         if (up.error) throw up.error;
         const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
-        const ins = await supabase.from("client_photos").insert({
+        const ins = await withTimeout(supabase.from("client_photos").insert({
           id: photoId,
           client_id: clientId,
           url: pub.publicUrl,
           category,
           procedure_id: procedureId || null,
-        });
+        }), 12000, "Registro da foto");
         if (ins.error) throw ins.error;
       }
       toast.success(`${files.length} foto(s) enviada(s)`);
