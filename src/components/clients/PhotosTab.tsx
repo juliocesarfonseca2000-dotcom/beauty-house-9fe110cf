@@ -30,14 +30,17 @@ export function PhotosTab({ clientId }: { clientId: string }) {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await withTimeout(supabase
-      .from("client_photos")
-      .select("id,url,category,date,created_at,procedure_id,procedures(name)")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false }), 10000, "Carregamento das fotos");
-    if (error) toast.error(error.message);
-    setPhotos((data as never) ?? []);
-    setLoading(false);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from("client_photos")
+        .select("id,url,category,date,created_at,procedure_id,procedures(name)")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false }), 10000, "Carregamento das fotos");
+      if (error) toast.error(error.message);
+      setPhotos((data as never) ?? []);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -51,6 +54,10 @@ export function PhotosTab({ clientId }: { clientId: string }) {
       if (photosRes.error) toast.error(photosRes.error.message);
       setPhotos((photosRes.data as unknown as Photo[]) ?? []);
       setProcedures((procRes.data as Procedure[]) ?? []);
+      setLoading(false);
+    }).catch((error) => {
+      if (!active) return;
+      toast.error(error instanceof Error ? error.message : "Erro ao carregar fotos");
       setLoading(false);
     });
     return () => { active = false; };
