@@ -252,6 +252,10 @@ function ProntuarioTab({ client, onSaved }: { client: Client; onSaved: () => voi
   );
 }
 
+function AnamneseTab({ client, onSaved }: { client: Client; onSaved: () => void }) {
+  return <ProntuarioTab client={client} onSaved={onSaved} />;
+}
+
 const LBL: Record<string, string> = { weight: "Peso (kg)", waist: "Cintura (cm)", hip: "Quadril (cm)", abdomen: "Abdômen (cm)", arm: "Braço (cm)", thigh: "Coxa (cm)" };
 
 function HistoricoTab({ clientId }: { clientId: string }) {
