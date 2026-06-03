@@ -117,6 +117,12 @@ export function PhotosTab({ clientId }: { clientId: string }) {
     });
   };
 
+  const categoryLabel: Record<"antes" | "depois" | "evolucao", string> = {
+    antes: "Antes",
+    depois: "Depois",
+    evolucao: "Evolução",
+  };
+
   const grouped = {
     antes: photos.filter((p) => p.category === "antes"),
     depois: photos.filter((p) => p.category === "depois"),
@@ -134,7 +140,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
                 onClick={() => setCategory(c)}
                 className={`px-3 py-2 capitalize ${category === c ? "bg-navy text-white" : "bg-card text-text2 hover:bg-bg2"}`}
               >
-                {c}
+                {categoryLabel[c]}
               </button>
             ))}
           </div>
@@ -190,7 +196,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
         (["antes", "depois", "evolucao"] as const).map((cat) =>
           grouped[cat].length === 0 ? null : (
             <div key={cat} className="bh-card p-5 space-y-3">
-              <div className="font-display text-lg text-navy capitalize">{cat}</div>
+              <div className="font-display text-lg text-navy">{categoryLabel[cat]}</div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {grouped[cat].map((p) => {
                   const selected = compare.a === p.url || compare.b === p.url;
