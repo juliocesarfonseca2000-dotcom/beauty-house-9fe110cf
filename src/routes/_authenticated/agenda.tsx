@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { withTimeout } from "@/lib/with-timeout";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
   component: AgendaPage,
@@ -62,7 +63,7 @@ function AgendaPage() {
     setLoading(true);
     const [{ data: pdata }, { data: adata }] = await Promise.all([
       supabase.from("app_users").select("id,name").eq("active", true)
-        .or("role.eq.professional,role.eq.admin").order("name"),
+        .eq("role", "professional").order("name"),
       supabase.from("appointments")
         .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
@@ -73,7 +74,24 @@ function AgendaPage() {
     setAppts((adata as unknown as Appt[]) ?? []);
     setLoading(false);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [dayStart.getTime()]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    Promise.all([
+      supabase.from("app_users").select("id,name").eq("active", true).eq("role", "professional").order("name"),
+      supabase.from("appointments")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
+        .gte("datetime", dayStart.toISOString())
+        .lt("datetime", dayEnd.toISOString())
+        .order("datetime"),
+    ]).then(([pdata, adata]) => {
+      if (!active) return;
+      setPros((pdata.data as Professional[]) ?? []);
+      setAppts((adata.data as unknown as Appt[]) ?? []);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [dayStart.getTime(), dayEnd]);
 
   const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 
