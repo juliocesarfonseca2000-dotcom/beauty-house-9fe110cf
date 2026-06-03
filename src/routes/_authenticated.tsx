@@ -40,6 +40,8 @@ function AuthenticatedLayout() {
     setDrawerOpen(false);
   }, [path]);
 
+  useRealtimeSync(!!user);
+
   useEffect(() => () => {
     supabase.getChannels().forEach((channel) => {
       supabase.removeChannel(channel);
