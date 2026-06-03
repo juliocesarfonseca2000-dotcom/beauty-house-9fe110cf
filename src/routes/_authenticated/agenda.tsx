@@ -297,14 +297,16 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         "Verificação de conflito",
       );
       if (conflictErr) throw conflictErr;
-      const conflict = ((existing as Array<{ datetime: string; duration_min: number | null; clients: { name: string } | null }> | null) ?? []).find((a) => {
+      type ExistingAppt = { datetime: string; duration_min: number | null; clients: { name: string } | { name: string }[] | null };
+      const conflict = ((existing as unknown as ExistingAppt[] | null) ?? []).find((a) => {
         const aStart = new Date(a.datetime);
         const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
         return aStart < end && aEnd > dt;
       });
       if (conflict) {
         const hhmm = new Date(conflict.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-        toast.error(`Este profissional já tem atendimento às ${hhmm} com ${conflict.clients?.name ?? "cliente"} (${conflict.duration_min ?? 60} min). Escolha outro horário ou profissional.`);
+        const conflictClient = Array.isArray(conflict.clients) ? conflict.clients[0]?.name : conflict.clients?.name;
+        toast.error(`Este profissional já tem atendimento às ${hhmm} com ${conflictClient ?? "cliente"} (${conflict.duration_min ?? 60} min). Escolha outro horário ou profissional.`);
         return;
       }
 
