@@ -48,13 +48,17 @@ export function ClientFormModal({
       return;
     }
     const t = setTimeout(async () => {
-      const { data } = await supabase
-        .from("clients")
-        .select("id,name")
-        .ilike("name", `%${refSearch}%`)
-        .eq("active", true)
-        .limit(5);
-      setRefResults((data as Evaluator[]) ?? []);
+      try {
+        const { data } = await withTimeout(supabase
+          .from("clients")
+          .select("id,name")
+          .ilike("name", `%${refSearch}%`)
+          .eq("active", true)
+          .limit(5), 8000, "Busca de indicação");
+        setRefResults((data as Evaluator[]) ?? []);
+      } catch {
+        setRefResults([]);
+      }
     }, 250);
     return () => clearTimeout(t);
   }, [refSearch, referral]);
