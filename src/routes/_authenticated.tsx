@@ -6,6 +6,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 const TITLES: Record<string, string> = {
   "/": "Dashboard",
