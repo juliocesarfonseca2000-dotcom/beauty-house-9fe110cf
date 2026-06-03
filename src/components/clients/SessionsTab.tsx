@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -25,65 +26,39 @@ type Session = {
 type Professional = { id: string; name: string };
 
 export function SessionsTab({ clientId }: { clientId: string }) {
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
   const [viewSig, setViewSig] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const load = async () => {
-    setLoading(true);
-    const { data: pkgs } = await supabase
-      .from("packages")
-      .select("id,procedure_id,sess_total,sess_done,procedures(name)")
-      .eq("client_id", clientId)
-      .eq("status", "active")
-      .order("created_at");
-    const list = (pkgs as unknown as Package[]) ?? [];
-    setPackages(list);
-    if (list.length) {
-      const ids = list.map((p) => p.id);
-      const { data: sess } = await supabase
-        .from("sessions")
-        .select("id,package_id,session_num,status,done_at,signature_url,notes")
-        .in("package_id", ids)
-        .order("session_num");
-      setSessions((sess as Session[]) ?? []);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    (async () => {
-      const { data: pkgs } = await supabase
+  const { data = { packages: [], sessions: [] }, isLoading, refetch } = useQuery({
+    queryKey: ["client-sessions", clientId],
+    queryFn: async () => {
+      const { data: pkgs, error: pkgError } = await withTimeout(supabase
         .from("packages")
         .select("id,procedure_id,sess_total,sess_done,procedures(name)")
         .eq("client_id", clientId)
         .eq("status", "active")
-        .order("created_at");
-      if (!active) return;
+        .order("created_at"), 10000, "Carregamento dos pacotes");
+      if (pkgError) throw pkgError;
       const list = (pkgs as unknown as Package[]) ?? [];
-      setPackages(list);
-      if (list.length) {
-        const ids = list.map((p) => p.id);
-        const { data: sess } = await supabase
+      if (!list.length) return { packages: list, sessions: [] };
+      const ids = list.map((p) => p.id);
+      const { data: sess, error: sessError } = await withTimeout(supabase
           .from("sessions")
           .select("id,package_id,session_num,status,done_at,signature_url,notes")
           .in("package_id", ids)
-          .order("session_num");
-        if (!active) return;
-        setSessions((sess as Session[]) ?? []);
-      } else {
-        setSessions([]);
-      }
-      setLoading(false);
-    })();
-    return () => { active = false; };
-  }, [clientId]);
+          .order("session_num"), 10000, "Carregamento das sessões");
+      if (sessError) throw sessError;
+      return { packages: list, sessions: (sess as Session[]) ?? [] };
+    },
+  });
+  const { packages, sessions } = data;
+  const reload = () => {
+    queryClient.invalidateQueries({ queryKey: ["client-sessions", clientId] });
+    refetch();
+  };
 
-  if (loading) return <TableSkeleton rows={4} cols={6} />;
+  if (isLoading) return <TableSkeleton rows={4} cols={6} />;
   if (packages.length === 0)
     return <div className="bh-card p-12 text-center"><div className="font-display text-xl text-navy mb-1">Nenhum pacote ativo</div><div className="text-text3 text-sm">Use "Fechar pacote" para começar.</div></div>;
 
@@ -143,7 +118,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           pkg={signing.pkg}
           session={signing.session}
           onClose={() => setSigning(null)}
-          onSaved={() => { setSigning(null); load(); }}
+          onSaved={() => { setSigning(null); reload(); }}
         />
       )}
       {viewSig && (
