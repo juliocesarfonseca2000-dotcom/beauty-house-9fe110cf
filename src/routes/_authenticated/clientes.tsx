@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
 import { ScanClientCardModal } from "@/components/clients/ScanClientCardModal";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { withTimeout } from "@/lib/with-timeout";
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientsPage,
@@ -35,7 +36,7 @@ function ClientsPage() {
       let query = supabase.from("clients").select("id,record_num,name,phone,active,created_at").order("name");
       if (filter === "active") query = query.eq("active", true);
       if (filter === "inactive") query = query.eq("active", false);
-      const { data, error } = await query;
+      const { data, error } = await withTimeout(query, 10000, "Carregamento de clientes");
       if (error) throw error;
       return (data as Row[]) ?? [];
     },
@@ -47,7 +48,7 @@ function ClientsPage() {
 
   const toggleMutation = useMutation({
     mutationFn: async (r: Row) => {
-      const { error } = await supabase.from("clients").update({ active: !r.active }).eq("id", r.id);
+      const { error } = await withTimeout(supabase.from("clients").update({ active: !r.active }).eq("id", r.id), 10000, "Atualização da cliente");
       if (error) throw error;
       return r;
     },
