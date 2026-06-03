@@ -106,7 +106,7 @@ function ClientsPage() {
       </div>
 
       <div className="bh-card overflow-hidden">
-        {loading ? (
+        {isLoading ? (
           <div className="p-8 text-center text-text3">Carregando...</div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
@@ -173,7 +173,7 @@ function ClientsPage() {
           onClose={() => setOpenNew(false)}
           onCreated={(id) => {
             setOpenNew(false);
-            load();
+            invalidate();
             navigate({ to: "/clientes/$id", params: { id } });
           }}
         />
@@ -184,7 +184,7 @@ function ClientsPage() {
           onClose={() => setOpenScan(false)}
           onCreated={(id) => {
             setOpenScan(false);
-            load();
+            invalidate();
             navigate({ to: "/clientes/$id", params: { id } });
           }}
         />
