@@ -249,7 +249,7 @@ function AnamneseTab({ client, onSaved }: { client: Client; onSaved: () => void 
   });
   const saveAn = async () => {
     try {
-      const { error } = await withTimeout(supabase.from("clients").update({ anamnese: an }).eq("id", client.id), 12000, "Salvamento da anamnese");
+      const { error } = await withTimeout(supabase.from("clients").update({ anamnese: { ...a, ...an } }).eq("id", client.id), 12000, "Salvamento da anamnese");
       if (error) throw error;
       toast.success("Anamnese salva"); onSaved();
     } catch (error) {
