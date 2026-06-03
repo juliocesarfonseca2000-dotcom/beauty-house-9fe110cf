@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconArrowLeft, IconEdit, IconCheck } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SessionsTab } from "@/components/clients/SessionsTab";
 import { PhotosTab } from "@/components/clients/PhotosTab";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { withTimeout } from "@/lib/with-timeout";
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
   component: ClientDetailPage,
@@ -34,29 +36,29 @@ type Evaluator = { id: string; name: string };
 function ClientDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const [client, setClient] = useState<Client | null>(null);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("sessoes");
-  const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase.from("clients").select("*").eq("id", id).maybeSingle();
-    setClient(data as Client | null);
-    setLoading(false);
+  const { data: client, isLoading, isError, error } = useQuery({
+    queryKey: ["client", id],
+    queryFn: async () => {
+      const { data, error } = await withTimeout(
+        supabase.from("clients").select("*").eq("id", id).maybeSingle(),
+        10000,
+        "Carregamento da cliente",
+      );
+      if (error) throw error;
+      return data as Client | null;
+    },
+  });
+
+  const reloadClient = () => {
+    queryClient.invalidateQueries({ queryKey: ["client", id] });
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
   };
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    supabase.from("clients").select("*").eq("id", id).maybeSingle().then(({ data }) => {
-      if (!active) return;
-      setClient(data as Client | null);
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, [id]);
-
-  if (loading) return <TableSkeleton rows={4} cols={3} />;
+  if (isLoading) return <ClientDetailSkeleton />;
+  if (isError) return <div className="bh-card p-6 text-danger text-sm">{error instanceof Error ? error.message : "Erro ao carregar cliente."}</div>;
   if (!client) return <div className="text-text3">Cliente não encontrada.</div>;
 
   const initials = client.name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -100,8 +102,8 @@ function ClientDetailPage() {
         ))}
       </div>
 
-      {tab === "dados" && <DadosTab client={client} onSaved={load} />}
-      {tab === "prontuario" && <ProntuarioTab client={client} onSaved={load} />}
+      {tab === "dados" && <DadosTab client={client} onSaved={reloadClient} />}
+      {tab === "prontuario" && <ProntuarioTab client={client} onSaved={reloadClient} />}
       {tab === "sessoes" && <SessionsTab clientId={client.id} />}
       {tab === "fotos" && <PhotosTab clientId={client.id} />}
       {tab === "historico" && <HistoricoTab clientId={client.id} />}
