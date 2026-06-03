@@ -37,12 +37,13 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     setDrawerOpen(false);
-    return () => {
-      supabase.getChannels().forEach((channel) => {
-        supabase.removeChannel(channel);
-      });
-    };
   }, [path]);
+
+  useEffect(() => () => {
+    supabase.getChannels().forEach((channel) => {
+      supabase.removeChannel(channel);
+    });
+  }, []);
 
   if (loading) {
     return (

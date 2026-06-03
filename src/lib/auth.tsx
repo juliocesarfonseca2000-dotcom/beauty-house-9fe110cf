@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase, type AppUser } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/with-timeout";
 
 type AuthCtx = {
   user: AppUser | null;
@@ -16,14 +17,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string) => {
-    const { data } = await supabase.from("app_users").select("*").eq("id", uid).maybeSingle();
-    setUser(data as AppUser | null);
+    const { data, error } = await withTimeout(
+      supabase.from("app_users").select("*").eq("id", uid).maybeSingle(),
+      8000,
+      "Carregamento do usuário",
+    );
+    if (error) throw error;
+    return data as AppUser | null;
   };
 
   const refresh = async () => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.user) await loadProfile(data.session.user.id);
-    else setUser(null);
+    try {
+      const { data } = await withTimeout(supabase.auth.getSession(), 8000, "Verificação da sessão");
+      if (data.session?.user) setUser(await loadProfile(data.session.user.id));
+      else setUser(null);
+    } catch (error) {
+      console.error("Falha ao carregar sessão:", error);
+      setUser(null);
+    }
   };
 
   useEffect(() => {
@@ -33,8 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted) setLoading(false);
     })();
     const { data: sub } = supabase.auth.onAuthStateChange(async (_e, session) => {
-      if (session?.user) await loadProfile(session.user.id);
-      else setUser(null);
+      try {
+        const nextUser = session?.user ? await loadProfile(session.user.id) : null;
+        if (mounted) setUser(nextUser);
+      } catch (error) {
+        console.error("Falha ao atualizar sessão:", error);
+        if (mounted) setUser(null);
+      }
     });
     return () => {
       mounted = false;

@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconArrowLeft, IconEdit, IconCheck } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SessionsTab } from "@/components/clients/SessionsTab";
 import { PhotosTab } from "@/components/clients/PhotosTab";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { withTimeout } from "@/lib/with-timeout";
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
   component: ClientDetailPage,
@@ -34,29 +36,29 @@ type Evaluator = { id: string; name: string };
 function ClientDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const [client, setClient] = useState<Client | null>(null);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("sessoes");
-  const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase.from("clients").select("*").eq("id", id).maybeSingle();
-    setClient(data as Client | null);
-    setLoading(false);
+  const { data: client, isLoading, isError, error } = useQuery({
+    queryKey: ["client", id],
+    queryFn: async () => {
+      const { data, error } = await withTimeout(
+        supabase.from("clients").select("*").eq("id", id).maybeSingle(),
+        10000,
+        "Carregamento da cliente",
+      );
+      if (error) throw error;
+      return data as Client | null;
+    },
+  });
+
+  const reloadClient = () => {
+    queryClient.invalidateQueries({ queryKey: ["client", id] });
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
   };
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    supabase.from("clients").select("*").eq("id", id).maybeSingle().then(({ data }) => {
-      if (!active) return;
-      setClient(data as Client | null);
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, [id]);
-
-  if (loading) return <TableSkeleton rows={4} cols={3} />;
+  if (isLoading) return <ClientDetailSkeleton />;
+  if (isError) return <div className="bh-card p-6 text-danger text-sm">{error instanceof Error ? error.message : "Erro ao carregar cliente."}</div>;
   if (!client) return <div className="text-text3">Cliente não encontrada.</div>;
 
   const initials = client.name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -100,8 +102,8 @@ function ClientDetailPage() {
         ))}
       </div>
 
-      {tab === "dados" && <DadosTab client={client} onSaved={load} />}
-      {tab === "prontuario" && <ProntuarioTab client={client} onSaved={load} />}
+      {tab === "dados" && <DadosTab client={client} onSaved={reloadClient} />}
+      {tab === "prontuario" && <ProntuarioTab client={client} onSaved={reloadClient} />}
       {tab === "sessoes" && <SessionsTab clientId={client.id} />}
       {tab === "fotos" && <PhotosTab clientId={client.id} />}
       {tab === "historico" && <HistoricoTab clientId={client.id} />}
@@ -118,23 +120,27 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
   });
   useEffect(() => {
     let active = true;
-    supabase.from("app_users").select("id,name").eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name").then(({ data }) => {
+    withTimeout(supabase.from("app_users").select("id,name").eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras").then(({ data }) => {
       if (active) setEvaluators((data as Evaluator[]) ?? []);
-    });
+    }).catch(() => undefined);
     return () => { active = false; };
   }, []);
   const save = async () => {
-    const { error } = await supabase.from("clients").update({
-      ...f,
-      record_num: Number(f.record_num),
-      birthdate: f.birthdate || null,
-      evaluator_id: f.evaluator_id || null,
-      referral: f.referral || null,
-    }).eq("id", client.id);
-    if (error) return toast.error(error.message);
-    toast.success("Dados atualizados");
-    setEdit(false);
-    onSaved();
+    try {
+      const { error } = await withTimeout(supabase.from("clients").update({
+        ...f,
+        record_num: Number(f.record_num),
+        birthdate: f.birthdate || null,
+        evaluator_id: f.evaluator_id || null,
+        referral: f.referral || null,
+      }).eq("id", client.id), 12000, "Atualização dos dados");
+      if (error) throw error;
+      toast.success("Dados atualizados");
+      setEdit(false);
+      onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar dados");
+    }
   };
   return (
     <div className="bh-card p-6 space-y-4">
@@ -185,15 +191,23 @@ function ProntuarioTab({ client, onSaved }: { client: Client; onSaved: () => voi
     abdomen: client.abdomen ?? "", arm: client.arm ?? "", thigh: client.thigh ?? "",
   });
   const saveAn = async () => {
-    const { error } = await supabase.from("clients").update({ anamnese: an }).eq("id", client.id);
-    if (error) return toast.error(error.message);
-    toast.success("Anamnese salva"); onSaved();
+    try {
+      const { error } = await withTimeout(supabase.from("clients").update({ anamnese: an }).eq("id", client.id), 12000, "Salvamento da anamnese");
+      if (error) throw error;
+      toast.success("Anamnese salva"); onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar anamnese");
+    }
   };
   const saveM = async () => {
     const payload = Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v === "" ? null : Number(v)]));
-    const { error } = await supabase.from("clients").update(payload).eq("id", client.id);
-    if (error) return toast.error(error.message);
-    toast.success("Medidas salvas"); onSaved();
+    try {
+      const { error } = await withTimeout(supabase.from("clients").update(payload).eq("id", client.id), 12000, "Salvamento das medidas");
+      if (error) throw error;
+      toast.success("Medidas salvas"); onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar medidas");
+    }
   };
   return (
     <div className="space-y-5">
@@ -235,13 +249,19 @@ function ProntuarioTab({ client, onSaved }: { client: Client; onSaved: () => voi
 const LBL: Record<string, string> = { weight: "Peso (kg)", waist: "Cintura (cm)", hip: "Quadril (cm)", abdomen: "Abdômen (cm)", arm: "Braço (cm)", thigh: "Coxa (cm)" };
 
 function HistoricoTab({ clientId }: { clientId: string }) {
-  const [rows, setRows] = useState<Array<{ id: string; description: string; amount: number; pay_method: string | null; date: string }>>([]);
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("income").select("id,description,amount,pay_method,date").eq("client_id", clientId).order("date", { ascending: false });
-      setRows((data as never) ?? []);
-    })();
-  }, [clientId]);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["client-income", clientId],
+    queryFn: async () => {
+      const { data, error } = await withTimeout(
+        supabase.from("income").select("id,description,amount,pay_method,date").eq("client_id", clientId).order("date", { ascending: false }),
+        10000,
+        "Carregamento do histórico",
+      );
+      if (error) throw error;
+      return (data as Array<{ id: string; description: string; amount: number; pay_method: string | null; date: string }>) ?? [];
+    },
+  });
+  if (isLoading) return <TableSkeleton rows={4} cols={4} />;
   const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
   const paid = rows.filter((r) => Number(r.amount) > 0);
   const avg = paid.length ? total / paid.length : 0;
@@ -279,6 +299,23 @@ function HistoricoTab({ clientId }: { clientId: string }) {
 function Grid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{children}</div>;
 }
+
+function ClientDetailSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="h-5 w-36 rounded-md bg-bg2 animate-pulse" />
+      <div className="bh-card p-5 flex items-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-bg2 animate-pulse" />
+        <div className="flex-1 space-y-2">
+          <div className="h-7 w-52 rounded-md bg-bg2 animate-pulse" />
+          <div className="h-4 w-80 max-w-full rounded-md bg-bg2 animate-pulse" />
+        </div>
+      </div>
+      <TableSkeleton rows={4} cols={3} />
+    </div>
+  );
+}
+
 function RO({ label, v, edit, onChange, type = "text" }: { label: string; v: string | null; edit?: boolean; onChange?: (v: string) => void; type?: string }) {
   return (
     <div>

@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { scanClientCard } from "@/lib/scan-card.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { withTimeout } from "@/lib/with-timeout";
 
 type Evaluator = { id: string; name: string };
 
@@ -31,11 +32,13 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
   const backRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let active = true;
     (async () => {
-      const { data } = await supabase.from("app_users").select("id,name")
-        .eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name");
-      setEvaluators((data as Evaluator[]) ?? []);
+      const { data } = await withTimeout(supabase.from("app_users").select("id,name")
+        .eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras");
+      if (active) setEvaluators((data as Evaluator[]) ?? []);
     })();
+    return () => { active = false; };
   }, []);
 
   const doScan = async () => {
@@ -79,13 +82,13 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
     setBusy(true);
     try {
       const notes = [form.notes, form.phone_commercial ? `Tel. comercial: ${form.phone_commercial}` : ""].filter(Boolean).join("\n");
-      const { data, error } = await supabase.from("clients").insert({
+      const { data, error } = await withTimeout(supabase.from("clients").insert({
         ...(form.recordNum.trim() ? { record_num: Number(form.recordNum) } : {}),
         name: form.name.trim(),
         phone: form.phone.trim(),
         evaluator_id: form.evaluatorId || null,
         notes: notes || null,
-      }).select("id").single();
+      }).select("id").single(), 12000, "Cadastro da cliente");
       if (error) throw error;
       toast.success("Cliente cadastrada!");
       onCreated((data as { id: string }).id);
