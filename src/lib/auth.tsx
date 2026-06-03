@@ -23,6 +23,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setAuthUser = (next: AppUser | null) => {
     userRef.current = next;
     setUser(next);
+    if (typeof window !== "undefined") {
+      if (next) window.localStorage.setItem("beautyhouse:user", JSON.stringify(next));
+      else window.localStorage.removeItem("beautyhouse:user");
+    }
+  };
+
+  const getCachedUser = (uid: string) => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = JSON.parse(window.localStorage.getItem("beautyhouse:user") ?? "null") as AppUser | null;
+      return cached?.id === uid ? cached : null;
+    } catch {
+      return null;
+    }
   };
 
   const loadProfile = async (uid: string) => {
@@ -43,8 +57,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthReady(true);
         return;
       }
-      setAuthReady(true);
+      const cached = getCachedUser(data.session.user.id);
+      if (cached) {
+        setAuthUser(cached);
+        setAuthReady(true);
+        void loadProfile(data.session.user.id).then(setAuthUser).catch((error) => console.error("Falha ao atualizar usuário:", error));
+        return;
+      }
       setAuthUser(await loadProfile(data.session.user.id));
+      setAuthReady(true);
     } catch (error) {
       console.error("Falha ao carregar sessão:", error);
     }
