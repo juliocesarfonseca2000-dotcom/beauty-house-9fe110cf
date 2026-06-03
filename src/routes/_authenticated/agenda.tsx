@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -131,7 +132,7 @@ function AgendaPage() {
 
       <div className="bh-card overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-text3">Carregando...</div>
+          <TableSkeleton rows={5} cols={4} />
         ) : visiblePros.length === 0 ? (
           <div className="p-8 text-center text-text3">Nenhum profissional ativo.</div>
         ) : (

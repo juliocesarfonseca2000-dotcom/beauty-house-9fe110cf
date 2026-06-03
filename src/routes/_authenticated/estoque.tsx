@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
 import {
   IconPlus,
@@ -138,7 +139,7 @@ function EstoquePage() {
 
       <div className="bh-card overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-text3 text-sm">Carregando...</div>
+          <TableSkeleton rows={5} cols={5} />
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center text-text3 text-sm">Nenhum produto encontrado.</div>
         ) : (
@@ -514,7 +515,7 @@ function HistoryModal({ product, onClose }: { product: Product; onClose: () => v
   return (
     <Modal title={`Histórico — ${product.name}`} onClose={onClose}>
       {loading ? (
-        <div className="text-center text-text3 text-sm py-6">Carregando...</div>
+        <TableSkeleton rows={4} cols={3} />
       ) : rows.length === 0 ? (
         <div className="text-center text-text3 text-sm py-6">Sem movimentações.</div>
       ) : (
