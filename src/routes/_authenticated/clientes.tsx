@@ -22,6 +22,12 @@ type Row = {
   created_at: string;
 };
 
+function whatsappUrl(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+  return `https://web.whatsapp.com/send?phone=${withCountry}`;
+}
+
 function ClientsPage() {
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("active");
   const [q, setQ] = useState("");
@@ -144,7 +150,7 @@ function ClientsPage() {
                     <div className="inline-flex items-center gap-1">
                       {r.phone && (
                         <a
-                          href={`https://wa.me/${r.phone.replace(/\D/g, "")}`}
+                          href={whatsappUrl(r.phone)}
                           target="_blank"
                           rel="noreferrer"
                           className="p-1.5 rounded-md hover:bg-success/10 text-success"
