@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconArrowLeft, IconEdit, IconCheck } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { SessionsTab } from "@/components/clients/SessionsTab";
-import { PhotosTab } from "@/components/clients/PhotosTab";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
+
+const SessionsTab = lazy(() => import("@/components/clients/SessionsTab").then((m) => ({ default: m.SessionsTab })));
+const PhotosTab = lazy(() => import("@/components/clients/PhotosTab").then((m) => ({ default: m.PhotosTab })));
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
   component: ClientDetailPage,
@@ -108,8 +109,16 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
 
       {tab === "dados" && <DadosTab client={client} onSaved={reloadClient} />}
       {tab === "prontuario" && <ProntuarioTab client={client} onSaved={reloadClient} />}
-      {tab === "sessoes" && <SessionsTab clientId={client.id} />}
-      {tab === "fotos" && <PhotosTab clientId={client.id} />}
+      {tab === "sessoes" && (
+        <Suspense fallback={<TableSkeleton rows={4} cols={6} />}>
+          <SessionsTab clientId={client.id} />
+        </Suspense>
+      )}
+      {tab === "fotos" && (
+        <Suspense fallback={<TableSkeleton rows={4} cols={3} />}>
+          <PhotosTab clientId={client.id} />
+        </Suspense>
+      )}
       {tab === "historico" && <HistoricoTab clientId={client.id} />}
     </div>
   );
