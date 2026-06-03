@@ -168,15 +168,17 @@ function SignSessionModal({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("app_users")
-        .select("id,name")
-        .eq("active", true)
-        .eq("role", "professional")
-        .order("name");
-      setPros((data as Professional[]) ?? []);
-    })();
+    let active = true;
+    supabase
+      .from("app_users")
+      .select("id,name")
+      .eq("active", true)
+      .eq("role", "professional")
+      .order("name")
+      .then(({ data }) => {
+        if (active) setPros((data as Professional[]) ?? []);
+      });
+    return () => { active = false; };
   }, []);
 
   const confirm = async () => {
