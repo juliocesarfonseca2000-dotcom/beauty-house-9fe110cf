@@ -70,7 +70,7 @@ function UsersPage() {
 
       <div className="bh-card overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-text3">Carregando...</div>
+          <TableSkeleton rows={5} cols={4} />
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-bg2 text-text2">

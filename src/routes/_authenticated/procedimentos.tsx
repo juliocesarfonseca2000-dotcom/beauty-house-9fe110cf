@@ -71,7 +71,7 @@ function ProceduresPage() {
 
       <div className="bh-card overflow-x-auto">
         {loading ? (
-          <div className="p-8 text-center text-text3">Carregando...</div>
+          <TableSkeleton rows={5} cols={4} />
         ) : visible.length === 0 ? (
           <div className="p-12 text-center text-text3">Nenhum procedimento.</div>
         ) : (
