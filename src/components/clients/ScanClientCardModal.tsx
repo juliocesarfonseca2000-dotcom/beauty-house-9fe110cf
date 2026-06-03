@@ -23,7 +23,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
   const [step, setStep] = useState<"upload" | "review">("upload");
   const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
   const [form, setForm] = useState({
-    name: "", phone: "", phone_commercial: "", evaluatorId: "", notes: "",
+    recordNum: "", name: "", phone: "", phone_commercial: "", evaluatorId: "", notes: "",
   });
   const [busy, setBusy] = useState(false);
   const scanFn = useServerFn(scanClientCard);
@@ -57,6 +57,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
         ? evaluators.find((e) => e.name.toLowerCase().includes(result.evaluator_name!.toLowerCase().split(" ")[0]))
         : null;
       setForm({
+        recordNum: result.record_num?.replace(/\D/g, "") ?? "",
         name: result.name ?? "",
         phone: (result.phone ?? "").replace(/\D/g, ""),
         phone_commercial: (result.phone_commercial ?? "").replace(/\D/g, ""),
@@ -79,6 +80,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
     try {
       const notes = [form.notes, form.phone_commercial ? `Tel. comercial: ${form.phone_commercial}` : ""].filter(Boolean).join("\n");
       const { data, error } = await supabase.from("clients").insert({
+        ...(form.recordNum.trim() ? { record_num: Number(form.recordNum) } : {}),
         name: form.name.trim(),
         phone: form.phone.trim(),
         evaluator_id: form.evaluatorId || null,
@@ -127,6 +129,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
               ✨ Confira os dados extraídos pela IA e corrija se necessário antes de salvar.
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Número da ficha"><input type="number" value={form.recordNum} onChange={(e) => setForm({ ...form, recordNum: e.target.value })} className={inp} placeholder="Automático" /></Field>
               <Field label="Nome*"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inp} required /></Field>
               <Field label="WhatsApp*"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inp} required /></Field>
               <Field label="Telefone comercial"><input value={form.phone_commercial} onChange={(e) => setForm({ ...form, phone_commercial: e.target.value })} className={inp} /></Field>
