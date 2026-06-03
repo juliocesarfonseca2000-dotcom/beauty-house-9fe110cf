@@ -67,6 +67,18 @@ function ClientsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (r: Row) => {
+      const [{ data: photos }, { data: sessions }] = await Promise.all([
+        withTimeout(supabase.from("client_photos").select("url").eq("client_id", r.id), 10000, "Busca das fotos da cliente"),
+        withTimeout(supabase.from("sessions").select("id").eq("client_id", r.id), 10000, "Busca das sessões da cliente"),
+      ]);
+      const photoPaths = ((photos as Array<{ url: string }> | null) ?? [])
+        .map((p) => p.url.split("/client-photos/")[1])
+        .filter(Boolean);
+      const signaturePaths = ((sessions as Array<{ id: string }> | null) ?? []).map((s) => `${r.id}/${s.id}.png`);
+      if (photoPaths.length) await supabase.storage.from("client-photos").remove(photoPaths);
+      if (signaturePaths.length) await supabase.storage.from("signatures").remove(signaturePaths);
+      await withTimeout(supabase.from("income").delete().eq("client_id", r.id), 12000, "Exclusão do financeiro da cliente");
+      await withTimeout(supabase.from("clients").update({ referral_client_id: null }).eq("referral_client_id", r.id), 12000, "Ajuste de indicações");
       const { error } = await withTimeout(
         supabase.from("clients").delete().eq("id", r.id),
         12000,
