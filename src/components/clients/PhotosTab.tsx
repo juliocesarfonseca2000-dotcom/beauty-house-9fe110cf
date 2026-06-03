@@ -212,7 +212,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
                         comparar
                       </button>
                       <div className="absolute bottom-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
-                        {new Date(p.date).toLocaleDateString("pt-BR")} · {p.procedures?.name ?? cat}
+                        {new Date(p.date).toLocaleDateString("pt-BR")} · {p.procedures?.name ?? categoryLabel[cat]}
                       </div>
                       <button
                         onClick={() => remove(p)}
