@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { IconUpload, IconTrash, IconArrowsExchange } from "@tabler/icons-react";
+import { IconUpload, IconTrash, IconArrowsExchange, IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 type Photo = {
   id: string;
@@ -9,7 +10,10 @@ type Photo = {
   category: string | null;
   date: string;
   created_at: string;
+  procedure_id: string | null;
+  procedures: { name: string } | null;
 };
+type Procedure = { id: string; name: string };
 
 const BUCKET = "client-photos";
 
@@ -18,13 +22,16 @@ export function PhotosTab({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [category, setCategory] = useState<"antes" | "depois" | "evolucao">("antes");
+  const [procedureId, setProcedureId] = useState("");
+  const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const [full, setFull] = useState<Photo | null>(null);
   const [compare, setCompare] = useState<{ a?: string; b?: string }>({});
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("client_photos")
-      .select("id,url,category,date,created_at")
+      .select("id,url,category,date,created_at,procedure_id,procedures(name)")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
@@ -33,8 +40,19 @@ export function PhotosTab({ clientId }: { clientId: string }) {
   };
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line
+    let active = true;
+    setLoading(true);
+    Promise.all([
+      supabase.from("client_photos").select("id,url,category,date,created_at,procedure_id,procedures(name)").eq("client_id", clientId).order("created_at", { ascending: false }),
+      supabase.from("procedures").select("id,name").eq("active", true).order("name"),
+    ]).then(([photosRes, procRes]) => {
+      if (!active) return;
+      if (photosRes.error) toast.error(photosRes.error.message);
+      setPhotos((photosRes.data as unknown as Photo[]) ?? []);
+      setProcedures((procRes.data as Procedure[]) ?? []);
+      setLoading(false);
+    });
+    return () => { active = false; };
   }, [clientId]);
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,7 +62,8 @@ export function PhotosTab({ clientId }: { clientId: string }) {
     try {
       for (const file of files) {
         const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${clientId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const photoId = crypto.randomUUID();
+        const path = `${clientId}/${photoId}.${ext}`;
         const up = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
         if (up.error) throw up.error;
         const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
@@ -52,6 +71,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
           client_id: clientId,
           url: pub.publicUrl,
           category,
+          procedure_id: procedureId || null,
         });
         if (ins.error) throw ins.error;
       }
