@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { IconUpload, IconTrash, IconArrowsExchange } from "@tabler/icons-react";
+import { IconUpload, IconTrash, IconArrowsExchange, IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 type Photo = {
   id: string;
@@ -9,7 +10,10 @@ type Photo = {
   category: string | null;
   date: string;
   created_at: string;
+  procedure_id: string | null;
+  procedures: { name: string } | null;
 };
+type Procedure = { id: string; name: string };
 
 const BUCKET = "client-photos";
 
@@ -18,13 +22,16 @@ export function PhotosTab({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [category, setCategory] = useState<"antes" | "depois" | "evolucao">("antes");
+  const [procedureId, setProcedureId] = useState("");
+  const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const [full, setFull] = useState<Photo | null>(null);
   const [compare, setCompare] = useState<{ a?: string; b?: string }>({});
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("client_photos")
-      .select("id,url,category,date,created_at")
+      .select("id,url,category,date,created_at,procedure_id,procedures(name)")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
@@ -33,8 +40,19 @@ export function PhotosTab({ clientId }: { clientId: string }) {
   };
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line
+    let active = true;
+    setLoading(true);
+    Promise.all([
+      supabase.from("client_photos").select("id,url,category,date,created_at,procedure_id,procedures(name)").eq("client_id", clientId).order("created_at", { ascending: false }),
+      supabase.from("procedures").select("id,name").eq("active", true).order("name"),
+    ]).then(([photosRes, procRes]) => {
+      if (!active) return;
+      if (photosRes.error) toast.error(photosRes.error.message);
+      setPhotos((photosRes.data as unknown as Photo[]) ?? []);
+      setProcedures((procRes.data as Procedure[]) ?? []);
+      setLoading(false);
+    });
+    return () => { active = false; };
   }, [clientId]);
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,15 +61,17 @@ export function PhotosTab({ clientId }: { clientId: string }) {
     setUploading(true);
     try {
       for (const file of files) {
-        const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${clientId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const photoId = crypto.randomUUID();
+        const path = `${clientId}/${photoId}.jpg`;
         const up = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
         if (up.error) throw up.error;
         const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
         const ins = await supabase.from("client_photos").insert({
+          id: photoId,
           client_id: clientId,
           url: pub.publicUrl,
           category,
+          procedure_id: procedureId || null,
         });
         if (ins.error) throw ins.error;
       }
@@ -116,12 +136,17 @@ export function PhotosTab({ clientId }: { clientId: string }) {
             <input
               type="file"
               accept="image/*"
+              capture="environment"
               multiple
               className="hidden"
               onChange={onUpload}
               disabled={uploading}
             />
           </label>
+          <select value={procedureId} onChange={(e) => setProcedureId(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-card text-sm">
+            <option value="">Sem procedimento</option>
+            {procedures.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
           <div className="text-xs text-text3 ml-auto">
             Categoria selecionada será usada nas novas fotos.
           </div>
@@ -148,7 +173,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
       )}
 
       {loading ? (
-        <div className="bh-card p-8 text-center text-text3 text-sm">Carregando...</div>
+        <TableSkeleton rows={4} cols={3} />
       ) : photos.length === 0 ? (
         <div className="bh-card p-12 text-center text-text3 text-sm">
           Nenhuma foto enviada ainda.
@@ -164,13 +189,16 @@ export function PhotosTab({ clientId }: { clientId: string }) {
                   return (
                     <div key={p.id} className="relative group">
                       <button
-                        onClick={() => pickCompare(p.url)}
+                        onClick={() => setFull(p)}
                         className={`block w-full aspect-square rounded-lg overflow-hidden border-2 transition ${selected ? "border-gold ring-2 ring-gold/30" : "border-border hover:border-navy"}`}
                       >
-                        <img src={p.url} className="w-full h-full object-cover" alt="" />
+                        <img src={p.url} className="w-full h-full object-cover" alt={`Foto ${cat}`} loading="lazy" />
+                      </button>
+                      <button onClick={() => pickCompare(p.url)} className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100">
+                        comparar
                       </button>
                       <div className="absolute bottom-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
-                        {new Date(p.date).toLocaleDateString("pt-BR")}
+                        {new Date(p.date).toLocaleDateString("pt-BR")} · {p.procedures?.name ?? cat}
                       </div>
                       <button
                         onClick={() => remove(p)}
@@ -190,6 +218,14 @@ export function PhotosTab({ clientId }: { clientId: string }) {
       <div className="text-xs text-text3 text-center">
         Selecione 2 fotos para comparar lado a lado.
       </div>
+      {full && (
+        <div className="fixed inset-0 z-50 bg-navy/90 flex items-center justify-center p-4" onClick={() => setFull(null)}>
+          <button type="button" className="absolute top-4 right-4 p-2 rounded-lg bg-card text-navy" onClick={() => setFull(null)}>
+            <IconX size={20} />
+          </button>
+          <img src={full.url} alt="Foto da cliente" className="max-w-full max-h-full object-contain rounded-lg" />
+        </div>
+      )}
     </div>
   );
 }

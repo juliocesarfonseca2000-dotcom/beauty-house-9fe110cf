@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { IconX } from "@tabler/icons-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const TITLES: Record<string, string> = {
   "/": "Dashboard",
@@ -36,6 +37,11 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     setDrawerOpen(false);
+    return () => {
+      supabase.getChannels().forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
   }, [path]);
 
   if (loading) {

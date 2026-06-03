@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { withTimeout } from "@/lib/with-timeout";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
   component: AgendaPage,
@@ -62,7 +63,7 @@ function AgendaPage() {
     setLoading(true);
     const [{ data: pdata }, { data: adata }] = await Promise.all([
       supabase.from("app_users").select("id,name").eq("active", true)
-        .or("role.eq.professional,role.eq.admin").order("name"),
+        .eq("role", "professional").order("name"),
       supabase.from("appointments")
         .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
@@ -73,7 +74,24 @@ function AgendaPage() {
     setAppts((adata as unknown as Appt[]) ?? []);
     setLoading(false);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [dayStart.getTime()]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    Promise.all([
+      supabase.from("app_users").select("id,name").eq("active", true).eq("role", "professional").order("name"),
+      supabase.from("appointments")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
+        .gte("datetime", dayStart.toISOString())
+        .lt("datetime", dayEnd.toISOString())
+        .order("datetime"),
+    ]).then(([pdata, adata]) => {
+      if (!active) return;
+      setPros((pdata.data as Professional[]) ?? []);
+      setAppts((adata.data as unknown as Appt[]) ?? []);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [dayStart.getTime(), dayEnd]);
 
   const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 
@@ -261,20 +279,54 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (!client) return toast.error("Selecione uma cliente");
     if (!proId) return toast.error("Selecione um profissional");
     setBusy(true);
-    const dt = new Date(`${date}T${time}:00`);
-    const { error } = await supabase.from("appointments").insert({
-      client_id: client.id,
-      procedure_id: procId || null,
-      professional_id: proId,
-      datetime: dt.toISOString(),
-      duration_min: Number(duration) || 60,
-      status: "pending",
-      notes: notes || null,
-    });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Agendamento criado!");
-    onSaved();
+    try {
+      const dt = new Date(`${date}T${time}:00`);
+      const dur = Number(duration) || 60;
+      const end = new Date(dt.getTime() + dur * 60_000);
+      const dayStart = new Date(dt); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+
+      const { data: existing, error: conflictErr } = await withTimeout(
+        supabase.from("appointments")
+          .select("id,datetime,duration_min,status,clients(name)")
+          .eq("professional_id", proId)
+          .neq("status", "cancelled")
+          .gte("datetime", dayStart.toISOString())
+          .lt("datetime", dayEnd.toISOString()),
+        12000,
+        "Verificação de conflito",
+      );
+      if (conflictErr) throw conflictErr;
+      type ExistingAppt = { datetime: string; duration_min: number | null; clients: { name: string } | { name: string }[] | null };
+      const conflict = ((existing as unknown as ExistingAppt[] | null) ?? []).find((a) => {
+        const aStart = new Date(a.datetime);
+        const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+        return aStart < end && aEnd > dt;
+      });
+      if (conflict) {
+        const hhmm = new Date(conflict.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        const conflictClient = Array.isArray(conflict.clients) ? conflict.clients[0]?.name : conflict.clients?.name;
+        toast.error(`Este profissional já tem atendimento às ${hhmm} com ${conflictClient ?? "cliente"} (${conflict.duration_min ?? 60} min). Escolha outro horário ou profissional.`);
+        return;
+      }
+
+      const { error } = await withTimeout(supabase.from("appointments").insert({
+        client_id: client.id,
+        procedure_id: procId || null,
+        professional_id: proId,
+        datetime: dt.toISOString(),
+        duration_min: dur,
+        status: "pending",
+        notes: notes || null,
+      }), 12000, "Criação do agendamento");
+      if (error) throw error;
+      toast.success("Agendamento criado!");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao agendar");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

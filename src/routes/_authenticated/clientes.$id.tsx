@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SessionsTab } from "@/components/clients/SessionsTab";
 import { PhotosTab } from "@/components/clients/PhotosTab";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
   component: ClientDetailPage,
@@ -18,6 +19,7 @@ type Client = {
   email: string | null;
   birthdate: string | null;
   cpf: string | null;
+  referral: string | null;
   notes: string | null;
   anamnese: Record<string, unknown> | null;
   weight: number | null; waist: number | null; hip: number | null;
@@ -27,6 +29,7 @@ type Client = {
 };
 
 type Tab = "dados" | "prontuario" | "sessoes" | "fotos" | "historico";
+type Evaluator = { id: string; name: string };
 
 function ClientDetailPage() {
   const { id } = Route.useParams();
@@ -42,9 +45,18 @@ function ClientDetailPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    supabase.from("clients").select("*").eq("id", id).maybeSingle().then(({ data }) => {
+      if (!active) return;
+      setClient(data as Client | null);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [id]);
 
-  if (loading) return <div className="text-text3">Carregando...</div>;
+  if (loading) return <TableSkeleton rows={4} cols={3} />;
   if (!client) return <div className="text-text3">Cliente não encontrada.</div>;
 
   const initials = client.name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -99,12 +111,26 @@ function ClientDetailPage() {
 
 function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) {
   const [edit, setEdit] = useState(false);
+  const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
   const [f, setF] = useState({
-    name: client.name, phone: client.phone ?? "", email: client.email ?? "",
-    birthdate: client.birthdate ?? "", cpf: client.cpf ?? "", notes: client.notes ?? "",
+    record_num: String(client.record_num ?? ""), name: client.name, phone: client.phone ?? "", email: client.email ?? "",
+    birthdate: client.birthdate ?? "", cpf: client.cpf ?? "", referral: client.referral ?? "", evaluator_id: client.evaluator_id ?? "", notes: client.notes ?? "",
   });
+  useEffect(() => {
+    let active = true;
+    supabase.from("app_users").select("id,name").eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name").then(({ data }) => {
+      if (active) setEvaluators((data as Evaluator[]) ?? []);
+    });
+    return () => { active = false; };
+  }, []);
   const save = async () => {
-    const { error } = await supabase.from("clients").update(f).eq("id", client.id);
+    const { error } = await supabase.from("clients").update({
+      ...f,
+      record_num: Number(f.record_num),
+      birthdate: f.birthdate || null,
+      evaluator_id: f.evaluator_id || null,
+      referral: f.referral || null,
+    }).eq("id", client.id);
     if (error) return toast.error(error.message);
     toast.success("Dados atualizados");
     setEdit(false);
@@ -120,11 +146,14 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
         )}
       </div>
       <Grid>
+        <RO label="Número da ficha" v={f.record_num} edit={edit} type="number" onChange={(v) => setF({ ...f, record_num: v })} />
         <RO label="Nome" v={f.name} edit={edit} onChange={(v) => setF({ ...f, name: v })} />
         <RO label="WhatsApp" v={f.phone} edit={edit} onChange={(v) => setF({ ...f, phone: v })} />
         <RO label="Email" v={f.email} edit={edit} onChange={(v) => setF({ ...f, email: v })} />
         <RO label="Nascimento" v={f.birthdate} edit={edit} type="date" onChange={(v) => setF({ ...f, birthdate: v })} />
         <RO label="CPF" v={f.cpf} edit={edit} onChange={(v) => setF({ ...f, cpf: v })} />
+        <SelectRO label="Como conheceu" value={f.referral} edit={edit} options={["Indicação", "Instagram", "Google", "Outro"]} onChange={(v) => setF({ ...f, referral: v })} />
+        <SelectRO label="Avaliadora" value={f.evaluator_id} edit={edit} options={evaluators.map((e) => ({ value: e.id, label: e.name }))} onChange={(v) => setF({ ...f, evaluator_id: v })} display={evaluators.find((e) => e.id === f.evaluator_id)?.name} />
       </Grid>
       <div>
         <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Observações</label>
@@ -258,6 +287,24 @@ function RO({ label, v, edit, onChange, type = "text" }: { label: string; v: str
         <input type={type} value={v ?? ""} onChange={(e) => onChange?.(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
       ) : (
         <div className="text-text2 text-sm">{v || "—"}</div>
+      )}
+    </div>
+  );
+}
+function SelectRO({ label, value, edit, options, onChange, display }: { label: string; value: string; edit?: boolean; options: Array<string | { value: string; label: string }>; onChange: (v: string) => void; display?: string }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">{label}</label>
+      {edit ? (
+        <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border text-sm">
+          <option value="">Selecionar...</option>
+          {options.map((o) => {
+            const opt = typeof o === "string" ? { value: o, label: o } : o;
+            return <option key={opt.value} value={opt.value}>{opt.label}</option>;
+          })}
+        </select>
+      ) : (
+        <div className="text-text2 text-sm">{display || value || "—"}</div>
       )}
     </div>
   );
