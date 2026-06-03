@@ -40,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else setAuthUser(null);
     } catch (error) {
       console.error("Falha ao carregar sessão:", error);
-      if (!userRef.current) setAuthUser(null);
     }
   };
 
