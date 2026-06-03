@@ -27,8 +27,16 @@ function Dashboard() {
       if (products.error) throw products.error;
       const stockCritical = ((products.data as Array<{ qty_current: number | null; qty_min: number | null }> | null) ?? [])
         .filter((p) => Number(p.qty_current ?? 0) <= Number(p.qty_min ?? 0)).length;
+      type DashboardAppt = { id: string; datetime: string; status: string; clients: { name: string } | { name: string }[] | null; procedures: { name: string } | { name: string }[] | null };
+      const appointments = ((appts.data as unknown as DashboardAppt[] | null) ?? []).map((a) => ({
+        id: a.id,
+        datetime: a.datetime,
+        status: a.status,
+        clientName: Array.isArray(a.clients) ? a.clients[0]?.name : a.clients?.name,
+        procedureName: Array.isArray(a.procedures) ? a.procedures[0]?.name : a.procedures?.name,
+      }));
       return {
-        appointments: (appts.data as Array<{ id: string; datetime: string; status: string; clients: { name: string } | null; procedures: { name: string } | null }> | null) ?? [],
+        appointments,
         activeClients: clients.count ?? 0,
         stockCritical,
       };
@@ -77,8 +85,8 @@ function Dashboard() {
             {data.appointments.map((a) => (
               <div key={a.id} className="py-3 flex items-center justify-between gap-3 text-sm">
                 <div>
-                  <div className="font-semibold text-navy">{a.clients?.name ?? "Cliente"}</div>
-                  <div className="text-text3">{a.procedures?.name ?? "Procedimento"}</div>
+                  <div className="font-semibold text-navy">{a.clientName ?? "Cliente"}</div>
+                  <div className="text-text3">{a.procedureName ?? "Procedimento"}</div>
                 </div>
                 <div className="text-right">
                   <div className="font-mono text-navy">{new Date(a.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</div>
