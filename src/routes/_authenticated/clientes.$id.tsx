@@ -69,7 +69,7 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
 
   return (
     <div className="space-y-5">
-      <button onClick={() => navigate({ to: backTo })} className="text-text2 hover:text-navy text-sm flex items-center gap-1">
+      <button onClick={() => navigate({ to: backTo === "/ficha" ? "/ficha" : "/clientes" })} className="text-text2 hover:text-navy text-sm flex items-center gap-1">
         <IconArrowLeft size={16} /> Voltar para {backTo === "/ficha" ? "Ficha & Sessões" : "Clientes"}
       </button>
 
