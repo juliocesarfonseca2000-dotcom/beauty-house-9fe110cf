@@ -26,14 +26,14 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { user, loading } = useAuth();
+  const { user, loading, authReady } = useAuth();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login", replace: true });
-  }, [loading, user, navigate]);
+    if (!loading && authReady && !user) navigate({ to: "/login", replace: true });
+  }, [loading, authReady, user, navigate]);
 
   useEffect(() => {
     setDrawerOpen(false);

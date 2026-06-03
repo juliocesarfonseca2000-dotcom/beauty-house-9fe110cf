@@ -5,6 +5,7 @@ import { withTimeout } from "@/lib/with-timeout";
 type AuthCtx = {
   user: AppUser | null;
   loading: boolean;
+  authReady: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -15,11 +16,27 @@ const Ctx = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const userRef = useRef<AppUser | null>(null);
+  const loadingProfileRef = useRef<string | null>(null);
 
   const setAuthUser = (next: AppUser | null) => {
     userRef.current = next;
     setUser(next);
+    if (typeof window !== "undefined") {
+      if (next) window.localStorage.setItem("beautyhouse:user", JSON.stringify(next));
+      else window.localStorage.removeItem("beautyhouse:user");
+    }
+  };
+
+  const getCachedUser = (uid: string) => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = JSON.parse(window.localStorage.getItem("beautyhouse:user") ?? "null") as AppUser | null;
+      return cached?.id === uid ? cached : null;
+    } catch {
+      return null;
+    }
   };
 
   const loadProfile = async (uid: string) => {
@@ -35,32 +52,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = async () => {
     try {
       const { data } = await withTimeout(supabase.auth.getSession(), 8000, "Verificação da sessão");
-      if (data.session?.user) setAuthUser(await loadProfile(data.session.user.id));
-      else setAuthUser(null);
+      if (!data.session?.user) {
+        setAuthUser(null);
+        setAuthReady(true);
+        return;
+      }
+      const cached = getCachedUser(data.session.user.id);
+      if (cached) {
+        setAuthUser(cached);
+        setAuthReady(true);
+        void loadProfile(data.session.user.id).then(setAuthUser).catch((error) => console.error("Falha ao atualizar usuário:", error));
+        return;
+      }
+      setAuthUser(await loadProfile(data.session.user.id));
+      setAuthReady(true);
     } catch (error) {
       console.error("Falha ao carregar sessão:", error);
-      if (!userRef.current) setAuthUser(null);
     }
   };
 
   useEffect(() => {
     let mounted = true;
+    const syncProfile = (uid: string) => {
+      if (userRef.current?.id === uid || loadingProfileRef.current === uid) return;
+      loadingProfileRef.current = uid;
+      void loadProfile(uid).then((nextUser) => {
+        if (mounted) setAuthUser(nextUser);
+      }).catch((error) => {
+        console.error("Falha ao atualizar sessão:", error);
+        if (mounted && !userRef.current) setAuthUser(null);
+      }).finally(() => {
+        if (loadingProfileRef.current === uid) loadingProfileRef.current = null;
+      });
+    };
     (async () => {
       await refresh();
       if (mounted) setLoading(false);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-      try {
-        if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
-        if (event === "SIGNED_OUT") {
-          if (mounted) setAuthUser(null);
-          return;
-        }
-        const nextUser = session?.user ? await loadProfile(session.user.id) : null;
-        if (mounted) setAuthUser(nextUser);
-      } catch (error) {
-        console.error("Falha ao atualizar sessão:", error);
-        if (mounted && !userRef.current) setAuthUser(null);
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
+      if (event === "SIGNED_OUT") {
+        if (mounted) setAuthUser(null);
+        if (mounted) setAuthReady(true);
+        return;
+      }
+      if (session?.user) syncProfile(session.user.id);
+      else if (mounted) {
+        setAuthUser(null);
+        setAuthReady(true);
       }
     });
     return () => {
@@ -80,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthUser(null);
   };
 
-  return <Ctx.Provider value={{ user, loading, signIn, signOut, refresh }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, authReady, signIn, signOut, refresh }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {

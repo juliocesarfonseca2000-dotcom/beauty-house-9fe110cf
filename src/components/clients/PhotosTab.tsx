@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconUpload, IconTrash, IconArrowsExchange, IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -19,49 +20,41 @@ type Procedure = { id: string; name: string };
 const BUCKET = "client-photos";
 
 export function PhotosTab({ clientId }: { clientId: string }) {
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [category, setCategory] = useState<"antes" | "depois" | "evolucao">("antes");
   const [procedureId, setProcedureId] = useState("");
-  const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [full, setFull] = useState<Photo | null>(null);
   const [compare, setCompare] = useState<{ a?: string; b?: string }>({});
+  const queryClient = useQueryClient();
 
-  const load = async () => {
-    setLoading(true);
-    try {
+  const { data: photos = [], isLoading: loading } = useQuery({
+    queryKey: ["client-photos", clientId],
+    queryFn: async () => {
       const { data, error } = await withTimeout(supabase
         .from("client_photos")
         .select("id,url,category,date,created_at,procedure_id,procedures(name)")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false }), 10000, "Carregamento das fotos");
-      if (error) toast.error(error.message);
-      setPhotos((data as never) ?? []);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (error) throw error;
+      return (data as unknown as Photo[]) ?? [];
+    },
+  });
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    Promise.all([
-      withTimeout(supabase.from("client_photos").select("id,url,category,date,created_at,procedure_id,procedures(name)").eq("client_id", clientId).order("created_at", { ascending: false }), 10000, "Carregamento das fotos"),
-      withTimeout(supabase.from("procedures").select("id,name").eq("active", true).order("name"), 10000, "Carregamento dos procedimentos"),
-    ]).then(([photosRes, procRes]) => {
-      if (!active) return;
-      if (photosRes.error) toast.error(photosRes.error.message);
-      setPhotos((photosRes.data as unknown as Photo[]) ?? []);
-      setProcedures((procRes.data as Procedure[]) ?? []);
-      setLoading(false);
-    }).catch((error) => {
-      if (!active) return;
-      toast.error(error instanceof Error ? error.message : "Erro ao carregar fotos");
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, [clientId]);
+  const { data: procedures = [] } = useQuery({
+    queryKey: ["procedures", "active-list"],
+    queryFn: async () => {
+      const { data, error } = await withTimeout(
+        supabase.from("procedures").select("id,name").eq("active", true).order("name"),
+        10000,
+        "Carregamento dos procedimentos",
+      );
+      if (error) throw error;
+      return (data as Procedure[]) ?? [];
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const reloadPhotos = () => queryClient.invalidateQueries({ queryKey: ["client-photos", clientId] });
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -85,7 +78,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
       }
       toast.success(`${files.length} foto(s) enviada(s)`);
       e.target.value = "";
-      load();
+      reloadPhotos();
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -104,7 +97,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
     if (error) return toast.error(error.message);
     toast.success("Foto excluída");
     setCompare((c) => ({ a: c.a === p.url ? undefined : c.a, b: c.b === p.url ? undefined : c.b }));
-    load();
+    reloadPhotos();
   };
 
   const pickCompare = (url: string) => {

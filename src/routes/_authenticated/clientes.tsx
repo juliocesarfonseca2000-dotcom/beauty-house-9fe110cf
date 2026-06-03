@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera } from "@tabler/icons-react";
+import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera, IconTrash } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
@@ -65,10 +65,69 @@ function ClientsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (r: Row) => {
+      const [{ data: photos }, { data: sessions }] = await Promise.all([
+        withTimeout(supabase.from("client_photos").select("url").eq("client_id", r.id), 10000, "Busca das fotos da cliente"),
+        withTimeout(supabase.from("sessions").select("id").eq("client_id", r.id), 10000, "Busca das sessões da cliente"),
+      ]);
+      const photoPaths = ((photos as Array<{ url: string }> | null) ?? [])
+        .map((p) => p.url.split("/client-photos/")[1])
+        .filter(Boolean);
+      const signaturePaths = ((sessions as Array<{ id: string }> | null) ?? []).map((s) => `${r.id}/${s.id}.png`);
+      if (photoPaths.length) await supabase.storage.from("client-photos").remove(photoPaths);
+      if (signaturePaths.length) await supabase.storage.from("signatures").remove(signaturePaths);
+      await withTimeout(supabase.from("income").delete().eq("client_id", r.id), 12000, "Exclusão do financeiro da cliente");
+      await withTimeout(supabase.from("clients").update({ referral_client_id: null }).eq("referral_client_id", r.id), 12000, "Ajuste de indicações");
+      const { error } = await withTimeout(
+        supabase.from("clients").delete().eq("id", r.id),
+        12000,
+        "Exclusão da cliente",
+      );
+      if (error) throw error;
+      return r;
+    },
+    onSuccess: (r) => {
+      toast.success("Cliente excluída");
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.removeQueries({ queryKey: ["client", r.id] });
+    },
+    onError: (e: Error) => {
+      const msg = e.message.toLowerCase().includes("foreign key")
+        ? "Não foi possível excluir porque existe histórico ligado a esta cliente. Use inativar para preservar os registros."
+        : e.message;
+      toast.error(msg);
+    },
+  });
+
   const toggleActive = (r: Row) => {
     const verb = r.active ? "Inativar" : "Reativar";
     if (!confirm(`${verb} ${r.name}?`)) return;
     toggleMutation.mutate(r);
+  };
+
+  const deleteClient = (r: Row) => {
+    if (!confirm(`Excluir definitivamente ${r.name}? Esta ação não pode ser desfeita.`)) return;
+    deleteMutation.mutate(r);
+  };
+
+  const prefetchClient = (id: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ["client", id],
+      queryFn: async () => {
+        const { data, error } = await withTimeout(
+          supabase.from("clients").select("*").eq("id", id).maybeSingle(),
+          10000,
+          "Pré-carregamento da ficha",
+        );
+        if (error) throw error;
+        return data;
+      },
+    });
+  };
+
+  const openClient = (id: string) => {
+    navigate({ to: "/ficha", search: { cliente: id } });
   };
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["clients"] });
@@ -133,10 +192,20 @@ function ClientsPage() {
             </thead>
             <tbody>
               {filtered.map((r, i) => (
-                <tr key={r.id} className={i % 2 ? "bg-bg2/40" : ""}>
+                <tr
+                  key={r.id}
+                  onClick={() => openClient(r.id)}
+                  onMouseEnter={() => prefetchClient(r.id)}
+                  className={`${i % 2 ? "bg-bg2/40" : ""} cursor-pointer hover:bg-gold/5`}
+                >
                   <td className="px-5 py-3 font-mono text-text2">#{r.record_num}</td>
                   <td className="px-5 py-3">
-                    <Link to="/clientes/$id" params={{ id: r.id }} className="font-semibold text-navy hover:text-gold">
+                    <Link
+                      to="/ficha"
+                      search={{ cliente: r.id }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-semibold text-navy hover:text-gold"
+                    >
                       {r.name}
                     </Link>
                   </td>
@@ -153,6 +222,7 @@ function ClientsPage() {
                           href={whatsappUrl(r.phone)}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="p-1.5 rounded-md hover:bg-success/10 text-success"
                           title="WhatsApp"
                         >
@@ -160,11 +230,19 @@ function ClientsPage() {
                         </a>
                       )}
                       <button
-                        onClick={() => toggleActive(r)}
+                        onClick={(e) => { e.stopPropagation(); toggleActive(r); }}
                         className="p-1.5 rounded-md hover:bg-bg2 text-text2"
                         title={r.active ? "Inativar" : "Reativar"}
                       >
                         {r.active ? <IconUserOff size={16} /> : <IconUserCheck size={16} />}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteClient(r); }}
+                        disabled={deleteMutation.isPending}
+                        className="p-1.5 rounded-md hover:bg-danger/10 text-danger disabled:opacity-40"
+                        title="Excluir cliente"
+                      >
+                        <IconTrash size={16} />
                       </button>
                     </div>
                   </td>
@@ -181,7 +259,7 @@ function ClientsPage() {
           onCreated={(id) => {
             setOpenNew(false);
             invalidate();
-            navigate({ to: "/clientes/$id", params: { id } });
+            navigate({ to: "/ficha", search: { cliente: id } });
           }}
         />
       )}
@@ -192,7 +270,7 @@ function ClientsPage() {
           onCreated={(id) => {
             setOpenScan(false);
             invalidate();
-            navigate({ to: "/clientes/$id", params: { id } });
+            navigate({ to: "/ficha", search: { cliente: id } });
           }}
         />
       )}
