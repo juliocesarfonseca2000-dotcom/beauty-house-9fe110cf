@@ -32,7 +32,7 @@ export function ClientFormModal({
     let active = true;
     supabase
       .from("app_users")
-      .select("id,name")
+      .select("id,name,is_evaluator")
       .eq("active", true)
       .or("role.eq.admin,is_evaluator.eq.true")
       .order("name")
