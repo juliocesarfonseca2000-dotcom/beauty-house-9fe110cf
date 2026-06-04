@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useState } from "react";
-import { IconPlus, IconEdit, IconArchive, IconArchiveOff, IconX } from "@tabler/icons-react";
+import { IconPlus, IconEdit, IconArchive, IconArchiveOff, IconX, IconTrash } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -23,7 +23,7 @@ type Proc = {
 function ProceduresPage() {
   const [rows, setRows] = useState<Proc[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"active" | "all">("active");
+  const [filter, setFilter] = useState<"active" | "inactive" | "all">("active");
   const [edit, setEdit] = useState<Proc | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -43,13 +43,33 @@ function ProceduresPage() {
     load();
   };
 
-  const visible = rows.filter((r) => filter === "all" || r.active);
+  const removeProc = async (p: Proc) => {
+    // bloqueia se houver sessão vinculada
+    const { count } = await supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .in("package_id", (await supabase.from("packages").select("id").eq("procedure_id", p.id)).data?.map((x) => x.id) ?? []);
+    if ((count ?? 0) > 0) {
+      toast.error(`Existem sessões vinculadas. Você só pode inativar este procedimento.`);
+      return;
+    }
+    if (!confirm(`Deseja excluir o procedimento "${p.name}"? Esta ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("procedures").delete().eq("id", p.id);
+    if (error) return toast.error(error.message);
+    toast.success("Procedimento excluído");
+    load();
+  };
+
+  const visible = rows.filter((r) =>
+    filter === "all" ? true : filter === "active" ? r.active : !r.active,
+  );
+
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex bg-bg2 rounded-lg p-1 text-sm">
-          {(["active", "all"] as const).map((f) => (
+          {(["active", "inactive", "all"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -57,10 +77,11 @@ function ProceduresPage() {
                 filter === f ? "bg-navy text-white" : "text-text2 hover:text-navy"
               }`}
             >
-              {f === "active" ? "Ativos" : "Todos"}
+              {f === "active" ? "Ativos" : f === "inactive" ? "Inativos" : "Todos"}
             </button>
           ))}
         </div>
+
         <button
           onClick={() => setCreating(true)}
           className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
@@ -109,7 +130,11 @@ function ProceduresPage() {
                     <button onClick={() => toggleActive(p)} className="p-1.5 rounded-md hover:bg-bg2 text-text2" title={p.active ? "Inativar" : "Reativar"}>
                       {p.active ? <IconArchive size={16} /> : <IconArchiveOff size={16} />}
                     </button>
+                    <button onClick={() => removeProc(p)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger" title="Excluir">
+                      <IconTrash size={16} />
+                    </button>
                   </td>
+
                 </tr>
               ))}
             </tbody>

@@ -2,11 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { IconPlus, IconEdit, IconTrash, IconX, IconUserCheck, IconUserOff } from "@tabler/icons-react";
+import { IconPlus, IconEdit, IconTrash, IconX, IconSettings } from "@tabler/icons-react";
 import { supabase, type AppUser, type Permissions } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { createAppUser, updateAppUser, deleteAppUser } from "@/lib/users.functions";
+import { EvaluatorBadge } from "@/components/ui/evaluator-badge";
+import { SystemSettingsModal } from "@/components/system/SystemSettingsModal";
+
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   component: UsersPage,
@@ -46,6 +49,8 @@ function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState<AppUser | null>(null);
   const [creating, setCreating] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
 
   if (me?.role !== "admin") {
     return <div className="bh-card p-12 text-center text-text3">Apenas administradores podem gerenciar usuários.</div>;
@@ -62,11 +67,19 @@ function UsersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2 items-center">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="p-2 rounded-md text-text3 hover:text-navy hover:bg-bg2"
+          title="Configurações do sistema"
+        >
+          <IconSettings size={16} />
+        </button>
         <button onClick={() => setCreating(true)} className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2">
           <IconPlus size={18} /> Novo usuário
         </button>
       </div>
+
 
       <div className="bh-card overflow-x-auto">
         {loading ? (
@@ -86,7 +99,13 @@ function UsersPage() {
             <tbody>
               {rows.map((u, i) => (
                 <tr key={u.id} className={i % 2 ? "bg-bg2/40" : ""}>
-                  <td className="px-4 py-3 font-semibold text-navy">{u.name}</td>
+                  <td className="px-4 py-3 font-semibold text-navy">
+                    <span className="inline-flex items-center gap-2">
+                      {u.name}
+                      {u.is_evaluator && <EvaluatorBadge />}
+                    </span>
+                  </td>
+
                   <td className="px-4 py-3 text-text2">{u.email}</td>
                   <td className="px-4 py-3 text-text2">{u.cargo ?? "—"}</td>
                   <td className="px-4 py-3"><span className="bh-badge bg-navy/10 text-navy">{u.role}</span></td>
@@ -114,9 +133,11 @@ function UsersPage() {
           onSaved={() => { setEdit(null); setCreating(false); load(); }}
         />
       )}
+      {settingsOpen && <SystemSettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }
+
 
 function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onClose: () => void; onSaved: () => void }) {
   const { user: me } = useAuth();
