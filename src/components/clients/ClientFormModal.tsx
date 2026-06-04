@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
 
-type Evaluator = { id: string; name: string };
+type Evaluator = { id: string; name: string; is_evaluator?: boolean };
 
 export function ClientFormModal({
   onClose,
