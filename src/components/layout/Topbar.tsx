@@ -1,4 +1,5 @@
-import { IconBell, IconAlertTriangle, IconPackage, IconMenu2 } from "@tabler/icons-react";
+import { IconAlertTriangle, IconPackage, IconMenu2 } from "@tabler/icons-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function Topbar({ title, onMenuClick }: { title?: string; onMenuClick?: () => void }) {
   return (
@@ -22,10 +23,9 @@ export function Topbar({ title, onMenuClick }: { title?: string; onMenuClick?: (
         <button className="p-2 rounded-md hover:bg-bg2 text-gold" title="Pacotes acabando">
           <IconPackage size={18} />
         </button>
-        <button className="p-2 rounded-md hover:bg-bg2 text-text2" title="Notificações">
-          <IconBell size={18} />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   );
 }
+

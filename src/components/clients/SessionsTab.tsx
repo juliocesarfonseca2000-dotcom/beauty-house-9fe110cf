@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconX } from "@tabler/icons-react";
+import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
@@ -12,6 +13,9 @@ type Package = {
   procedure_id: string;
   sess_total: number;
   sess_done: number;
+  is_bonus: boolean | null;
+  bonus_validated: boolean | null;
+  bonus_validated_at: string | null;
   procedures: { name: string } | null;
 };
 type Session = {
@@ -19,15 +23,20 @@ type Session = {
   package_id: string;
   session_num: number;
   status: "pending" | "done" | "missed";
+  session_status: string | null;
   done_at: string | null;
   signature_url: string | null;
+  signature_data: string | null;
   notes: string | null;
 };
 type Professional = { id: string; name: string };
 
 export function SessionsTab({ clientId }: { clientId: string }) {
+  const [choosing, setChoosing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
+  const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [viewSig, setViewSig] = useState<string | null>(null);
+  const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
   const queryClient = useQueryClient();
 
   const { data = { packages: [], sessions: [] }, isLoading, refetch } = useQuery({
@@ -35,7 +44,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     queryFn: async () => {
       const { data: pkgs, error: pkgError } = await withTimeout(supabase
         .from("packages")
-        .select("id,procedure_id,sess_total,sess_done,procedures(name)")
+        .select("id,procedure_id,sess_total,sess_done,is_bonus,bonus_validated,bonus_validated_at,procedures(name)")
         .eq("client_id", clientId)
         .eq("status", "active")
         .order("created_at"), 10000, "Carregamento dos pacotes");
@@ -45,7 +54,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       const ids = list.map((p) => p.id);
       const { data: sess, error: sessError } = await withTimeout(supabase
           .from("sessions")
-          .select("id,package_id,session_num,status,done_at,signature_url,notes")
+          .select("id,package_id,session_num,status,session_status,done_at,signature_url,signature_data,notes")
           .in("package_id", ids)
           .order("session_num"), 10000, "Carregamento das sessões");
       if (sessError) throw sessError;
@@ -67,14 +76,41 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       {packages.map((pkg) => {
         const pkgSess = sessions.filter((s) => s.package_id === pkg.id).sort((a, b) => a.session_num - b.session_num);
         const done = pkgSess.filter((s) => s.status === "done").length;
+        const remaining = pkgSess.length - done;
         const nextIdx = pkgSess.findIndex((s) => s.status === "pending");
+        const lowAlert = remaining <= 2 && remaining > 0;
+        const isBonus = !!pkg.is_bonus;
+        const validated = !!pkg.bonus_validated;
         return (
           <div key={pkg.id} className="bh-card p-5">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
-                <div className="font-display text-lg text-navy">{pkg.procedures?.name}</div>
+                <div className="font-display text-lg text-navy flex items-center gap-2">
+                  {pkg.procedures?.name}
+                  {isBonus && !validated && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gold/20 text-gold">
+                      <IconGift size={10} className="inline mr-1" /> Bônus pendente
+                    </span>
+                  )}
+                  {isBonus && validated && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-success/15 text-success">
+                      ✓ Bônus validado
+                    </span>
+                  )}
+                </div>
                 <div className="text-text2 text-sm">{done} de {pkgSess.length} realizadas</div>
+                {lowAlert && (
+                  <div className="text-xs text-danger font-semibold mt-1">⚠️ {remaining} sessão(ões) restante(s)</div>
+                )}
               </div>
+              {isBonus && !validated && (
+                <button
+                  onClick={() => setValidatingBonus(pkg)}
+                  className="px-3 py-1.5 rounded-lg bg-gold text-white text-xs font-semibold hover:bg-gold2"
+                >
+                  ✓ Validar bônus
+                </button>
+              )}
             </div>
             <div className="w-full h-2 bg-bg2 rounded-full overflow-hidden mb-4">
               <div className="h-full bg-gold transition-all" style={{ width: `${(done / Math.max(pkgSess.length, 1)) * 100}%` }} />
@@ -82,9 +118,12 @@ export function SessionsTab({ clientId }: { clientId: string }) {
             <div className="flex flex-wrap gap-2">
               {pkgSess.map((s, i) => {
                 const isNext = i === nextIdx;
+                const isMissedJ = s.session_status === "missed_justified";
                 const cls =
                   s.status === "done"
                     ? "bg-success text-white"
+                    : isMissedJ
+                    ? "bg-text3 text-white"
                     : s.status === "missed"
                     ? "bg-danger text-white"
                     : isNext
@@ -95,14 +134,26 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                     key={s.id}
                     disabled={!isNext && s.status === "pending"}
                     onClick={() => {
-                      if (s.status === "done" && s.signature_url) setViewSig(s.signature_url);
-                      else if (isNext) setSigning({ pkg, session: s });
+                      if (s.status === "done" && (s.signature_data || s.signature_url)) {
+                        setViewSig(s.signature_data || s.signature_url);
+                      } else if (isNext) {
+                        setChoosing({ pkg, session: s });
+                      }
                     }}
                     className={`relative w-11 h-11 rounded-md text-sm font-semibold ${cls} transition`}
+                    title={
+                      s.status === "done" ? "Realizada" :
+                      isMissedJ ? "Falta justificada" :
+                      s.status === "missed" ? "Falta não justificada" :
+                      isNext ? "Próxima sessão" : "Aguardando"
+                    }
                   >
                     {s.session_num}
-                    {s.status === "done" && s.signature_url && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-gold rounded-full border-2 border-white" />
+                    {s.status === "done" && (s.signature_data || s.signature_url) && (
+                      <IconLock size={9} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-px" />
+                    )}
+                    {(s.status === "missed" || isMissedJ) && (
+                      <span className="absolute inset-0 flex items-center justify-center text-white text-lg">✗</span>
                     )}
                   </button>
                 );
@@ -112,6 +163,14 @@ export function SessionsTab({ clientId }: { clientId: string }) {
         );
       })}
 
+      {choosing && (
+        <ChoiceModal
+          session={choosing.session}
+          onClose={() => setChoosing(null)}
+          onConfirm={() => { const c = choosing; setChoosing(null); setSigning(c); }}
+          onMiss={() => { const c = choosing; setChoosing(null); setMissing(c); }}
+        />
+      )}
       {signing && (
         <SignSessionModal
           clientId={clientId}
@@ -121,6 +180,22 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           onSaved={() => { setSigning(null); reload(); }}
         />
       )}
+      {missing && (
+        <MissModal
+          pkg={missing.pkg}
+          session={missing.session}
+          clientId={clientId}
+          onClose={() => setMissing(null)}
+          onSaved={() => { setMissing(null); reload(); }}
+        />
+      )}
+      {validatingBonus && (
+        <ValidateBonusModal
+          pkg={validatingBonus}
+          onClose={() => setValidatingBonus(null)}
+          onSaved={() => { setValidatingBonus(null); reload(); }}
+        />
+      )}
       {viewSig && (
         <div className="fixed inset-0 z-50 bg-navy/70 flex items-center justify-center p-4" onClick={() => setViewSig(null)}>
           <div className="bh-card p-4 max-w-2xl">
@@ -128,6 +203,138 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ChoiceModal({ session, onClose, onConfirm, onMiss }: {
+  session: Session; onClose: () => void; onConfirm: () => void; onMiss: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-2xl text-navy">Sessão #{session.session_num}</div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-2">
+          <div className="text-sm text-text2 mb-3">O que você quer fazer com esta sessão?</div>
+          <button onClick={onConfirm} className="w-full px-4 py-3 rounded-lg bg-success text-white font-semibold flex items-center gap-2 hover:bg-success/90">
+            <IconCheck size={18} /> Confirmar presença
+          </button>
+          <button onClick={onMiss} className="w-full px-4 py-3 rounded-lg border-2 border-danger text-danger font-semibold flex items-center gap-2 hover:bg-danger/10">
+            <IconUserOff size={18} /> Registrar falta
+          </button>
+          <button onClick={onClose} className="w-full px-4 py-3 rounded-lg border border-border text-text2 font-semibold flex items-center gap-2 hover:bg-bg2">
+            <IconCalendarOff size={18} /> Reagendar (não fazer nada)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MissModal({ pkg, session, clientId, onClose, onSaved }: {
+  pkg: Package; session: Session; clientId: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const save = async (justified: boolean) => {
+    setBusy(true);
+    try {
+      await withTimeout(supabase.from("sessions").update({
+        status: "missed",
+        session_status: justified ? "missed_justified" : "missed_unjustified",
+        done_at: new Date().toISOString(),
+      }).eq("id", session.id), 12000, "Registro da falta");
+      if (!justified) {
+        // injustificada gera slot novo no final
+        const newNum = pkg.sess_total + 1;
+        await withTimeout(supabase.from("sessions").insert({
+          package_id: pkg.id, client_id: clientId, session_num: newNum, status: "pending", session_status: "pending",
+        }), 12000, "Novo slot");
+        await withTimeout(supabase.from("packages").update({ sess_total: newNum }).eq("id", pkg.id), 12000, "Atualização do pacote");
+        toast.success("Falta não justificada — slot extra adicionado");
+      } else {
+        toast.success("Falta justificada registrada");
+      }
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-2xl text-navy">A falta foi justificada?</div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          <div className="text-sm text-text2">
+            <span className="text-success font-semibold">Justificada</span>: a sessão é marcada como falta, mas o pacote não ganha sessão extra.<br />
+            <span className="text-danger font-semibold">Não justificada</span>: a sessão é perdida e o sistema adiciona +1 slot ao final.
+          </div>
+          <button onClick={() => save(true)} disabled={busy} className="w-full px-4 py-3 rounded-lg bg-success text-white font-semibold hover:bg-success/90 disabled:opacity-50">
+            ✓ Justificada
+          </button>
+          <button onClick={() => save(false)} disabled={busy} className="w-full px-4 py-3 rounded-lg bg-danger text-white font-semibold hover:bg-danger/90 disabled:opacity-50">
+            ✗ Não justificada (gera slot extra)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ValidateBonusModal({ pkg, onClose, onSaved }: { pkg: Package; onClose: () => void; onSaved: () => void }) {
+  const { user } = useAuth();
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("packages").update({
+        bonus_validated: true,
+        bonus_validated_at: new Date().toISOString(),
+        bonus_validated_by: user?.id ?? null,
+      }).eq("id", pkg.id);
+      if (error) throw error;
+      toast.success("Bônus validado");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-2xl text-navy">Validar bônus</div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          <div className="text-sm text-text2">
+            Procedimento: <span className="font-semibold text-navy">{pkg.procedures?.name}</span><br />
+            Sessões: <span className="font-semibold text-navy">{pkg.sess_total}</span>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Observação (opcional)</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button onClick={save} disabled={busy} className="px-5 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 disabled:opacity-50">
+              {busy ? "Salvando..." : "Confirmar validação"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -156,6 +363,8 @@ function SignSessionModal({
     return () => { active = false; };
   }, []);
 
+  const clear = () => { sigRef.current?.clear(); setHasInk(false); };
+
   const confirm = async () => {
     if (!hasInk || sigRef.current?.isEmpty()) {
       toast.error("A cliente precisa assinar antes de confirmar.");
@@ -164,16 +373,12 @@ function SignSessionModal({
     setBusy(true);
     try {
       const dataUrl = sigRef.current!.getCanvas().toDataURL("image/png");
-      const blob = await (await fetch(dataUrl)).blob();
-      const path = `${clientId}/${session.id}.png`;
-      const { error: upErr } = await withTimeout(supabase.storage.from("signatures").upload(path, blob, { upsert: true, contentType: "image/png" }), 12000, "Upload da assinatura");
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("signatures").getPublicUrl(path);
       const { error } = await withTimeout(supabase.from("sessions").update({
         status: "done",
+        session_status: "confirmed",
         done_at: new Date().toISOString(),
         professional_id: proId || null,
-        signature_url: pub.publicUrl,
+        signature_data: dataUrl,
         notes: notes || null,
       }).eq("id", session.id), 12000, "Confirmação da sessão");
       if (error) throw error;
@@ -187,32 +392,11 @@ function SignSessionModal({
     }
   };
 
-  const markMissed = async () => {
-    if (!window.confirm("Marcar como falta? A sessão não será descontada — um novo slot será adicionado ao final do pacote.")) return;
-    setBusy(true);
-    try {
-      // marca falta
-      await withTimeout(supabase.from("sessions").update({ status: "missed", done_at: new Date().toISOString() }).eq("id", session.id), 12000, "Registro da falta");
-      // adiciona slot novo ao final
-      const newNum = pkg.sess_total + 1;
-      await withTimeout(supabase.from("sessions").insert({
-        package_id: pkg.id, client_id: clientId, session_num: newNum, status: "pending",
-      }), 12000, "Novo slot da sessão");
-      await withTimeout(supabase.from("packages").update({ sess_total: newNum }).eq("id", pkg.id), 12000, "Atualização do pacote");
-      toast.success("Falta registrada. Slot extra adicionado.");
-      onSaved();
-    } catch (e) {
-      toast.error("Erro ao registrar falta");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div className="font-display text-2xl text-navy">Sessão #{session.session_num}</div>
+          <div className="font-display text-2xl text-navy">Sessão #{session.session_num} · Confirmar presença</div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
@@ -229,11 +413,11 @@ function SignSessionModal({
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Assinatura da cliente</label>
-            <div className="border-2 border-dashed border-gold/40 rounded-lg bg-bg2 relative">
+            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Assinatura da cliente (400×200)</label>
+            <div className="border-2 border-dashed border-gold/40 rounded-lg bg-bg2 relative" style={{ minHeight: 200 }}>
               <SignatureCanvas
                 ref={sigRef}
-                canvasProps={{ className: "w-full h-40 rounded-lg" }}
+                canvasProps={{ className: "w-full rounded-lg", style: { height: 200, touchAction: "none" } }}
                 onBegin={() => setHasInk(true)}
                 penColor="#12283F"
               />
@@ -243,20 +427,17 @@ function SignSessionModal({
                 </div>
               )}
             </div>
-            <button onClick={() => { sigRef.current?.clear(); setHasInk(false); }} className="text-xs text-text2 hover:text-navy mt-2">Limpar</button>
+            <button onClick={clear} className="text-xs text-text2 hover:text-navy mt-2 underline">Limpar</button>
           </div>
-          <div className="flex justify-between gap-2 pt-2">
-            <button onClick={markMissed} disabled={busy} className="px-4 py-2 rounded-lg border border-danger text-danger text-sm font-semibold hover:bg-danger/10">Marcar falta</button>
-            <div className="flex gap-2">
-              <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
-              <button
-                onClick={confirm}
-                disabled={!hasInk || busy}
-                className="px-5 py-2 rounded-lg bg-success text-white font-semibold disabled:opacity-40"
-              >
-                {busy ? "Salvando..." : "Confirmar presença"}
-              </button>
-            </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button
+              onClick={confirm}
+              disabled={!hasInk || busy}
+              className="px-5 py-2 rounded-lg bg-success text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {busy ? "Salvando..." : "Confirmar assinatura"}
+            </button>
           </div>
         </div>
       </div>
