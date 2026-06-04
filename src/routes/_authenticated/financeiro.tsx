@@ -8,9 +8,11 @@ import {
   IconReceipt2,
   IconChartPie,
   IconCalendar,
+  IconFileDownload,
 } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { exportFinanceiroPdf } from "@/lib/pdf-export";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   component: FinanceiroPage,
@@ -721,6 +723,24 @@ function FechamentoTab() {
         )}
         <div className="flex-1" />
         {loading && <span className="text-xs text-text3">Carregando…</span>}
+        <button
+          onClick={() => {
+            const fromLabel = mode === "day" ? day : `${month}-01`;
+            const toLabel = mode === "day"
+              ? day
+              : (() => { const [y, m] = month.split("-").map(Number); return new Date(y, m, 0).toISOString().slice(0, 10); })();
+            exportFinanceiroPdf({
+              fromLabel, toLabel,
+              includeIncome: true, includeExpenses: true, includeResult: true,
+              incomes: income.map((i) => ({ date: i.date, description: i.description, pay_method: i.pay_method, amount: Number(i.amount ?? 0) })),
+              expenses: expenses.map((e) => ({ date: e.date, category: e.category ?? null, description: e.description ?? null, amount: Number(e.amount ?? 0) })),
+            });
+          }}
+          className="bh-btn bh-btn-primary"
+          title="Exportar PDF do fechamento"
+        >
+          <IconFileDownload size={16} /> Exportar PDF
+        </button>
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">

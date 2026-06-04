@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { withTimeout } from "@/lib/with-timeout";
 
-type Evaluator = { id: string; name: string };
+type Evaluator = { id: string; name: string; is_evaluator?: boolean };
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -34,7 +34,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data } = await withTimeout(supabase.from("app_users").select("id,name")
+      const { data } = await withTimeout(supabase.from("app_users").select("id,name,is_evaluator")
         .eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras");
       if (active) setEvaluators((data as Evaluator[]) ?? []);
     })();
@@ -139,7 +139,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
               <Field label="Avaliadora">
                 <select value={form.evaluatorId} onChange={(e) => setForm({ ...form, evaluatorId: e.target.value })} className={inp}>
                   <option value="">Selecionar...</option>
-                  {evaluators.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                  {evaluators.map((ev) => <option key={ev.id} value={ev.id}>{ev.is_evaluator ? "★ " : ""}{ev.name}</option>)}
                 </select>
               </Field>
             </div>

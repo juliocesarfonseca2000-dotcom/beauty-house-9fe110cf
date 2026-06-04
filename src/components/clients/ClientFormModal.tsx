@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
 
-type Evaluator = { id: string; name: string };
+type Evaluator = { id: string; name: string; is_evaluator?: boolean };
 
 export function ClientFormModal({
   onClose,
@@ -32,7 +32,7 @@ export function ClientFormModal({
     let active = true;
     supabase
       .from("app_users")
-      .select("id,name")
+      .select("id,name,is_evaluator")
       .eq("active", true)
       .or("role.eq.admin,is_evaluator.eq.true")
       .order("name")
@@ -179,7 +179,7 @@ export function ClientFormModal({
           <Field label="Avaliadora">
             <select value={evaluatorId} onChange={(e) => setEvaluatorId(e.target.value)} className={input}>
               <option value="">Selecionar...</option>
-              {evaluators.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              {evaluators.map((e) => <option key={e.id} value={e.id}>{e.is_evaluator ? "★ " : ""}{e.name}</option>)}
             </select>
           </Field>
 
