@@ -63,7 +63,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
     <aside className="flex w-[220px] shrink-0 flex-col bg-navy text-silver h-screen sticky top-0">
       <div className="px-5 py-6 border-b border-white/10">
         <div className="font-display text-2xl text-white leading-tight">Beauty House</div>
-        <div className="text-[11px] uppercase tracking-widest text-gold mt-1">Estética</div>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">

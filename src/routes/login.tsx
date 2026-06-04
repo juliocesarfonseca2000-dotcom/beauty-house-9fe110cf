@@ -39,7 +39,6 @@ function LoginPage() {
       <div className="w-full max-w-md bh-card p-8">
         <div className="text-center mb-8">
           <div className="font-display text-3xl text-navy">Beauty House</div>
-          <div className="text-[11px] uppercase tracking-[0.3em] text-gold mt-1">Estética</div>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
