@@ -44,12 +44,17 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     queryFn: async () => {
       const { data: pkgs, error: pkgError } = await withTimeout(supabase
         .from("packages")
-        .select("id,procedure_id,sess_total,sess_done,is_bonus,bonus_validated,bonus_validated_at,procedures(name)")
+        .select("*,procedures(name)")
         .eq("client_id", clientId)
         .eq("status", "active")
         .order("created_at"), 10000, "Carregamento dos pacotes");
       if (pkgError) throw pkgError;
-      const list = (pkgs as unknown as Package[]) ?? [];
+      const list = ((pkgs as unknown as Package[]) ?? []).map((p) => ({
+        ...p,
+        is_bonus: p.is_bonus ?? false,
+        bonus_validated: p.bonus_validated ?? false,
+        bonus_validated_at: p.bonus_validated_at ?? null,
+      }));
       if (!list.length) return { packages: list, sessions: [] };
       const ids = list.map((p) => p.id);
       const { data: sess, error: sessError } = await withTimeout(supabase
