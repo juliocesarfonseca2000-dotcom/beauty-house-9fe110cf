@@ -139,7 +139,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
               <Field label="Avaliadora">
                 <select value={form.evaluatorId} onChange={(e) => setForm({ ...form, evaluatorId: e.target.value })} className={inp}>
                   <option value="">Selecionar...</option>
-                  {evaluators.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                  {evaluators.map((ev) => <option key={ev.id} value={ev.id}>{ev.is_evaluator ? "★ " : ""}{ev.name}</option>)}
                 </select>
               </Field>
             </div>
