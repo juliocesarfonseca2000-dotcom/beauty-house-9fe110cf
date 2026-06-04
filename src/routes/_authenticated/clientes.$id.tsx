@@ -161,7 +161,7 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
   });
   useEffect(() => {
     let active = true;
-    withTimeout(supabase.from("app_users").select("id,name").eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras").then(({ data }) => {
+    withTimeout(supabase.from("app_users").select("id,name,is_evaluator").eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras").then(({ data }) => {
       if (active) setEvaluators((data as Evaluator[]) ?? []);
     }).catch(() => undefined);
     return () => { active = false; };
