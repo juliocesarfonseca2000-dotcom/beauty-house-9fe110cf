@@ -47,8 +47,7 @@ export function exportFinanceiroPdf(opts: {
       footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: "bold" },
       styles: { fontSize: 9 },
     });
-    // @ts-expect-error lastAutoTable
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
   }
 
   if (includeExpenses) {
@@ -70,8 +69,7 @@ export function exportFinanceiroPdf(opts: {
       footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: "bold" },
       styles: { fontSize: 9 },
     });
-    // @ts-expect-error lastAutoTable
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
   }
 
   if (includeResult) {
