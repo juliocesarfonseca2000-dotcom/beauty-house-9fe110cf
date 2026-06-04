@@ -8,9 +8,11 @@ import {
   IconReceipt2,
   IconChartPie,
   IconCalendar,
+  IconFileDownload,
 } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { exportFinanceiroPdf } from "@/lib/pdf-export";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   component: FinanceiroPage,
