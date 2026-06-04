@@ -200,7 +200,7 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
         <RO label="Nascimento" v={f.birthdate} edit={edit} type="date" onChange={(v) => setF({ ...f, birthdate: v })} />
         <RO label="CPF" v={f.cpf} edit={edit} onChange={(v) => setF({ ...f, cpf: v })} />
         <SelectRO label="Como conheceu" value={f.referral} edit={edit} options={["Indicação", "Instagram", "Google", "Outro"]} onChange={(v) => setF({ ...f, referral: v })} />
-        <SelectRO label="Avaliadora" value={f.evaluator_id} edit={edit} options={evaluators.map((e) => ({ value: e.id, label: e.name }))} onChange={(v) => setF({ ...f, evaluator_id: v })} display={evaluators.find((e) => e.id === f.evaluator_id)?.name} />
+        <SelectRO label="Avaliadora" value={f.evaluator_id} edit={edit} options={evaluators.map((e) => ({ value: e.id, label: `${e.is_evaluator ? "★ " : ""}${e.name}` }))} onChange={(v) => setF({ ...f, evaluator_id: v })} display={evaluators.find((e) => e.id === f.evaluator_id)?.name} />
       </Grid>
       <div>
         <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Observações</label>
