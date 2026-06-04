@@ -34,7 +34,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data } = await withTimeout(supabase.from("app_users").select("id,name")
+      const { data } = await withTimeout(supabase.from("app_users").select("id,name,is_evaluator")
         .eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras");
       if (active) setEvaluators((data as Evaluator[]) ?? []);
     })();
