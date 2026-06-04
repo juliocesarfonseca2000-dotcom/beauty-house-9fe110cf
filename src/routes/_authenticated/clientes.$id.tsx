@@ -6,9 +6,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
+import { EvaluatorStar } from "@/components/ui/evaluator-badge";
 
 const SessionsTab = lazy(() => import("@/components/clients/SessionsTab").then((m) => ({ default: m.SessionsTab })));
 const PhotosTab = lazy(() => import("@/components/clients/PhotosTab").then((m) => ({ default: m.PhotosTab })));
+const ProntuarioTab = lazy(() => import("@/components/clients/ProntuarioTab").then((m) => ({ default: m.ProntuarioTab })));
+const AnamneseTab = lazy(() => import("@/components/clients/AnamneseTab").then((m) => ({ default: m.AnamneseTab })));
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
   component: ClientDetailPage,
@@ -31,8 +34,8 @@ type Client = {
   created_at: string;
 };
 
-type Tab = "dados" | "prontuario" | "sessoes" | "fotos" | "historico";
-type Evaluator = { id: string; name: string };
+type Tab = "dados" | "anamnese" | "prontuario" | "sessoes" | "fotos" | "historico";
+type Evaluator = { id: string; name: string; is_evaluator?: boolean };
 
 function ClientDetailPage() {
   const { id } = Route.useParams();
@@ -54,6 +57,15 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
       );
       if (error) throw error;
       return data as Client | null;
+    },
+  });
+
+  const { data: evaluator } = useQuery({
+    queryKey: ["client-evaluator", client?.evaluator_id],
+    enabled: !!client?.evaluator_id,
+    queryFn: async () => {
+      const { data } = await supabase.from("app_users").select("id,name").eq("id", client!.evaluator_id!).maybeSingle();
+      return data as { id: string; name: string } | null;
     },
   });
 
@@ -80,6 +92,11 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
         </div>
         <div className="flex-1">
           <div className="font-display text-2xl text-navy">{client.name}</div>
+          {evaluator && (
+            <div className="text-[12px] italic text-text2 mt-0.5">
+              Avaliadora: <EvaluatorStar /> {evaluator.name}
+            </div>
+          )}
           <div className="text-text2 text-sm">
             Ficha #{client.record_num} · {client.phone ?? "sem telefone"} ·
             Desde {new Date(client.created_at).toLocaleDateString("pt-BR")}
@@ -90,6 +107,7 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
       <div className="flex flex-wrap gap-1 border-b border-border">
         {([
           ["dados", "Dados"],
+          ["anamnese", "Anamnese"],
           ["prontuario", "Prontuário"],
           ["sessoes", "Sessões"],
           ["fotos", "Fotos"],
@@ -108,7 +126,16 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
       </div>
 
       {tab === "dados" && <DadosTab client={client} onSaved={reloadClient} />}
-      {tab === "prontuario" && <ProntuarioTab client={client} onSaved={reloadClient} />}
+      {tab === "anamnese" && (
+        <Suspense fallback={<TableSkeleton rows={3} cols={1} />}>
+          <AnamneseTab clientId={client.id} />
+        </Suspense>
+      )}
+      {tab === "prontuario" && (
+        <Suspense fallback={<TableSkeleton rows={3} cols={2} />}>
+          <ProntuarioTab clientId={client.id} />
+        </Suspense>
+      )}
       {tab === "sessoes" && (
         <Suspense fallback={<TableSkeleton rows={4} cols={6} />}>
           <SessionsTab clientId={client.id} />
@@ -123,6 +150,7 @@ export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; 
     </div>
   );
 }
+
 
 function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) {
   const [edit, setEdit] = useState(false);
