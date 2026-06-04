@@ -179,7 +179,7 @@ export function ClientFormModal({
           <Field label="Avaliadora">
             <select value={evaluatorId} onChange={(e) => setEvaluatorId(e.target.value)} className={input}>
               <option value="">Selecionar...</option>
-              {evaluators.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              {evaluators.map((e) => <option key={e.id} value={e.id}>{e.is_evaluator ? "★ " : ""}{e.name}</option>)}
             </select>
           </Field>
 
