@@ -27,8 +27,8 @@ type Appt = {
   procedures: { name: string } | null;
 };
 
-const START_HOUR = 8;
-const END_HOUR = 18;
+const START_HOUR = 7;
+const END_HOUR = 21;
 const SLOT_MIN = 30;
 const SLOT_PX = 32; // height per 30min slot
 const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;

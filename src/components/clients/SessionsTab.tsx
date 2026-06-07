@@ -8,6 +8,37 @@ import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
 
+// Cria notificação no sino quando pacote tem ≤2 sessões restantes. Evita duplicar
+// procurando notificações não lidas cujo action_url já referencie o package_id.
+async function notifyLowPackage(opts: {
+  packageId: string;
+  clientId: string;
+  clientName: string;
+  procedureName: string;
+  remaining: number;
+}) {
+  if (opts.remaining > 2 || opts.remaining <= 0) return;
+  const tag = `pkg=${opts.packageId}`;
+  const actionUrl = `/clientes/${opts.clientId}?${tag}`;
+  const { data: existing } = await supabase
+    .from("notifications")
+    .select("id")
+    .eq("type", "package_low")
+    .eq("is_read", false)
+    .ilike("action_url", `%${tag}%`)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+  await supabase.from("notifications").insert({
+    type: "package_low",
+    target_roles: ["admin", "receptionist"],
+    title: "Pacote vencendo",
+    body: `⚠️ ${opts.clientName} — pacote de ${opts.procedureName} com apenas ${opts.remaining} sessão(ões) restante(s)`,
+    action_url: actionUrl,
+  });
+}
+
+
+
 type Package = {
   id: string;
   procedure_id: string;
@@ -71,6 +102,31 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     queryClient.invalidateQueries({ queryKey: ["client-sessions", clientId] });
     refetch();
   };
+
+  // Ao carregar pacotes, gera notificação para os que estão com ≤2 sessões restantes
+  useEffect(() => {
+    if (!packages.length) return;
+    (async () => {
+      const { data: cli } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
+      const clientName = (cli as { name?: string } | null)?.name ?? "Cliente";
+      for (const pkg of packages) {
+        const pkgSess = sessions.filter((s) => s.package_id === pkg.id);
+        const done = pkgSess.filter((s) => s.status === "done").length;
+        const remaining = pkgSess.length - done;
+        if (remaining > 0 && remaining <= 2) {
+          await notifyLowPackage({
+            packageId: pkg.id,
+            clientId,
+            clientName,
+            procedureName: pkg.procedures?.name ?? "Procedimento",
+            remaining,
+          });
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages.length, sessions.length]);
+
 
   if (isLoading) return <TableSkeleton rows={4} cols={6} />;
   if (packages.length === 0)
