@@ -103,6 +103,31 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     refetch();
   };
 
+  // Ao carregar pacotes, gera notificação para os que estão com ≤2 sessões restantes
+  useEffect(() => {
+    if (!packages.length) return;
+    (async () => {
+      const { data: cli } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
+      const clientName = (cli as { name?: string } | null)?.name ?? "Cliente";
+      for (const pkg of packages) {
+        const pkgSess = sessions.filter((s) => s.package_id === pkg.id);
+        const done = pkgSess.filter((s) => s.status === "done").length;
+        const remaining = pkgSess.length - done;
+        if (remaining > 0 && remaining <= 2) {
+          await notifyLowPackage({
+            packageId: pkg.id,
+            clientId,
+            clientName,
+            procedureName: pkg.procedures?.name ?? "Procedimento",
+            remaining,
+          });
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages.length, sessions.length]);
+
+
   if (isLoading) return <TableSkeleton rows={4} cols={6} />;
   if (packages.length === 0)
     return <div className="bh-card p-12 text-center"><div className="font-display text-xl text-navy mb-1">Nenhum pacote ativo</div><div className="text-text3 text-sm">Use "Fechar pacote" para começar.</div></div>;
