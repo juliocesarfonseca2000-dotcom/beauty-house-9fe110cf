@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
 
-// Cria notificação no sino quando pacote tem ≤2 sessões restantes. Evita duplicar.
+// Cria notificação no sino quando pacote tem ≤2 sessões restantes. Evita duplicar
+// procurando notificações não lidas cujo action_url já referencie o package_id.
 async function notifyLowPackage(opts: {
   packageId: string;
   clientId: string;
@@ -17,12 +18,14 @@ async function notifyLowPackage(opts: {
   remaining: number;
 }) {
   if (opts.remaining > 2 || opts.remaining <= 0) return;
+  const tag = `pkg=${opts.packageId}`;
+  const actionUrl = `/clientes/${opts.clientId}?${tag}`;
   const { data: existing } = await supabase
     .from("notifications")
     .select("id")
     .eq("type", "package_low")
     .eq("is_read", false)
-    .contains("metadata" as never, { package_id: opts.packageId } as never)
+    .ilike("action_url", `%${tag}%`)
     .limit(1);
   if (existing && existing.length > 0) return;
   await supabase.from("notifications").insert({
@@ -30,10 +33,10 @@ async function notifyLowPackage(opts: {
     target_roles: ["admin", "receptionist"],
     title: "Pacote vencendo",
     body: `⚠️ ${opts.clientName} — pacote de ${opts.procedureName} com apenas ${opts.remaining} sessão(ões) restante(s)`,
-    action_url: `/clientes/${opts.clientId}`,
-    metadata: { package_id: opts.packageId },
-  } as never);
+    action_url: actionUrl,
+  });
 }
+
 
 
 type Package = {
