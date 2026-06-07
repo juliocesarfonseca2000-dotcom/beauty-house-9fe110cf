@@ -199,90 +199,133 @@ function AniversariantesReport() {
   );
 }
 
-// ============= 2. CLIENTES INATIVOS =============
+// ============= 2. CLIENTES INATIVOS (seções +30 e +60) =============
+type InativoRow = {
+  id: string;
+  name: string;
+  phone: string | null;
+  last: string | null;
+  last_proc: string | null;
+};
+
 function InativosReport() {
-  const [days, setDays] = useState(60);
-  const [rows, setRows] = useState<{ id: string; name: string; phone: string | null; last: string | null }[]>([]);
+  const [r30, setR30] = useState<InativoRow[]>([]);
+  const [r60, setR60] = useState<InativoRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
-      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const today = new Date();
+      const c30 = new Date(today); c30.setDate(c30.getDate() - 30);
+      const c60 = new Date(today); c60.setDate(c60.getDate() - 60);
+      const c30s = c30.toISOString().slice(0, 10);
+      const c60s = c60.toISOString().slice(0, 10);
+
       const [{ data: clients }, { data: sessions }] = await Promise.all([
-        supabase.from("clients").select("id,name,phone"),
-        supabase.from("sessions").select("client_id,done_at").not("done_at", "is", null),
+        supabase.from("clients").select("id,name,phone").eq("active", true),
+        supabase
+          .from("sessions")
+          .select("client_id,done_at,packages(procedures(name))")
+          .not("done_at", "is", null)
+          .eq("status", "done"),
       ]);
-      const lastByClient = new Map<string, string>();
-      (sessions ?? []).forEach((s: { client_id: string | null; done_at: string }) => {
+
+      type SessRow = {
+        client_id: string | null;
+        done_at: string;
+        packages: { procedures: { name: string } | { name: string }[] | null } | { procedures: { name: string } | { name: string }[] | null }[] | null;
+      };
+      const lastByClient = new Map<string, { date: string; proc: string | null }>();
+      ((sessions ?? []) as unknown as SessRow[]).forEach((s) => {
         if (!s.client_id) return;
         const cur = lastByClient.get(s.client_id);
-        if (!cur || s.done_at > cur) lastByClient.set(s.client_id, s.done_at);
+        if (!cur || s.done_at > cur.date) {
+          const pkg = Array.isArray(s.packages) ? s.packages[0] : s.packages;
+          const proc = pkg?.procedures;
+          const procName = Array.isArray(proc) ? proc[0]?.name : proc?.name;
+          lastByClient.set(s.client_id, { date: s.done_at, proc: procName ?? null });
+        }
       });
-      const out = ((clients ?? []) as { id: string; name: string; phone: string | null }[])
-        .map((c) => ({ ...c, last: lastByClient.get(c.id) ?? null }))
-        .filter((c) => !c.last || c.last.slice(0, 10) < cutoffStr)
+
+      const base: InativoRow[] = ((clients ?? []) as { id: string; name: string; phone: string | null }[])
+        .map((c) => {
+          const l = lastByClient.get(c.id);
+          return { ...c, last: l?.date ?? null, last_proc: l?.proc ?? null };
+        });
+
+      const between30and60 = base
+        .filter((c) => c.last && c.last.slice(0, 10) < c30s && c.last.slice(0, 10) >= c60s)
         .sort((a, b) => (a.last ?? "").localeCompare(b.last ?? ""));
-      setRows(out);
+      const over60 = base
+        .filter((c) => !c.last || c.last.slice(0, 10) < c60s)
+        .sort((a, b) => (a.last ?? "").localeCompare(b.last ?? ""));
+
+      setR30(between30and60);
+      setR60(over60);
       setLoading(false);
     })();
-  }, [days]);
+  }, []);
 
-  function whats() {
+  function whats(rows: InativoRow[], days: number) {
     const lines = [
-      `💔 *Clientes inativos há +${days} dias* — Beauty House\n`,
-      ...rows.slice(0, 50).map((r) => `• ${r.name}${r.phone ? ` — ${r.phone}` : ""} — ${r.last ? `última: ${new Date(r.last).toLocaleDateString("pt-BR")}` : "nunca atendida"}`),
+      `🔔 Clientes sem visita há +${days} dias:`,
+      ...rows.map((r) => `- ${r.name} | Último: ${r.last_proc ?? "—"} em ${r.last ? new Date(r.last).toLocaleDateString("pt-BR") : "nunca"} | ${r.phone ?? "sem telefone"}`),
     ];
     copyWhatsApp(lines.join("\n"));
   }
 
-  return (
-    <>
-      <ReportHeader title="Clientes inativos" count={rows.length}>
+  const Section = ({ title, days, rows }: { title: string; days: number; rows: InativoRow[] }) => (
+    <div className="space-y-2">
+      <div className="bh-card p-4 flex items-end gap-3 flex-wrap">
         <div>
-          <label className="block text-xs text-text3 mb-1">Sem sessão há</label>
-          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="bh-input">
-            <option value={30}>30 dias</option>
-            <option value={60}>60 dias</option>
-            <option value={90}>90 dias</option>
-            <option value={180}>6 meses</option>
-          </select>
+          <div className="font-display text-lg text-navy">{title}</div>
+          <div className="text-xs text-text3 mt-0.5">{rows.length} cliente(s)</div>
         </div>
-        <WhatsBtn onClick={whats} disabled={rows.length === 0} />
-      </ReportHeader>
+        <div className="flex-1" />
+        <WhatsBtn onClick={() => whats(rows, days)} disabled={rows.length === 0} />
+      </div>
       <div className="bh-card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-bg2 text-text3">
             <tr>
               <th className="text-left p-3">Cliente</th>
-              <th className="text-left p-3">WhatsApp</th>
-              <th className="text-left p-3">Última sessão</th>
+              <th className="text-left p-3">Último procedimento</th>
+              <th className="text-left p-3">Última visita</th>
+              <th className="text-left p-3">Telefone</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={3} className="p-6 text-center text-text3">Carregando…</td></tr>
+              <tr><td colSpan={4} className="p-6 text-center text-text3">Carregando…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={3} className="p-6 text-center text-success">Nenhuma cliente inativa nesse filtro.</td></tr>
+              <tr><td colSpan={4} className="p-6 text-center text-success">Ninguém nessa faixa.</td></tr>
             ) : rows.map((r) => (
               <tr key={r.id} className="border-t border-border">
                 <td className="p-3 font-medium">{r.name}</td>
+                <td className="p-3 text-text2">{r.last_proc ?? "—"}</td>
+                <td className="p-3 text-text2">{r.last ? new Date(r.last).toLocaleDateString("pt-BR") : "nunca"}</td>
                 <td className="p-3 text-text2">{r.phone ?? "—"}</td>
-                <td className="p-3 text-text2">{r.last ? new Date(r.last).toLocaleDateString("pt-BR") : "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <Section title="Sem visita há +30 dias" days={30} rows={r30} />
+      <Section title="Sem visita há +60 dias" days={60} rows={r60} />
+    </div>
   );
 }
 
 // ============= 3. PACOTES A VENCER =============
 function PacotesReport() {
   const [threshold, setThreshold] = useState(2);
-  const [rows, setRows] = useState<{ id: string; client_name: string; phone: string | null; remaining: number; procedure: string }[]>([]);
+  const [rows, setRows] = useState<{ id: string; client_name: string; phone: string | null; remaining: number; procedure: string; last_session: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -290,20 +333,47 @@ function PacotesReport() {
       setLoading(true);
       const { data, error } = await supabase
         .from("packages")
-        .select("id,client_id,sessions_total,sessions_used,procedure:procedures(name),client:clients(name,phone)")
-        .order("created_at", { ascending: false });
+        .select("id,client_id,sess_total,sess_done,procedures(name),clients(name,phone)")
+        .eq("status", "active");
       if (error) toast.error(error.message);
-      type Row = { id: string; client_id: string; sessions_total: number; sessions_used: number;
-        procedure: { name: string } | null; client: { name: string; phone: string | null } | null };
-      const out = ((data ?? []) as unknown as Row[])
-        .map((p) => ({
-          id: p.id,
-          client_name: p.client?.name ?? "—",
-          phone: p.client?.phone ?? null,
-          remaining: Number(p.sessions_total ?? 0) - Number(p.sessions_used ?? 0),
-          procedure: p.procedure?.name ?? "—",
-        }))
-        .filter((p) => p.remaining > 0 && p.remaining <= threshold)
+      type Row = {
+        id: string; client_id: string; sess_total: number; sess_done: number;
+        procedures: { name: string } | { name: string }[] | null;
+        clients: { name: string; phone: string | null } | { name: string; phone: string | null }[] | null;
+      };
+      const rawRows = ((data ?? []) as unknown as Row[]);
+      const filtered = rawRows
+        .map((p) => {
+          const proc = Array.isArray(p.procedures) ? p.procedures[0] : p.procedures;
+          const cli = Array.isArray(p.clients) ? p.clients[0] : p.clients;
+          return {
+            id: p.id,
+            client_id: p.client_id,
+            client_name: cli?.name ?? "—",
+            phone: cli?.phone ?? null,
+            remaining: Number(p.sess_total ?? 0) - Number(p.sess_done ?? 0),
+            procedure: proc?.name ?? "—",
+          };
+        })
+        .filter((p) => p.remaining > 0 && p.remaining <= threshold);
+
+      // Buscar última sessão done por pacote
+      const ids = filtered.map((f) => f.id);
+      const lastByPkg = new Map<string, string>();
+      if (ids.length) {
+        const { data: sess } = await supabase
+          .from("sessions")
+          .select("package_id,done_at")
+          .in("package_id", ids)
+          .eq("status", "done")
+          .not("done_at", "is", null);
+        ((sess ?? []) as { package_id: string; done_at: string }[]).forEach((s) => {
+          const cur = lastByPkg.get(s.package_id);
+          if (!cur || s.done_at > cur) lastByPkg.set(s.package_id, s.done_at);
+        });
+      }
+      const out = filtered
+        .map((f) => ({ ...f, last_session: lastByPkg.get(f.id) ?? null }))
         .sort((a, b) => a.remaining - b.remaining);
       setRows(out);
       setLoading(false);
@@ -324,9 +394,9 @@ function PacotesReport() {
         <div>
           <label className="block text-xs text-text3 mb-1">Restando até</label>
           <select value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} className="bh-input">
-            <option value={1}>1 sessão</option>
             <option value={2}>2 sessões</option>
             <option value={3}>3 sessões</option>
+            <option value={5}>5 sessões</option>
           </select>
         </div>
         <WhatsBtn onClick={whats} disabled={rows.length === 0} />
@@ -337,20 +407,22 @@ function PacotesReport() {
             <tr>
               <th className="text-left p-3">Cliente</th>
               <th className="text-left p-3">Procedimento</th>
-              <th className="text-right p-3">Restantes</th>
+              <th className="text-right p-3">Sessões restantes</th>
+              <th className="text-left p-3">Último atendimento</th>
               <th className="text-left p-3">WhatsApp</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="p-6 text-center text-text3">Carregando…</td></tr>
+              <tr><td colSpan={5} className="p-6 text-center text-text3">Carregando…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={4} className="p-6 text-center text-success">Nenhum pacote nessa faixa.</td></tr>
+              <tr><td colSpan={5} className="p-6 text-center text-text3">Nenhum pacote nessa faixa.</td></tr>
             ) : rows.map((r) => (
               <tr key={r.id} className="border-t border-border">
                 <td className="p-3 font-medium">{r.client_name}</td>
                 <td className="p-3">{r.procedure}</td>
-                <td className="p-3 text-right font-semibold text-gold">{r.remaining}</td>
+                <td className="p-3 text-right font-semibold text-danger">{r.remaining}</td>
+                <td className="p-3 text-text2">{r.last_session ? new Date(r.last_session).toLocaleDateString("pt-BR") : "—"}</td>
                 <td className="p-3 text-text2">{r.phone ?? "—"}</td>
               </tr>
             ))}
