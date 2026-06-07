@@ -8,6 +8,34 @@ import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
 
+// Cria notificação no sino quando pacote tem ≤2 sessões restantes. Evita duplicar.
+async function notifyLowPackage(opts: {
+  packageId: string;
+  clientId: string;
+  clientName: string;
+  procedureName: string;
+  remaining: number;
+}) {
+  if (opts.remaining > 2 || opts.remaining <= 0) return;
+  const { data: existing } = await supabase
+    .from("notifications")
+    .select("id")
+    .eq("type", "package_low")
+    .eq("is_read", false)
+    .contains("metadata" as never, { package_id: opts.packageId } as never)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+  await supabase.from("notifications").insert({
+    type: "package_low",
+    target_roles: ["admin", "receptionist"],
+    title: "Pacote vencendo",
+    body: `⚠️ ${opts.clientName} — pacote de ${opts.procedureName} com apenas ${opts.remaining} sessão(ões) restante(s)`,
+    action_url: `/clientes/${opts.clientId}`,
+    metadata: { package_id: opts.packageId },
+  } as never);
+}
+
+
 type Package = {
   id: string;
   procedure_id: string;
