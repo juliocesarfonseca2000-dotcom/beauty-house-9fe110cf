@@ -9,6 +9,8 @@ import {
   IconChartPie,
   IconCalendar,
   IconFileDownload,
+  IconEye,
+  IconEyeOff,
 } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -68,6 +70,7 @@ function firstDayOfMonth(d = new Date()) {
 function FinanceiroPage() {
   const [unlocked, setUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const [storedPin, setStoredPin] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,37 +84,49 @@ function FinanceiroPage() {
 
   if (!unlocked) {
     return (
-      <div className="bh-card p-12 max-w-md mx-auto mt-12 text-center">
-        <IconLock size={42} className="mx-auto text-gold" />
-        <div className="font-display text-2xl text-navy mt-3">Financeiro Protegido</div>
-        <div className="text-text3 text-sm mt-1">Digite o PIN para acessar.</div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (pinInput === storedPin) {
-              setUnlocked(true);
-              setPinInput("");
-            } else {
-              toast.error("PIN incorreto");
-              setPinInput("");
-            }
-          }}
-          className="mt-6 space-y-3"
-        >
-          <input
-            type="password"
-            autoFocus
-            inputMode="numeric"
-            value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-            className="bh-input text-center text-2xl tracking-[0.5em] font-mono"
-            maxLength={8}
-            placeholder="••••"
-          />
-          <button type="submit" className="bh-btn bh-btn-primary w-full">
-            Desbloquear
-          </button>
-        </form>
+      <div className="min-h-[70vh] flex items-center justify-center px-4">
+        <div className="bh-card p-8 w-full max-w-[360px] text-center">
+          <IconLock size={42} className="mx-auto text-gold" />
+          <div className="font-display text-2xl text-navy mt-3">Financeiro Protegido</div>
+          <div className="text-text3 text-sm mt-1">Digite o PIN para acessar.</div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pinInput === storedPin) {
+                setUnlocked(true);
+                setPinInput("");
+              } else {
+                toast.error("PIN incorreto");
+                setPinInput("");
+              }
+            }}
+            className="mt-6 space-y-3"
+          >
+            <div className="relative w-full">
+              <input
+                type={showPin ? "text" : "password"}
+                autoFocus
+                inputMode="numeric"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                className="bh-input w-full text-center text-2xl tracking-[0.5em] font-mono pr-10"
+                maxLength={8}
+                placeholder="••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPin((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded text-text3 hover:text-navy"
+                tabIndex={-1}
+              >
+                {showPin ? <IconEyeOff size={18} /> : <IconEye size={18} />}
+              </button>
+            </div>
+            <button type="submit" className="bh-btn bh-btn-primary w-full">
+              Desbloquear
+            </button>
+          </form>
+        </div>
       </div>
     );
   }

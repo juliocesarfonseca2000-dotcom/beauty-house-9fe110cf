@@ -91,11 +91,21 @@ function WhatsBtn({ onClick, disabled }: { onClick: () => void; disabled?: boole
     <button
       onClick={onClick}
       disabled={disabled}
-      className="bh-btn bh-btn-primary disabled:opacity-50"
-      style={{ background: "#25D366", color: "white" }}
-      title="Copiar mensagem para WhatsApp"
+      className="inline-flex items-center gap-2 px-3 py-2 rounded-md border text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{
+        borderColor: "#25D366",
+        color: "#25D366",
+        background: "transparent",
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) (e.currentTarget as HTMLButtonElement).style.background = "rgba(37, 211, 102, 0.10)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+      }}
+      title="Enviar mensagem por WhatsApp"
     >
-      <IconBrandWhatsapp size={16} /> Copiar p/ WhatsApp
+      <IconBrandWhatsapp size={16} /> Enviar por WhatsApp
     </button>
   );
 }
