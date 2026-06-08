@@ -1,11 +1,12 @@
-// Sino de notificações — lê tabela `notifications`, mostra contador e lista.
-// Atualiza via Supabase Realtime (já configurado em useRealtimeSync).
-import { useEffect, useState } from "react";
-import { IconBell, IconCheck, IconX } from "@tabler/icons-react";
+// Sino de notificações consolidado.
+// Tipos: package_low, client_inactive_30, client_inactive_60, appointment_unconfirmed
+// Só visível p/ admin e receptionist.
+import { useEffect, useMemo, useState } from "react";
+import { IconBell, IconX, IconTrash, IconChecks } from "@tabler/icons-react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { toast } from "sonner";
 
 type Notif = {
   id: string;
@@ -14,105 +15,90 @@ type Notif = {
   body: string;
   action_url: string | null;
   appointment_id: string | null;
+  client_id: string | null;
+  deep_tab: string | null;
   target_roles: string[];
   is_read: boolean;
   created_at: string;
 };
 
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "agora";
+  if (m < 60) return `há ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  return `há ${d}d`;
+}
+
 export function NotificationBell() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  const canSee = user?.role === "admin" || user?.role === "receptionist";
 
   const { data: items = [] } = useQuery({
     queryKey: ["notifications"],
+    enabled: !!canSee,
     queryFn: async () => {
       const { data } = await supabase
         .from("notifications")
         .select("*")
         .eq("is_read", false)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
       return (data as Notif[]) ?? [];
     },
     refetchInterval: 60_000,
   });
 
-  // filtra pelo role do usuário
-  const visible = items.filter((n) =>
-    !user?.role ? false : n.target_roles.includes(user.role),
+  const visible = useMemo(
+    () => items.filter((n) => !user?.role ? false : n.target_roles.includes(user.role)),
+    [items, user?.role],
   );
 
-  const markRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
-    qc.invalidateQueries({ queryKey: ["notifications"] });
-  };
-
-  // Heurística simples: ao montar, gera notificações para agendamentos que
-  // passaram +30min do término sem confirmação. Roda só p/ admin/recepção.
+  // Geração automática de alertas (só admin/recepção)
   useEffect(() => {
-    if (!user) return;
-    if (user.role !== "admin" && user.role !== "receptionist") return;
+    if (!canSee) return;
     let cancelled = false;
     (async () => {
-      const since = new Date(Date.now() - 12 * 60 * 60_000).toISOString();
-      const { data: appts } = await supabase
-        .from("appointments")
-        .select("id,datetime,duration_min,status,clients(name),procedures(name),app_users:professional_id(name)")
-        .gte("datetime", since)
-        .neq("status", "done")
-        .neq("status", "cancelled")
-        .neq("status", "missed");
-      if (cancelled || !appts) return;
-      const now = Date.now();
-      type ApptRow = {
-        id: string; datetime: string; duration_min: number | null;
-        clients: { name: string } | { name: string }[] | null;
-        procedures: { name: string } | { name: string }[] | null;
-        app_users: { name: string } | { name: string }[] | null;
-      };
-      const candidates = (appts as unknown as ApptRow[]).filter((a) => {
-        const end = new Date(a.datetime).getTime() + (a.duration_min ?? 60) * 60_000;
-        return end + 30 * 60_000 < now;
-      });
-      if (!candidates.length) return;
-      // Verifica quais já têm notif (evita duplicar)
-      const { data: existing } = await supabase
-        .from("notifications")
-        .select("appointment_id")
-        .in("appointment_id", candidates.map((c) => c.id));
-      const seen = new Set(((existing ?? []) as Array<{ appointment_id: string | null }>).map((e) => e.appointment_id));
-      const toInsert = candidates.filter((c) => !seen.has(c.id)).map((c) => {
-        const cliName = Array.isArray(c.clients) ? c.clients[0]?.name : c.clients?.name;
-        const procName = Array.isArray(c.procedures) ? c.procedures[0]?.name : c.procedures?.name;
-        const proName = Array.isArray(c.app_users) ? c.app_users[0]?.name : c.app_users?.name;
-        const hh = new Date(c.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-        return {
-          type: "appointment_unconfirmed",
-          target_roles: ["admin", "receptionist"],
-          title: "Sessão sem confirmação",
-          body: `⚠️ ${cliName ?? "Cliente"} — ${procName ?? "Procedimento"} com ${proName ?? "profissional"} às ${hh} não foi confirmada.`,
-          action_url: `/agenda`,
-          appointment_id: c.id,
-        };
-      });
-      if (toInsert.length) {
-        await supabase.from("notifications").insert(toInsert);
-        qc.invalidateQueries({ queryKey: ["notifications"] });
-      }
+      await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmedAppts()]);
+      if (!cancelled) qc.invalidateQueries({ queryKey: ["notifications"] });
     })();
     return () => { cancelled = true; };
-  }, [user, qc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSee]);
+
+  if (!canSee) return null;
+
+  const remove = async (id: string) => {
+    await supabase.from("notifications").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["notifications"] });
+  };
+  const markAllRead = async () => {
+    await supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+    qc.invalidateQueries({ queryKey: ["notifications"] });
+  };
+  const openNotif = async (n: Notif) => {
+    await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
+    qc.invalidateQueries({ queryKey: ["notifications"] });
+    setOpen(false);
+    if (n.client_id) {
+      navigate({ to: "/clientes/$id", params: { id: n.client_id }, search: { tab: n.deep_tab || "sessoes" } });
+    } else if (n.action_url) {
+      navigate({ to: n.action_url });
+    }
+  };
 
   const count = visible.length;
 
   return (
     <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="relative p-2 rounded-md hover:bg-bg2 text-text2"
-        title="Notificações"
-      >
+      <button onClick={() => setOpen((v) => !v)} className="relative p-2 rounded-md hover:bg-bg2 text-text2" title="Notificações">
         <IconBell size={18} />
         {count > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">
@@ -123,44 +109,157 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 w-80 max-h-[70vh] overflow-y-auto bh-card z-40 shadow-xl">
-            <div className="flex items-center justify-between px-3 py-2 border-b">
+          <div className="absolute right-0 top-full mt-1 w-96 max-h-[75vh] overflow-y-auto bh-card z-40 shadow-xl">
+            <div className="flex items-center justify-between px-3 py-2 border-b sticky top-0 bg-card">
               <div className="font-semibold text-navy text-sm">Notificações</div>
-              <button onClick={() => setOpen(false)} className="p-1 text-text3 hover:text-navy"><IconX size={14} /></button>
+              <div className="flex items-center gap-1">
+                {visible.length > 0 && (
+                  <button onClick={markAllRead} className="text-[11px] text-text2 hover:text-navy flex items-center gap-1 px-2 py-1 rounded hover:bg-bg2">
+                    <IconChecks size={12} /> Marcar todas
+                  </button>
+                )}
+                <button onClick={() => setOpen(false)} className="p-1 text-text3 hover:text-navy"><IconX size={14} /></button>
+              </div>
             </div>
             {visible.length === 0 ? (
-              <div className="p-6 text-center text-text3 text-sm">Nenhuma notificação.</div>
+              <div className="p-8 text-center text-text3 text-sm">Nenhum alerta no momento 🎉</div>
             ) : (
               visible.map((n) => (
-                <div key={n.id} className="p-3 border-b border-border last:border-0">
-                  <div className="text-sm font-semibold text-navy">{n.title}</div>
-                  <div className="text-xs text-text2 mt-1">{n.body}</div>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="text-[10px] text-text3">{new Date(n.created_at).toLocaleString("pt-BR")}</div>
-                    <div className="flex gap-1">
-                      {n.action_url && (
-                        <a
-                          href={n.action_url}
-                          onClick={() => { markRead(n.id); setOpen(false); }}
-                          className="px-2 py-0.5 rounded text-[11px] bg-navy text-white hover:bg-navy2"
-                        >
-                          Abrir
-                        </a>
-                      )}
-                      <button
-                        onClick={() => { markRead(n.id); toast.success("Marcada como lida"); }}
-                        className="px-2 py-0.5 rounded text-[11px] border border-border text-text2 hover:bg-bg2 flex items-center gap-1"
-                      >
-                        <IconCheck size={11} /> Ok
-                      </button>
-                    </div>
-                  </div>
+                <div key={n.id} className="p-3 border-b border-border last:border-0 hover:bg-bg2/40 flex gap-2">
+                  <button onClick={() => openNotif(n)} className="flex-1 text-left">
+                    <div className="text-sm font-semibold text-navy">{n.title}</div>
+                    <div className="text-xs text-text2 mt-0.5">{n.body}</div>
+                    <div className="text-[10px] text-text3 mt-1">{timeAgo(n.created_at)}</div>
+                  </button>
+                  <button onClick={() => remove(n.id)} className="p-1 text-text3 hover:text-danger self-start" title="Excluir">
+                    <IconTrash size={14} />
+                  </button>
                 </div>
               ))
             )}
+            <div className="px-3 py-2 border-t bg-card sticky bottom-0">
+              <Link to="/notificacoes" onClick={() => setOpen(false)} className="block text-center text-xs font-semibold text-navy hover:text-gold">
+                Ver todas as notificações →
+              </Link>
+            </div>
           </div>
         </>
       )}
     </div>
   );
+}
+
+// ===== Geradores =====
+
+async function genLowPackages() {
+  const { data: pkgs } = await supabase
+    .from("packages")
+    .select("id,client_id,sess_total,sess_done,procedures(name),clients(name)")
+    .eq("status", "active");
+  type Row = {
+    id: string; client_id: string; sess_total: number; sess_done: number;
+    procedures: { name: string } | { name: string }[] | null;
+    clients: { name: string } | { name: string }[] | null;
+  };
+  const candidates = ((pkgs ?? []) as unknown as Row[])
+    .map((p) => ({
+      id: p.id, client_id: p.client_id,
+      procName: Array.isArray(p.procedures) ? p.procedures[0]?.name : p.procedures?.name,
+      cliName: Array.isArray(p.clients) ? p.clients[0]?.name : p.clients?.name,
+      remaining: Number(p.sess_total ?? 0) - Number(p.sess_done ?? 0),
+    }))
+    .filter((p) => p.remaining > 0 && p.remaining <= 2);
+  if (!candidates.length) return;
+  const tags = candidates.map((c) => `pkg=${c.id}`);
+  const { data: existing } = await supabase
+    .from("notifications").select("action_url").eq("type", "package_low").in("action_url", tags.map((t) => `/clientes?${t}`));
+  const seen = new Set(((existing ?? []) as Array<{ action_url: string | null }>).map((e) => e.action_url));
+  const toInsert = candidates
+    .filter((c) => !seen.has(`/clientes?pkg=${c.id}`))
+    .map((c) => ({
+      type: "package_low",
+      target_roles: ["admin", "receptionist"],
+      title: "Pacote vencendo",
+      body: `⚠️ ${c.cliName ?? "Cliente"} — ${c.procName ?? "Procedimento"} com ${c.remaining} sessão(ões) restante(s)`,
+      action_url: `/clientes?pkg=${c.id}`,
+      client_id: c.client_id,
+      deep_tab: "sessoes",
+    }));
+  if (toInsert.length) await supabase.from("notifications").insert(toInsert);
+}
+
+async function genInactiveClients() {
+  const now = Date.now();
+  const d30 = new Date(now - 30 * 86400000).toISOString();
+  const d60 = new Date(now - 60 * 86400000).toISOString();
+  // Busca clientes ativos cuja última sessão está há +30d
+  const { data: clients } = await supabase
+    .from("clients").select("id,name").eq("active", true).limit(500);
+  if (!clients?.length) return;
+  const ids = (clients as Array<{ id: string; name: string }>).map((c) => c.id);
+  const { data: lastSess } = await supabase
+    .from("sessions").select("client_id,done_at").in("client_id", ids).eq("status", "done").order("done_at", { ascending: false });
+  const lastByClient = new Map<string, string>();
+  for (const s of (lastSess ?? []) as Array<{ client_id: string; done_at: string }>) {
+    if (!lastByClient.has(s.client_id)) lastByClient.set(s.client_id, s.done_at);
+  }
+  const toInsert: Array<Record<string, unknown>> = [];
+  for (const c of clients as Array<{ id: string; name: string }>) {
+    const last = lastByClient.get(c.id);
+    if (!last) continue;
+    if (last < d60) {
+      const tag = `/clientes?inactive60=${c.id}`;
+      const { data: ex } = await supabase.from("notifications").select("id").eq("type", "client_inactive_60").eq("client_id", c.id).limit(1);
+      if (!ex?.length) toInsert.push({
+        type: "client_inactive_60", target_roles: ["admin", "receptionist"],
+        title: "Cliente sumindo (+60 dias)", body: `👻 ${c.name} sem visita há mais de 60 dias`,
+        action_url: tag, client_id: c.id, deep_tab: "dados",
+      });
+    } else if (last < d30) {
+      const { data: ex } = await supabase.from("notifications").select("id").eq("type", "client_inactive_30").eq("client_id", c.id).limit(1);
+      if (!ex?.length) toInsert.push({
+        type: "client_inactive_30", target_roles: ["admin", "receptionist"],
+        title: "Cliente sumindo (+30 dias)", body: `👻 ${c.name} sem visita há mais de 30 dias`,
+        action_url: `/clientes?inactive30=${c.id}`, client_id: c.id, deep_tab: "dados",
+      });
+    }
+  }
+  if (toInsert.length) await supabase.from("notifications").insert(toInsert);
+}
+
+async function genUnconfirmedAppts() {
+  const since = new Date(Date.now() - 12 * 60 * 60_000).toISOString();
+  const { data: appts } = await supabase
+    .from("appointments")
+    .select("id,client_id,datetime,duration_min,status,clients(name),procedures(name)")
+    .gte("datetime", since)
+    .neq("status", "done")
+    .neq("status", "cancelled");
+  if (!appts?.length) return;
+  const now = Date.now();
+  type Row = {
+    id: string; client_id: string; datetime: string; duration_min: number | null;
+    clients: { name: string } | { name: string }[] | null;
+    procedures: { name: string } | { name: string }[] | null;
+  };
+  const candidates = (appts as unknown as Row[]).filter((a) => {
+    const end = new Date(a.datetime).getTime() + (a.duration_min ?? 60) * 60_000;
+    return end + 30 * 60_000 < now;
+  });
+  if (!candidates.length) return;
+  const { data: existing } = await supabase
+    .from("notifications").select("appointment_id").in("appointment_id", candidates.map((c) => c.id));
+  const seen = new Set(((existing ?? []) as Array<{ appointment_id: string | null }>).map((e) => e.appointment_id));
+  const toInsert = candidates.filter((c) => !seen.has(c.id)).map((c) => {
+    const cli = Array.isArray(c.clients) ? c.clients[0]?.name : c.clients?.name;
+    const proc = Array.isArray(c.procedures) ? c.procedures[0]?.name : c.procedures?.name;
+    const hh = new Date(c.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return {
+      type: "appointment_unconfirmed", target_roles: ["admin", "receptionist"],
+      title: "Sessão sem confirmação",
+      body: `⏰ ${cli ?? "Cliente"} — ${proc ?? "Procedimento"} às ${hh} não foi confirmada`,
+      action_url: `/agenda`, client_id: c.client_id, appointment_id: c.id, deep_tab: "sessoes",
+    };
+  });
+  if (toInsert.length) await supabase.from("notifications").insert(toInsert);
 }
