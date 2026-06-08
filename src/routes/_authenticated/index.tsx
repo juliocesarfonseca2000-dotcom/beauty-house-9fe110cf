@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { IconUserPlus, IconClipboardHeart, IconPackage, IconCoin, IconBoxSeam } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +11,13 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 function Dashboard() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!loading && user && user.role !== "admin") {
+      navigate({ to: "/agenda", replace: true });
+    }
+  }, [loading, user, navigate]);
   const now = new Date();
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);

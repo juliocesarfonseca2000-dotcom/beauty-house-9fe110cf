@@ -16,8 +16,11 @@ function LoginPage() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const landingFor = (role?: string | null): "/" | "/agenda" =>
+    role === "admin" ? "/" : "/agenda";
+
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/", replace: true });
+    if (!loading && user) navigate({ to: landingFor(user.role), replace: true });
   }, [loading, user, navigate]);
 
   const submit = async (e: React.FormEvent) => {
@@ -26,8 +29,7 @@ function LoginPage() {
     try {
       await signIn(email, password);
       toast.success("Bem-vinda!");
-      navigate({ to: "/", replace: true });
-    } catch (err) {
+    } catch {
       toast.error("Email ou senha inválidos");
     } finally {
       setBusy(false);

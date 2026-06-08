@@ -6,18 +6,20 @@ import { supabase } from "@/integrations/supabase/client";
  * Assina mudanças realtime nas tabelas principais e invalida o cache
  * do React Query para que todos os usuários logados vejam atualizações
  * sem precisar recarregar a página.
- *
- * Requer que as tabelas estejam adicionadas à publication `supabase_realtime`
- * no banco (Database → Replication no painel do Supabase) e tenham
- * REPLICA IDENTITY FULL para receber UPDATE/DELETE completos.
  */
 const TABLES = [
   "clients",
   "appointments",
   "sessions",
   "client_packages",
+  "packages",
   "products",
   "financial_entries",
+  "procedures",
+  "app_users",
+  "staff_absences",
+  "notifications",
+  "income",
 ] as const;
 
 export function useRealtimeSync(enabled: boolean) {
@@ -29,17 +31,31 @@ export function useRealtimeSync(enabled: boolean) {
     const channel = supabase.channel("app-realtime-sync");
 
     for (const table of TABLES) {
-      (channel as any).on(
+      (channel as unknown as { on: (...args: unknown[]) => unknown }).on(
         "postgres_changes",
         { event: "*", schema: "public", table },
         () => {
-          // Invalida qualquer query que use esse nome como primeira chave
           qc.invalidateQueries({ queryKey: [table] });
-          // Algumas telas usam chaves derivadas (ex: ["appointments", date])
           qc.invalidateQueries({
             predicate: (q) =>
               Array.isArray(q.queryKey) && q.queryKey[0] === table,
           });
+          // chaves derivadas comuns (ex: ["client-sessions", id], ["dashboard", ...])
+          const derived: Record<string, string[]> = {
+            sessions: ["client-sessions"],
+            packages: ["client-sessions", "low-packages", "dashboard"],
+            clients: ["client", "clients-list", "dashboard"],
+            appointments: ["appointments", "dashboard"],
+            products: ["dashboard", "stock"],
+            staff_absences: ["absences", "agenda"],
+            notifications: ["notifications", "notifications-all"],
+          };
+          const keys = derived[table] ?? [];
+          for (const k of keys) {
+            qc.invalidateQueries({
+              predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === k,
+            });
+          }
         },
       );
     }

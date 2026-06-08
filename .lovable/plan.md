@@ -1,82 +1,97 @@
-# Plano de Correções Urgentes
+# Beauty House — Pacote de melhorias (14 itens)
 
-Escopo grande — vou dividir em 7 frentes, na ordem de impacto.
+Vou implementar tudo em um único pacote, criando 1 migration SQL nova e refatorando os módulos afetados. Abaixo o que será feito agrupado por área.
 
-## 1. Performance (prioridade máxima)
+## 1. Banco de dados — `MIGRATION_FASE9.sql`
 
-**Migração SQL** — índices nas colunas mais consultadas:
-- `clients(active, name)`, `clients(record_num)`
-- `sessions(client_id, status)`, `sessions(package_id)`, `sessions(scheduled_at)`
-- `packages(client_id, status)`, `packages(procedure_id)`
-- `appointments(scheduled_at, professional_id)`, `appointments(client_id)`
-- `stock_movements(product_id, created_at)`
-- `incomes(date)`, `expenses(date)`
+Nova migration única com:
 
-**Código**:
-- Substituir `select("*")` por colunas específicas em todas as páginas
-- Trocar múltiplas queries sequenciais por `Promise.all`
-- Agenda/Dashboard/Relatórios: filtrar no servidor (range de data), não no cliente
-- Cache leve com `useMemo` para agregações já existentes
-- Adicionar `staleTime` nas queries de listas (procedimentos, usuários, produtos) — dados pouco mutáveis
+- Tabela `staff_absences` (id, user_id, type enum: vacation|absent|dayoff|leave, date_start, date_end, note, created_by, created_at) + RLS + GRANTs
+- Coluna `sessions.miss_reason` (text) + `sessions.miss_kind` (`justified|unjustified|null`) para guardar histórico de faltas
+- Coluna `appointments.recurrence_group` (uuid) para agrupar recorrências
+- Coluna `sessions.signed_by` (uuid → app_users.id) e `signed_at` (timestamp) — já pode existir; só adicionar se faltar
+- Coluna `notifications.client_id` (uuid) opcional para deep-link
+- Adicionar todas as tabelas críticas ao `supabase_realtime` publication: clients, packages, sessions, appointments, procedures, products, financial_entries, app_users, staff_absences, notifications, client_packages
+- `REPLICA IDENTITY FULL` em cada uma
 
-## 2. Sidebar com seções
+## 2. Realtime global (item 1)
 
-Reescrever `Sidebar.tsx`:
-- Topo (sem label): Dashboard, Agenda
-- Label "Principal": Clientes
-- Label "Atendimento": Ficha & Sessões, Fechar Pacote, Procedimentos
-- Label "Gestão": Financeiro, Estoque, Relatórios, Usuários
+- Expandir `src/hooks/useRealtimeSync.ts` para incluir as 10 tabelas listadas
+- Garantir invalidate em chaves derivadas (já faz)
+- Confirmar que está sendo chamado no root autenticado
 
-## 3. Agenda multi-profissional (estilo Avec)
+## 3. Topbar (itens 2, 3, 4, 5, 6, 7, 8, 9)
 
-Reescrever `/agenda`:
-- Header: seletor de data + filtro de profissional (opcional)
-- Grid: 1 coluna fixa de horários (08:00–18:00, slots de 30min) + N colunas (uma por profissional ativo)
-- Cada agendamento renderizado como bloco posicionado por horário/duração
-- Clique em slot vazio → novo agendamento; clique em bloco → editar/cancelar
-- Mobile: dropdown de profissional + coluna única
+- Remover o ícone de triângulo (low packages dropdown) do `Topbar.tsx`
+- Manter sino + cubo
+- Refatorar `NotificationBell.tsx`:
+  - Geração consolidada de alertas: pacote ≤2, cliente +30d, cliente +60d, sessão não confirmada +30min
+  - Só roda/exibe para admin e receptionist
+  - Cada item: nome, descrição, "há X tempo", botão ✕ para excluir individual
+  - Botão "Marcar todas como lidas"
+  - Rodapé: link "Ver todas as notificações →"
+  - Click no item: navega para `/clientes/{id}?tab=sessions|data` ou `/agenda?date=...` e marca como lida
 
-## 4. Fechar Pacote (2 colunas + múltiplos itens)
+## 4. Nova página `/notificacoes` (item 9)
 
-Reescrever `/fechar-pacote`:
-- **Esquerda**: busca cliente → seleciona procedimento + qtde sessões → "Adicionar ao pacote" → forma de pagamento
-- **Direita (sticky)**: lista de itens adicionados (com remover), campo desconto % (bloqueado por PIN admin = `settings.finance_pin`), total em dourado, botão Confirmar
-- Backend: criar 1 `packages` por item adicionado, todos na mesma transação, todas sessões geradas
+- Rota `_authenticated/notificacoes.tsx` com filtros (Todas/Pacotes/Clientes sumindo/Sessões), tabela, ações ir para ficha + excluir, "Limpar todas lidas"
 
-## 5. Campo `is_evaluator` em usuários
+## 5. Ficha do cliente — aceitar `?tab=` (item 5)
 
-- Migração: `alter table users add column is_evaluator boolean default false`
-- Formulário usuário (Profissional): toggle "É avaliadora de clientes?"
-- `ClientFormModal`: dropdown Avaliadora filtra `role='admin' OR is_evaluator=true`
+- `clientes.$id.tsx` lê `useSearch` e define aba inicial
 
-## 6. Responsividade
+## 6. Login redirect por perfil (item 11)
 
-- `_authenticated.tsx`: sidebar vira Sheet (gaveta) em `md:hidden`
-- Topbar mobile: botão hambúrguer abre Sheet
-- Novo componente `BottomNav` fixo `md:hidden` com 5 ícones: Dashboard, Agenda, Clientes, Ficha, Financeiro
-- Padding-bottom no `<main>` para não cobrir conteúdo (mobile)
-- Revisar grids: `grid-cols-1 md:grid-cols-2 lg:grid-cols-N`
-- Tabelas grandes: scroll horizontal em mobile
+- Em `login.tsx`: após autenticar, navegar para `/` se admin, `/agenda` caso contrário
+- Em `_authenticated/index.tsx` (dashboard): se `user.role !== "admin"`, `redirect({ to: "/agenda" })` no `beforeLoad`/effect
 
-## 7. Scanner de Ficha com IA
+## 7. Modal de assinatura salva (item 12)
 
-- Botão "📷 Escanear ficha" em `/clientes`
-- Modal: 2 uploads (frente obrigatória, verso opcional)
-- Server function `scanClientCard.functions.ts` (createServerFn) chamando **Lovable AI Gateway** com modelo `google/gemini-2.5-pro` (multimodal, mais barato e rápido que Claude, sem precisar de API key externa). Extrai: nome, telefone residencial, telefone comercial, avaliadora, nº ficha, data, validade convênio, quantidade, tratamento, observações
-- Retorna JSON via tool calling
-- Modal mostra formulário pré-preenchido editável → salva via fluxo normal
+- Em `SessionsTab.tsx`: ícone cadeado clicável quando sessão concluída → modal mostra miniatura, profissional (`signed_by`), data/hora, cliente, procedimento
 
-**Pergunta importante (#7)**: você pediu Claude `claude-sonnet-4-20250514`, mas a plataforma já tem **Lovable AI Gateway** com modelos multimodais (Gemini 2.5 Pro, GPT-5) — sem precisar configurar API key da Anthropic, sem custo extra de setup. Posso usar Gemini 2.5 Pro? Se você fizer questão do Claude, vou precisar que adicione `ANTHROPIC_API_KEY` nos secrets.
+## 8. Lógica de faltas (item 13)
 
-## Ordem de execução
+- No modal de sessão (SessionsTab): substituir botão "falta" por sub-modal com "Justificada / Não justificada"
+- Justificada: motivo obrigatório, gera +1 sessão extra (incrementa `sess_total`), círculo cinza
+- Não justificada: aviso, marca `miss_kind='unjustified'`, círculo vermelho escuro, sem incremento
+- Nenhum dos casos altera `sess_done`
 
-1. Migração SQL (índices + `is_evaluator`)
-2. Sidebar com seções
-3. Performance: otimizar queries das telas principais
-4. Responsividade base (sheet + bottom nav)
-5. Campo avaliadora (usuários + ClientForm)
-6. Fechar Pacote redesenhado
-7. Agenda multi-profissional
-8. Scanner IA
+## 9. Agendamento recorrente (item 14)
 
-Confirma? E sobre #7: **Lovable AI (Gemini) ou Claude com sua API key?**
+- No modal "+ Agendar" da Agenda: toggle "Repetir para todas as sessões do pacote"
+- Campos: dia da semana, horário, data início, lê sessões restantes do pacote ativo
+- Cria N appointments com mesmo `recurrence_group`, pulando dias de ausência (avisa)
+
+## 10. Escala & Ponto (item 10)
+
+- Em `usuarios.tsx`: aba "Escala & Ponto" no `UserModal` com CRUD de `staff_absences` (badges coloridos por tipo)
+- Botão "Ver escala geral" no topo → nova rota `_authenticated/escala.tsx` com calendário mensal
+- Acesso: admin edita todos; recepção lê profissionais; profissional só a própria
+- Agenda (`agenda.tsx`): consulta `staff_absences` por dia e bloqueia coluna do profissional com banner; destaca appointments existentes em vermelho
+
+## Arquivos a criar
+- `MIGRATION_FASE9.sql`
+- `src/routes/_authenticated/notificacoes.tsx`
+- `src/routes/_authenticated/escala.tsx`
+- `src/components/users/AbsencesTab.tsx`
+- `src/components/clients/SignatureViewerModal.tsx`
+- `src/components/clients/MissSessionModal.tsx`
+- `src/components/agenda/RecurrenceFields.tsx` (inline ok também)
+
+## Arquivos a editar
+- `src/hooks/useRealtimeSync.ts`
+- `src/components/layout/Topbar.tsx`
+- `src/components/notifications/NotificationBell.tsx`
+- `src/routes/login.tsx`
+- `src/routes/_authenticated/index.tsx`
+- `src/routes/_authenticated/clientes.$id.tsx`
+- `src/routes/_authenticated/usuarios.tsx`
+- `src/routes/_authenticated/agenda.tsx`
+- `src/components/clients/SessionsTab.tsx`
+- `src/routeTree.gen.ts` (auto)
+
+## Observação sobre a migration
+
+`MIGRATION_FASE9.sql` precisa ser executada manualmente no SQL Editor do Supabase antes que as features de escala, faltas detalhadas e recorrência funcionem 100%. O Realtime publication também é aplicado nela.
+
+Posso prosseguir com a implementação?
