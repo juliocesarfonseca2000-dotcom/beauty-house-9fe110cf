@@ -66,7 +66,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [choosing, setChoosing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
   const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
-  const [viewSig, setViewSig] = useState<string | null>(null);
+  const [viewSig, setViewSig] = useState<{ pkg: Package; session: Session } | null>(null);
   const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
   const queryClient = useQueryClient();
 
@@ -195,22 +195,22 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                     key={s.id}
                     disabled={!isNext && s.status === "pending"}
                     onClick={() => {
-                      if (s.status === "done" && (s.signature_data || s.signature_url)) {
-                        setViewSig(s.signature_data || s.signature_url);
+                      if (s.status === "done") {
+                        setViewSig({ pkg, session: s });
                       } else if (isNext) {
                         setChoosing({ pkg, session: s });
                       }
                     }}
                     className={`relative w-11 h-11 rounded-md text-sm font-semibold ${cls} transition`}
                     title={
-                      s.status === "done" ? "Realizada" :
-                      isMissedJ ? "Falta justificada" :
-                      s.status === "missed" ? "Falta não justificada" :
+                      s.status === "done" ? "Realizada — clique para ver" :
+                      isMissedJ ? "Falta justificada — reposição agendada" :
+                      s.status === "missed" ? "Sessão perdida — sem reposição" :
                       isNext ? "Próxima sessão" : "Aguardando"
                     }
                   >
                     {s.session_num}
-                    {s.status === "done" && (s.signature_data || s.signature_url) && (
+                    {s.status === "done" && (
                       <IconLock size={9} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-px" />
                     )}
                     {(s.status === "missed" || isMissedJ) && (
@@ -258,11 +258,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
         />
       )}
       {viewSig && (
-        <div className="fixed inset-0 z-50 bg-navy/70 flex items-center justify-center p-4" onClick={() => setViewSig(null)}>
-          <div className="bh-card p-4 max-w-2xl">
-            <img src={viewSig} alt="Assinatura" className="max-w-full" />
-          </div>
-        </div>
+        <SignatureViewerModal clientId={clientId} pkg={viewSig.pkg} session={viewSig.session} onClose={() => setViewSig(null)} />
       )}
     </div>
   );
