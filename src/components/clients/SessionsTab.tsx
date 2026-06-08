@@ -551,3 +551,56 @@ function SignSessionModal({
     </div>
   );
 }
+
+function SignatureViewerModal({ clientId, pkg, session, onClose }: {
+  clientId: string; pkg: Package; session: Session; onClose: () => void;
+}) {
+  const [info, setInfo] = useState<{ clientName?: string; profName?: string }>({});
+  useEffect(() => {
+    (async () => {
+      const [{ data: cli }, prof] = await Promise.all([
+        supabase.from("clients").select("name").eq("id", clientId).maybeSingle(),
+        (async () => {
+          const sess = session as Session & { signed_by?: string | null; professional_id?: string | null };
+          const proId = sess.signed_by || sess.professional_id;
+          if (!proId) return null;
+          const { data } = await supabase.from("app_users").select("name").eq("id", proId).maybeSingle();
+          return data as { name: string } | null;
+        })(),
+      ]);
+      setInfo({ clientName: (cli as { name?: string } | null)?.name, profName: prof?.name });
+    })();
+  }, [clientId, session]);
+
+  const sig = session.signature_data || session.signature_url;
+  const done = session.done_at ? new Date(session.done_at) : null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-2xl text-success">Sessão confirmada ✓</div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-4 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <div><div className="text-text3 text-xs uppercase">Profissional</div><div className="font-semibold text-navy">{info.profName ?? "—"}</div></div>
+            <div><div className="text-text3 text-xs uppercase">Data</div><div className="font-semibold text-navy">{done ? done.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}</div></div>
+            <div><div className="text-text3 text-xs uppercase">Cliente</div><div className="font-semibold text-navy">{info.clientName ?? "—"}</div></div>
+            <div><div className="text-text3 text-xs uppercase">Procedimento</div><div className="font-semibold text-navy">{pkg.procedures?.name ?? "—"}</div></div>
+          </div>
+          {sig ? (
+            <div className="border border-border rounded-lg p-3 bg-bg2/40 flex justify-center">
+              <img src={sig} alt="Assinatura" className="max-w-full max-h-64" />
+            </div>
+          ) : (
+            <div className="text-text3 italic text-center py-6">Sem assinatura registrada.</div>
+          )}
+          <div className="flex justify-end">
+            <button onClick={onClose} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
