@@ -14,6 +14,9 @@ const ProntuarioTab = lazy(() => import("@/components/clients/ProntuarioTab").th
 const AnamneseTab = lazy(() => import("@/components/clients/AnamneseTab").then((m) => ({ default: m.AnamneseTab })));
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    tab: (typeof s.tab === "string" ? s.tab : undefined) as Tab | undefined,
+  }),
   component: ClientDetailPage,
 });
 
@@ -39,13 +42,14 @@ type Evaluator = { id: string; name: string; is_evaluator?: boolean };
 
 function ClientDetailPage() {
   const { id } = Route.useParams();
-  return <ClientRecordContent id={id} backTo="/clientes" />;
+  const { tab } = Route.useSearch();
+  return <ClientRecordContent id={id} backTo="/clientes" initialTab={tab} />;
 }
 
-export function ClientRecordContent({ id, backTo = "/clientes" }: { id: string; backTo?: "/clientes" | "/ficha" }) {
+export function ClientRecordContent({ id, backTo = "/clientes", initialTab }: { id: string; backTo?: "/clientes" | "/ficha"; initialTab?: Tab }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>("sessoes");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "sessoes");
 
   const { data: client, isLoading, isError, error } = useQuery({
     queryKey: ["client", id],
