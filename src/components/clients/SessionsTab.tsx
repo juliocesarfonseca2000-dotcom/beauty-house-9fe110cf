@@ -299,26 +299,43 @@ function MissModal({ pkg, session, clientId, onClose, onSaved }: {
   pkg: Package; session: Session; clientId: string; onClose: () => void; onSaved: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"choose" | "justified" | "unjustified">("choose");
+  const [reason, setReason] = useState("");
 
-  const save = async (justified: boolean) => {
+  const saveJustified = async () => {
+    if (!reason.trim()) { toast.error("Informe o motivo da justificativa"); return; }
     setBusy(true);
     try {
       await withTimeout(supabase.from("sessions").update({
         status: "missed",
-        session_status: justified ? "missed_justified" : "missed_unjustified",
+        session_status: "missed_justified",
+        miss_reason: reason.trim(),
         done_at: new Date().toISOString(),
       }).eq("id", session.id), 12000, "Registro da falta");
-      if (!justified) {
-        // injustificada gera slot novo no final
-        const newNum = pkg.sess_total + 1;
-        await withTimeout(supabase.from("sessions").insert({
-          package_id: pkg.id, client_id: clientId, session_num: newNum, status: "pending", session_status: "pending",
-        }), 12000, "Novo slot");
-        await withTimeout(supabase.from("packages").update({ sess_total: newNum }).eq("id", pkg.id), 12000, "Atualização do pacote");
-        toast.success("Falta não justificada — slot extra adicionado");
-      } else {
-        toast.success("Falta justificada registrada");
-      }
+      // Justificada gera +1 slot extra para reposição
+      const newNum = pkg.sess_total + 1;
+      await withTimeout(supabase.from("sessions").insert({
+        package_id: pkg.id, client_id: clientId, session_num: newNum, status: "pending", session_status: "pending",
+      }), 12000, "Novo slot");
+      await withTimeout(supabase.from("packages").update({ sess_total: newNum }).eq("id", pkg.id), 12000, "Atualização do pacote");
+      toast.success("Falta justificada — reposição agendada");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveUnjustified = async () => {
+    setBusy(true);
+    try {
+      await withTimeout(supabase.from("sessions").update({
+        status: "missed",
+        session_status: "missed_unjustified",
+        done_at: new Date().toISOString(),
+      }).eq("id", session.id), 12000, "Registro da falta");
+      toast.success("Sessão perdida registrada");
       onSaved();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro");
@@ -335,21 +352,54 @@ function MissModal({ pkg, session, clientId, onClose, onSaved }: {
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
         </div>
         <div className="p-6 space-y-3">
-          <div className="text-sm text-text2">
-            <span className="text-success font-semibold">Justificada</span>: a sessão é marcada como falta, mas o pacote não ganha sessão extra.<br />
-            <span className="text-danger font-semibold">Não justificada</span>: a sessão é perdida e o sistema adiciona +1 slot ao final.
-          </div>
-          <button onClick={() => save(true)} disabled={busy} className="w-full px-4 py-3 rounded-lg bg-success text-white font-semibold hover:bg-success/90 disabled:opacity-50">
-            ✓ Justificada
-          </button>
-          <button onClick={() => save(false)} disabled={busy} className="w-full px-4 py-3 rounded-lg bg-danger text-white font-semibold hover:bg-danger/90 disabled:opacity-50">
-            ✗ Não justificada (gera slot extra)
-          </button>
+          {mode === "choose" && (
+            <>
+              <div className="text-sm text-text2">
+                <span className="text-success font-semibold">Justificada</span>: gera +1 sessão extra (reposição garantida).<br />
+                <span className="text-danger font-semibold">Não justificada</span>: a cliente perde a sessão sem direito a reposição.
+              </div>
+              <button onClick={() => setMode("justified")} disabled={busy} className="w-full px-4 py-3 rounded-lg bg-success text-white font-semibold hover:bg-success/90 disabled:opacity-50">
+                ✓ Justificada (com motivo)
+              </button>
+              <button onClick={() => setMode("unjustified")} disabled={busy} className="w-full px-4 py-3 rounded-lg border-2 border-danger text-danger font-semibold hover:bg-danger/10 disabled:opacity-50">
+                ✗ Não justificada
+              </button>
+            </>
+          )}
+          {mode === "justified" && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Motivo da justificativa*</label>
+                <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} placeholder="Ex: atestado médico, evento familiar..." className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+              </div>
+              <div className="text-xs text-text3">Reposição: será adicionada uma sessão extra ao final do pacote.</div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setMode("choose")} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Voltar</button>
+                <button onClick={saveJustified} disabled={busy || !reason.trim()} className="px-5 py-2 rounded-lg bg-success text-white font-semibold disabled:opacity-50">
+                  {busy ? "Salvando..." : "Confirmar"}
+                </button>
+              </div>
+            </>
+          )}
+          {mode === "unjustified" && (
+            <>
+              <div className="text-sm bg-danger/10 text-danger p-3 rounded-lg border border-danger/30">
+                ⚠️ A sessão será dada como perdida. A cliente perde a sessão sem direito a reposição.
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setMode("choose")} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Voltar</button>
+                <button onClick={saveUnjustified} disabled={busy} className="px-5 py-2 rounded-lg bg-danger text-white font-semibold disabled:opacity-50">
+                  {busy ? "Salvando..." : "Confirmar — cliente perdeu a sessão"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
 
 function ValidateBonusModal({ pkg, onClose, onSaved }: { pkg: Package; onClose: () => void; onSaved: () => void }) {
   const { user } = useAuth();
