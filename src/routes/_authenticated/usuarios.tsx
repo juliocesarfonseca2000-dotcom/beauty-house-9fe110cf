@@ -296,6 +296,8 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
             </div>
           </div>
         </form>
+        )}
+
       </div>
     </div>
   );
