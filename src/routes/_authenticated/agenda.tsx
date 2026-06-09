@@ -26,6 +26,10 @@ type Appt = {
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
+type Absence = { user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; date_start: string; date_end: string; };
+
+const ABS_LABEL: Record<Absence["type"], string> = { vacation: "Férias", absent: "Falta", dayoff: "Folga", leave: "Licença" };
+
 
 const START_HOUR = 7;
 const END_HOUR = 21;
@@ -56,13 +60,16 @@ function AgendaPage() {
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
   const [loading, setLoading] = useState(true);
+  const [absences, setAbsences] = useState<Absence[]>([]);
 
   const dayStart = useMemo(() => { const d = new Date(date); d.setHours(0,0,0,0); return d; }, [date]);
   const dayEnd = useMemo(() => addDays(dayStart, 1), [dayStart]);
+  const dayYmd = useMemo(() => fmtDate(dayStart), [dayStart]);
+
 
   const load = async () => {
     setLoading(true);
-    const [{ data: pdata }, { data: adata }] = await Promise.all([
+    const [{ data: pdata }, { data: adata }, { data: absData }] = await Promise.all([
       supabase.from("app_users").select("id,name").eq("active", true)
         .eq("role", "professional").order("name"),
       supabase.from("appointments")
@@ -70,9 +77,13 @@ function AgendaPage() {
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
+      supabase.from("staff_absences")
+        .select("user_id,type,date_start,date_end")
+        .lte("date_start", dayYmd).gte("date_end", dayYmd),
     ]);
     setPros((pdata as Professional[]) ?? []);
     setAppts((adata as unknown as Appt[]) ?? []);
+    setAbsences((absData as Absence[]) ?? []);
     setLoading(false);
   };
   useEffect(() => {
@@ -85,12 +96,17 @@ function AgendaPage() {
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
-    ]).then(([pdata, adata]) => {
+      supabase.from("staff_absences")
+        .select("user_id,type,date_start,date_end")
+        .lte("date_start", dayYmd).gte("date_end", dayYmd),
+    ]).then(([pdata, adata, absData]) => {
       if (!active) return;
       setPros((pdata.data as Professional[]) ?? []);
       setAppts((adata.data as unknown as Appt[]) ?? []);
+      setAbsences((absData.data as Absence[]) ?? []);
       setLoading(false);
     });
+
     return () => { active = false; };
   }, [dayStart.getTime(), dayEnd]);
 
@@ -178,8 +194,18 @@ function AgendaPage() {
               </div>
 
               {/* Pro columns */}
-              {visiblePros.map((p) => (
+              {visiblePros.map((p) => {
+                const absence = absences.find((a) => a.user_id === p.id);
+                return (
                 <div key={p.id} className="relative border-r last:border-r-0">
+                  {absence && (
+                    <div className="absolute inset-0 z-20 bg-danger/10 backdrop-blur-[1px] flex items-start justify-center pt-4 pointer-events-none">
+                      <div className="px-2 py-1 rounded bg-danger text-white text-[11px] font-semibold shadow">
+                        {ABS_LABEL[absence.type]}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Background slots */}
                   {slots.map((s, i) => (
                     <button
@@ -214,7 +240,9 @@ function AgendaPage() {
                     );
                   })}
                 </div>
-              ))}
+                );
+              })}
+
             </div>
           </div>
         )}
@@ -251,6 +279,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [time, setTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
   const [duration, setDuration] = useState("60");
   const [notes, setNotes] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const [recWeekday, setRecWeekday] = useState<number>(initialDate.getDay());
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -310,37 +340,88 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (!procId) return toast.error("Selecione um procedimento comprado por esta cliente.");
     setBusy(true);
     try {
-      const dt = new Date(`${date}T${time}:00`);
       const dur = Number(duration) || 60;
-      const end = new Date(dt.getTime() + dur * 60_000);
-      const dayStart = new Date(dt); dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+      const selectedProc = procs.find((x) => x.id === procId);
+      const available = selectedProc?.available ?? 1;
+
+      // Build list of dates to schedule
+      const targets: Date[] = [];
+      const first = new Date(`${date}T${time}:00`);
+      targets.push(first);
+
+      if (recurring && available > 1) {
+        // Generate next (available - 1) weekly slots matching recWeekday
+        const dayMs = 86400000;
+        let cursor = new Date(first);
+        while (targets.length < available) {
+          cursor = new Date(cursor.getTime() + 7 * dayMs);
+          // align weekday
+          while (cursor.getDay() !== recWeekday) cursor = new Date(cursor.getTime() + dayMs);
+          targets.push(new Date(cursor));
+        }
+
+        // Check absences across the range
+        const lastYmd = fmtDate(targets[targets.length - 1]);
+        const firstYmd = fmtDate(targets[0]);
+        const { data: absData } = await supabase.from("staff_absences")
+          .select("date_start,date_end").eq("user_id", proId)
+          .lte("date_start", lastYmd).gte("date_end", firstYmd);
+        const skipped: string[] = [];
+        const filtered = targets.filter((t) => {
+          const y = fmtDate(t);
+          const blocked = (absData ?? []).some((a) => a.date_start <= y && a.date_end >= y);
+          if (blocked) skipped.push(t.toLocaleDateString("pt-BR"));
+          return !blocked;
+        });
+        if (skipped.length) toast.message(`Pulando ${skipped.length} data(s) por ausência: ${skipped.join(", ")}`);
+        targets.length = 0;
+        targets.push(...filtered);
+      }
+
+      if (targets.length === 0) {
+        toast.error("Nenhuma data disponível para agendar.");
+        return;
+      }
+
+      // Conflict check: load all appointments for this professional across affected days
+      const minD = new Date(Math.min(...targets.map((t) => t.getTime())));
+      minD.setHours(0,0,0,0);
+      const maxD = new Date(Math.max(...targets.map((t) => t.getTime())));
+      maxD.setHours(0,0,0,0); maxD.setDate(maxD.getDate() + 1);
 
       const { data: existing, error: conflictErr } = await withTimeout(
         supabase.from("appointments")
           .select("id,datetime,duration_min,status,clients(name)")
           .eq("professional_id", proId)
           .neq("status", "cancelled")
-          .gte("datetime", dayStart.toISOString())
-          .lt("datetime", dayEnd.toISOString()),
+          .gte("datetime", minD.toISOString())
+          .lt("datetime", maxD.toISOString()),
         12000,
         "Verificação de conflito",
       );
       if (conflictErr) throw conflictErr;
       type ExistingAppt = { datetime: string; duration_min: number | null; clients: { name: string } | { name: string }[] | null };
-      const conflict = ((existing as unknown as ExistingAppt[] | null) ?? []).find((a) => {
-        const aStart = new Date(a.datetime);
-        const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
-        return aStart < end && aEnd > dt;
-      });
-      if (conflict) {
-        const hhmm = new Date(conflict.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-        const conflictClient = Array.isArray(conflict.clients) ? conflict.clients[0]?.name : conflict.clients?.name;
-        toast.error(`Este profissional já tem atendimento às ${hhmm} com ${conflictClient ?? "cliente"} (${conflict.duration_min ?? 60} min). Escolha outro horário ou profissional.`);
-        return;
+      const existingList = (existing as unknown as ExistingAppt[] | null) ?? [];
+
+      for (const dt of targets) {
+        const end = new Date(dt.getTime() + dur * 60_000);
+        const conflict = existingList.find((a) => {
+          const aStart = new Date(a.datetime);
+          const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+          return aStart < end && aEnd > dt;
+        });
+        if (conflict) {
+          const hhmm = new Date(conflict.datetime).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+          toast.error(`Conflito em ${hhmm}. Ajuste e tente novamente.`);
+          return;
+        }
       }
 
-      const { error } = await withTimeout(supabase.from("appointments").insert({
+      const recurrenceGroup = recurring && targets.length > 1
+        ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
+        : null;
+
+      const rows = targets.map((dt) => ({
         client_id: client.id,
         procedure_id: procId,
         professional_id: proId,
@@ -348,9 +429,12 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         duration_min: dur,
         status: "pending",
         notes: notes || null,
-      }), 12000, "Criação do agendamento");
+        recurrence_group: recurrenceGroup,
+      }));
+
+      const { error } = await withTimeout(supabase.from("appointments").insert(rows), 12000, "Criação do agendamento");
       if (error) throw error;
-      toast.success("Agendamento criado!");
+      toast.success(rows.length > 1 ? `${rows.length} agendamentos criados!` : "Agendamento criado!");
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao agendar");
@@ -358,6 +442,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       setBusy(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
@@ -410,6 +495,33 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>
           </div>
           <Field label="Observações"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inp} /></Field>
+
+          {procId && (() => {
+            const sel = procs.find((x) => x.id === procId);
+            const avail = sel?.available ?? 0;
+            return (
+              <div className="bh-card p-3 space-y-2 border border-gold/40 bg-gold/5">
+                <label className="flex items-center gap-2 text-sm font-semibold text-navy">
+                  <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} disabled={avail < 2} />
+                  Repetir semanalmente para todas as sessões deste pacote
+                </label>
+                {recurring && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                    <Field label="Dia da semana">
+                      <select value={recWeekday} onChange={(e) => setRecWeekday(Number(e.target.value))} className={inp}>
+                        {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((n, i) => <option key={i} value={i}>{n}</option>)}
+                      </select>
+                    </Field>
+                    <div className="text-xs text-text2 self-end pb-2">
+                      Serão criados <b>{avail}</b> agendamentos (sessões restantes). Datas em ausência serão puladas.
+                    </div>
+                  </div>
+                )}
+                {avail < 2 && <div className="text-xs text-text3">Recorrência disponível quando o pacote tiver 2+ sessões restantes.</div>}
+              </div>
+            );
+          })()}
+
 
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
