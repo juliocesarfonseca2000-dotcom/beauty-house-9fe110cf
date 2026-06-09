@@ -340,37 +340,88 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (!procId) return toast.error("Selecione um procedimento comprado por esta cliente.");
     setBusy(true);
     try {
-      const dt = new Date(`${date}T${time}:00`);
       const dur = Number(duration) || 60;
-      const end = new Date(dt.getTime() + dur * 60_000);
-      const dayStart = new Date(dt); dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+      const selectedProc = procs.find((x) => x.id === procId);
+      const available = selectedProc?.available ?? 1;
+
+      // Build list of dates to schedule
+      const targets: Date[] = [];
+      const first = new Date(`${date}T${time}:00`);
+      targets.push(first);
+
+      if (recurring && available > 1) {
+        // Generate next (available - 1) weekly slots matching recWeekday
+        const dayMs = 86400000;
+        let cursor = new Date(first);
+        while (targets.length < available) {
+          cursor = new Date(cursor.getTime() + 7 * dayMs);
+          // align weekday
+          while (cursor.getDay() !== recWeekday) cursor = new Date(cursor.getTime() + dayMs);
+          targets.push(new Date(cursor));
+        }
+
+        // Check absences across the range
+        const lastYmd = fmtDate(targets[targets.length - 1]);
+        const firstYmd = fmtDate(targets[0]);
+        const { data: absData } = await supabase.from("staff_absences")
+          .select("date_start,date_end").eq("user_id", proId)
+          .lte("date_start", lastYmd).gte("date_end", firstYmd);
+        const skipped: string[] = [];
+        const filtered = targets.filter((t) => {
+          const y = fmtDate(t);
+          const blocked = (absData ?? []).some((a) => a.date_start <= y && a.date_end >= y);
+          if (blocked) skipped.push(t.toLocaleDateString("pt-BR"));
+          return !blocked;
+        });
+        if (skipped.length) toast.message(`Pulando ${skipped.length} data(s) por ausência: ${skipped.join(", ")}`);
+        targets.length = 0;
+        targets.push(...filtered);
+      }
+
+      if (targets.length === 0) {
+        toast.error("Nenhuma data disponível para agendar.");
+        return;
+      }
+
+      // Conflict check: load all appointments for this professional across affected days
+      const minD = new Date(Math.min(...targets.map((t) => t.getTime())));
+      minD.setHours(0,0,0,0);
+      const maxD = new Date(Math.max(...targets.map((t) => t.getTime())));
+      maxD.setHours(0,0,0,0); maxD.setDate(maxD.getDate() + 1);
 
       const { data: existing, error: conflictErr } = await withTimeout(
         supabase.from("appointments")
           .select("id,datetime,duration_min,status,clients(name)")
           .eq("professional_id", proId)
           .neq("status", "cancelled")
-          .gte("datetime", dayStart.toISOString())
-          .lt("datetime", dayEnd.toISOString()),
+          .gte("datetime", minD.toISOString())
+          .lt("datetime", maxD.toISOString()),
         12000,
         "Verificação de conflito",
       );
       if (conflictErr) throw conflictErr;
       type ExistingAppt = { datetime: string; duration_min: number | null; clients: { name: string } | { name: string }[] | null };
-      const conflict = ((existing as unknown as ExistingAppt[] | null) ?? []).find((a) => {
-        const aStart = new Date(a.datetime);
-        const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
-        return aStart < end && aEnd > dt;
-      });
-      if (conflict) {
-        const hhmm = new Date(conflict.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-        const conflictClient = Array.isArray(conflict.clients) ? conflict.clients[0]?.name : conflict.clients?.name;
-        toast.error(`Este profissional já tem atendimento às ${hhmm} com ${conflictClient ?? "cliente"} (${conflict.duration_min ?? 60} min). Escolha outro horário ou profissional.`);
-        return;
+      const existingList = (existing as unknown as ExistingAppt[] | null) ?? [];
+
+      for (const dt of targets) {
+        const end = new Date(dt.getTime() + dur * 60_000);
+        const conflict = existingList.find((a) => {
+          const aStart = new Date(a.datetime);
+          const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+          return aStart < end && aEnd > dt;
+        });
+        if (conflict) {
+          const hhmm = new Date(conflict.datetime).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+          toast.error(`Conflito em ${hhmm}. Ajuste e tente novamente.`);
+          return;
+        }
       }
 
-      const { error } = await withTimeout(supabase.from("appointments").insert({
+      const recurrenceGroup = recurring && targets.length > 1
+        ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
+        : null;
+
+      const rows = targets.map((dt) => ({
         client_id: client.id,
         procedure_id: procId,
         professional_id: proId,
@@ -378,9 +429,12 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         duration_min: dur,
         status: "pending",
         notes: notes || null,
-      }), 12000, "Criação do agendamento");
+        recurrence_group: recurrenceGroup,
+      }));
+
+      const { error } = await withTimeout(supabase.from("appointments").insert(rows), 12000, "Criação do agendamento");
       if (error) throw error;
-      toast.success("Agendamento criado!");
+      toast.success(rows.length > 1 ? `${rows.length} agendamentos criados!` : "Agendamento criado!");
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao agendar");
@@ -388,6 +442,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       setBusy(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
