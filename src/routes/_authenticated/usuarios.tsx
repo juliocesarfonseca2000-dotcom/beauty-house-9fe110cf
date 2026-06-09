@@ -71,6 +71,7 @@ function UsersPage() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2 items-center">
+        <Link to="/escala" className="px-3 py-2 rounded-lg border border-border text-text2 hover:bg-bg2 text-sm font-semibold">Ver escala geral</Link>
         <button
           onClick={() => setSettingsOpen(true)}
           className="p-2 rounded-md text-text3 hover:text-navy hover:bg-bg2"
@@ -82,6 +83,7 @@ function UsersPage() {
           <IconPlus size={18} /> Novo usuário
         </button>
       </div>
+
 
 
       <div className="bh-card overflow-x-auto">
