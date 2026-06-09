@@ -26,6 +26,10 @@ type Appt = {
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
+type Absence = { user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; date_start: string; date_end: string; };
+
+const ABS_LABEL: Record<Absence["type"], string> = { vacation: "Férias", absent: "Falta", dayoff: "Folga", leave: "Licença" };
+
 
 const START_HOUR = 7;
 const END_HOUR = 21;
