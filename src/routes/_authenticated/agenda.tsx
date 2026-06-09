@@ -496,6 +496,33 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           </div>
           <Field label="Observações"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inp} /></Field>
 
+          {procId && (() => {
+            const sel = procs.find((x) => x.id === procId);
+            const avail = sel?.available ?? 0;
+            return (
+              <div className="bh-card p-3 space-y-2 border border-gold/40 bg-gold/5">
+                <label className="flex items-center gap-2 text-sm font-semibold text-navy">
+                  <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} disabled={avail < 2} />
+                  Repetir semanalmente para todas as sessões deste pacote
+                </label>
+                {recurring && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                    <Field label="Dia da semana">
+                      <select value={recWeekday} onChange={(e) => setRecWeekday(Number(e.target.value))} className={inp}>
+                        {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((n, i) => <option key={i} value={i}>{n}</option>)}
+                      </select>
+                    </Field>
+                    <div className="text-xs text-text2 self-end pb-2">
+                      Serão criados <b>{avail}</b> agendamentos (sessões restantes). Datas em ausência serão puladas.
+                    </div>
+                  </div>
+                )}
+                {avail < 2 && <div className="text-xs text-text3">Recorrência disponível quando o pacote tiver 2+ sessões restantes.</div>}
+              </div>
+            );
+          })()}
+
+
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
             <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
