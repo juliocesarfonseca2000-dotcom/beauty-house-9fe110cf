@@ -240,7 +240,9 @@ function AgendaPage() {
                     );
                   })}
                 </div>
-              ))}
+                );
+              })}
+
             </div>
           </div>
         )}
