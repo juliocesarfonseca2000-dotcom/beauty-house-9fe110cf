@@ -60,9 +60,12 @@ function AgendaPage() {
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
   const [loading, setLoading] = useState(true);
+  const [absences, setAbsences] = useState<Absence[]>([]);
 
   const dayStart = useMemo(() => { const d = new Date(date); d.setHours(0,0,0,0); return d; }, [date]);
   const dayEnd = useMemo(() => addDays(dayStart, 1), [dayStart]);
+  const dayYmd = useMemo(() => fmtDate(dayStart), [dayStart]);
+
 
   const load = async () => {
     setLoading(true);
