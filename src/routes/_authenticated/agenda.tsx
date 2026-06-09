@@ -194,8 +194,18 @@ function AgendaPage() {
               </div>
 
               {/* Pro columns */}
-              {visiblePros.map((p) => (
+              {visiblePros.map((p) => {
+                const absence = absences.find((a) => a.user_id === p.id);
+                return (
                 <div key={p.id} className="relative border-r last:border-r-0">
+                  {absence && (
+                    <div className="absolute inset-0 z-20 bg-danger/10 backdrop-blur-[1px] flex items-start justify-center pt-4 pointer-events-none">
+                      <div className="px-2 py-1 rounded bg-danger text-white text-[11px] font-semibold shadow">
+                        {ABS_LABEL[absence.type]}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Background slots */}
                   {slots.map((s, i) => (
                     <button
