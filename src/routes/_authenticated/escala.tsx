@@ -38,6 +38,20 @@ function EscalaPage() {
   const [pros, setPros] = useState<Pro[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<Set<Absence["type"]>>(new Set());
+
+  const toggleFilter = (t: Absence["type"]) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t); else next.add(t);
+      return next;
+    });
+  };
+
+  const filteredAbsences = useMemo(() => {
+    if (activeFilters.size === 0) return absences;
+    return absences.filter(a => activeFilters.has(a.type));
+  }, [absences, activeFilters]);
 
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
@@ -71,7 +85,7 @@ function EscalaPage() {
 
   const cellFor = (userId: string, day: number): Absence | null => {
     const date = `${y}-${pad(m + 1)}-${pad(day)}`;
-    return absences.find((a) => a.user_id === userId && a.date_start <= date && a.date_end >= date) ?? null;
+    return filteredAbsences.find((a) => a.user_id === userId && a.date_start <= date && a.date_end >= date) ?? null;
   };
 
   return (
@@ -87,8 +101,28 @@ function EscalaPage() {
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           {(["vacation","absent","dayoff","leave"] as const).map((t) => (
-            <span key={t} className={`px-2 py-1 rounded ${TYPE_COLOR[t]}`}>{TYPE_LABEL[t]}</span>
+            <button
+              key={t}
+              onClick={() => toggleFilter(t)}
+              className={`px-2 py-1 rounded border transition-all ${
+                activeFilters.has(t)
+                  ? `${TYPE_COLOR[t]} border-transparent ring-2 ring-offset-1 ring-navy/30`
+                  : "bg-bg2 text-text2 border-border hover:border-navy/30"
+              }`}
+              title={activeFilters.has(t) ? `Remover filtro: ${TYPE_LABEL[t]}` : `Filtrar por: ${TYPE_LABEL[t]}`}
+            >
+              {TYPE_LABEL[t]}
+              {activeFilters.has(t) && <span className="ml-1 opacity-70">✓</span>}
+            </button>
           ))}
+          {activeFilters.size > 0 && (
+            <button
+              onClick={() => setActiveFilters(new Set())}
+              className="px-2 py-1 rounded border border-border text-text3 hover:bg-bg2 text-xs"
+            >
+              Limpar filtros ✕
+            </button>
+          )}
           {me?.role === "admin" && <Link to="/usuarios" className="px-3 py-1.5 rounded-md border border-border text-text2 hover:bg-bg2">Editar em Usuários →</Link>}
         </div>
       </div>
