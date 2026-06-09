@@ -221,6 +221,8 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
     }
   };
 
+  const [tab, setTab] = useState<"dados" | "escala">("dados");
+
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl my-8">
@@ -228,7 +230,22 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           <div className="font-display text-2xl text-navy">{isEdit ? "Editar usuário" : "Novo usuário"}</div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
         </div>
+        {isEdit && (
+          <div className="px-6 pt-4 flex gap-1 border-b">
+            <button type="button" onClick={() => setTab("dados")} className={`px-3 py-2 text-sm font-semibold border-b-2 -mb-px ${tab === "dados" ? "border-gold text-navy" : "border-transparent text-text3 hover:text-navy"}`}>Dados & Permissões</button>
+            <button type="button" onClick={() => setTab("escala")} className={`px-3 py-2 text-sm font-semibold border-b-2 -mb-px ${tab === "escala" ? "border-gold text-navy" : "border-transparent text-text3 hover:text-navy"}`}>Escala & Ponto</button>
+          </div>
+        )}
+        {isEdit && tab === "escala" ? (
+          <div className="p-6">
+            <AbsencesTab userId={initial!.id} />
+            <div className="flex justify-end pt-4">
+              <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Fechar</button>
+            </div>
+          </div>
+        ) : (
         <form onSubmit={save} className="p-6 space-y-4">
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Nome*"><input value={name} onChange={(e) => setName(e.target.value)} className={inp} required /></Field>
             <Field label="Email*"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inp} required disabled={isEdit} /></Field>
