@@ -279,6 +279,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [time, setTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
   const [duration, setDuration] = useState("60");
   const [notes, setNotes] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const [recWeekday, setRecWeekday] = useState<number>(initialDate.getDay());
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
