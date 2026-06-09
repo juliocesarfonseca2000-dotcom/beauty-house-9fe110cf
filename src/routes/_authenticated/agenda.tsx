@@ -69,7 +69,7 @@ function AgendaPage() {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: pdata }, { data: adata }] = await Promise.all([
+    const [{ data: pdata }, { data: adata }, { data: absData }] = await Promise.all([
       supabase.from("app_users").select("id,name").eq("active", true)
         .eq("role", "professional").order("name"),
       supabase.from("appointments")
@@ -77,9 +77,13 @@ function AgendaPage() {
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
+      supabase.from("staff_absences")
+        .select("user_id,type,date_start,date_end")
+        .lte("date_start", dayYmd).gte("date_end", dayYmd),
     ]);
     setPros((pdata as Professional[]) ?? []);
     setAppts((adata as unknown as Appt[]) ?? []);
+    setAbsences((absData as Absence[]) ?? []);
     setLoading(false);
   };
   useEffect(() => {
@@ -92,12 +96,17 @@ function AgendaPage() {
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
-    ]).then(([pdata, adata]) => {
+      supabase.from("staff_absences")
+        .select("user_id,type,date_start,date_end")
+        .lte("date_start", dayYmd).gte("date_end", dayYmd),
+    ]).then(([pdata, adata, absData]) => {
       if (!active) return;
       setPros((pdata.data as Professional[]) ?? []);
       setAppts((adata.data as unknown as Appt[]) ?? []);
+      setAbsences((absData.data as Absence[]) ?? []);
       setLoading(false);
     });
+
     return () => { active = false; };
   }, [dayStart.getTime(), dayEnd]);
 
