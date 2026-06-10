@@ -237,7 +237,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
             <Field label="Nome*"><input value={name} onChange={(e) => setName(e.target.value)} className={inp} required /></Field>
             <Field label="Email*"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inp} required disabled={isEdit} /></Field>
             <Field label={isEdit ? "Nova senha (opcional)" : "Senha*"}>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inp} required={!isEdit} minLength={6} />
+              <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} className={inp} required={!isEdit} minLength={6} />
             </Field>
             <Field label="Cargo">
               <input value={cargo} onChange={(e) => setCargo(e.target.value)} className={inp} placeholder="Massagista, Esteticista..." />
