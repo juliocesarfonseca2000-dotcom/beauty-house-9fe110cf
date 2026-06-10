@@ -23,7 +23,8 @@ type CartItem = {
   price: number;
 };
 
-const PAY_METHODS = ["Pix", "Cartão Crédito", "Cartão Débito", "Dinheiro", "Transferência"];
+const PAY_METHODS = ["Pix", "Cartão Crédito", "Cartão Débito", "Dinheiro", "Transferência", "Cheque"];
+const INSTALLMENT_METHODS = ["Cartão Crédito", "Cheque"];
 
 function ClosePackagePage() {
   const navigate = useNavigate();
