@@ -750,7 +750,7 @@ function SignatureViewerModal({ clientId, pkg, session, onClose }: {
         <div className="p-6 space-y-4 text-sm">
           <div className="grid grid-cols-2 gap-3">
             <div><div className="text-text3 text-xs uppercase">Profissional</div><div className="font-semibold text-navy">{info.profName ?? "—"}</div></div>
-            <div><div className="text-text3 text-xs uppercase">Data</div><div className="font-semibold text-navy">{done ? done.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}</div></div>
+            <div><div className="text-text3 text-xs uppercase">Data</div><div className="font-semibold text-navy">{done ? done.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Data não registrada"}</div></div>
             <div><div className="text-text3 text-xs uppercase">Cliente</div><div className="font-semibold text-navy">{info.clientName ?? "—"}</div></div>
             <div><div className="text-text3 text-xs uppercase">Procedimento</div><div className="font-semibold text-navy">{pkg.procedures?.name ?? "—"}</div></div>
           </div>
