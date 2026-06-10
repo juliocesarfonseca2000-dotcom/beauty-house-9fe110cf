@@ -28,21 +28,22 @@ const PERM_LABELS: Array<[keyof Permissions, string]> = [
   ["financeiro", "Financeiro"],
   ["relatorios", "Relatórios"],
   ["escala", "Escala & Ponto"],
+  ["meu_ponto", "Meu Ponto"],
   ["usuarios", "Usuários"],
 ];
 
 const DEFAULT_PERMS_BY_ROLE: Record<AppUser["role"], Permissions> = {
   admin: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: true,
-    procedimentos: true, estoque: true, financeiro: true, relatorios: true, usuarios: true, escala: true,
+    procedimentos: true, estoque: true, financeiro: true, relatorios: true, usuarios: true, escala: true, meu_ponto: false,
   },
   receptionist: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: true,
-    procedimentos: true, estoque: true, financeiro: false, relatorios: false, usuarios: false, escala: true,
+    procedimentos: true, estoque: true, financeiro: false, relatorios: false, usuarios: false, escala: true, meu_ponto: false,
   },
   professional: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: false,
-    procedimentos: false, estoque: false, financeiro: false, relatorios: false, usuarios: false, escala: true,
+    procedimentos: false, estoque: false, financeiro: false, relatorios: false, usuarios: false, escala: false, meu_ponto: true,
   },
 };
 
