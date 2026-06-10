@@ -198,6 +198,24 @@ function ReceitasTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
 
+  // Mapa package_id → contract.id para exibir "Ver contrato" nas receitas com pacote.
+  useEffect(() => {
+    (async () => {
+      const pkgIds = items.map((i) => i.package_id).filter(Boolean) as string[];
+      if (!pkgIds.length) { setContractsByPkg({}); return; }
+      const { data } = await supabase
+        .from("contracts").select("id,package_ids")
+        .order("created_at", { ascending: false });
+      const map: Record<string, string> = {};
+      for (const c of (data ?? []) as Array<{ id: string; package_ids: string[] | null }>) {
+        for (const pid of c.package_ids ?? []) {
+          if (pkgIds.includes(pid) && !map[pid]) map[pid] = c.id;
+        }
+      }
+      setContractsByPkg(map);
+    })();
+  }, [items]);
+
   const total = useMemo(() => items.reduce((s, i) => s + Number(i.amount ?? 0), 0), [items]);
   const totalDiscount = useMemo(
     () => items.reduce((s, i) => s + Number(i.discount_val ?? 0), 0),
