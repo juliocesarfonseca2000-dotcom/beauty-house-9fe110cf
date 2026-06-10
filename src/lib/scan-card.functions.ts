@@ -111,7 +111,16 @@ export const scanClientCard = createServerFn({ method: "POST" })
     const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("A IA não retornou dados estruturados.");
     try {
-      return JSON.parse(args) as ScanResult;
+      const parsed = JSON.parse(args) as Partial<ScanResult>;
+      return {
+        name: parsed.name ?? null,
+        phone: parsed.phone ?? null,
+        phone_commercial: parsed.phone_commercial ?? null,
+        record_num: parsed.record_num ?? null,
+        evaluator_name: parsed.evaluator_name ?? null,
+        notes: parsed.notes ?? null,
+        procedures_history: Array.isArray(parsed.procedures_history) ? parsed.procedures_history : [],
+      };
     } catch {
       throw new Error("Resposta da IA inválida.");
     }
