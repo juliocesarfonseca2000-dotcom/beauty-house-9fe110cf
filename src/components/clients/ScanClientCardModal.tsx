@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { IconX, IconCamera, IconLoader2, IconUpload } from "@tabler/icons-react";
+import { IconX, IconCamera, IconLoader2, IconUpload, IconTrash, IconPlus } from "@tabler/icons-react";
 import { useServerFn } from "@tanstack/react-start";
-import { scanClientCard } from "@/lib/scan-card.functions";
+import { scanClientCard, type ProcedureHistoryItem } from "@/lib/scan-card.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { withTimeout } from "@/lib/with-timeout";
 
 type Evaluator = { id: string; name: string; is_evaluator?: boolean };
+type Procedure = { id: string; name: string };
+
+type HistoryRow = {
+  procedure_id: string;
+  procedure_name_raw: string;
+  sessions_done: number;
+  sessions_total: number;
+};
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -17,15 +25,48 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function bestProcedureMatch(raw: string, procs: Procedure[]): string {
+  if (!raw || !procs.length) return "";
+  const n = normalize(raw);
+  if (!n) return "";
+  // exact normalized
+  let exact = procs.find((p) => normalize(p.name) === n);
+  if (exact) return exact.id;
+  // contains in either direction
+  const partial = procs.find((p) => {
+    const pn = normalize(p.name);
+    return pn.includes(n) || n.includes(pn);
+  });
+  if (partial) return partial.id;
+  // first significant token
+  const token = n.split(" ").find((t) => t.length >= 4);
+  if (token) {
+    const tokenMatch = procs.find((p) => normalize(p.name).includes(token));
+    if (tokenMatch) return tokenMatch.id;
+  }
+  return "";
+}
+
 export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const [front, setFront] = useState<File | null>(null);
   const [back, setBack] = useState<File | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [step, setStep] = useState<"upload" | "review">("upload");
+  const [step, setStep] = useState<"upload" | "review" | "history">("upload");
   const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
+  const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [form, setForm] = useState({
     recordNum: "", name: "", phone: "", phone_commercial: "", evaluatorId: "", notes: "",
   });
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [busy, setBusy] = useState(false);
   const scanFn = useServerFn(scanClientCard);
   const frontRef = useRef<HTMLInputElement>(null);
@@ -34,9 +75,14 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
   useEffect(() => {
     let active = true;
     (async () => {
-      const { data } = await withTimeout(supabase.from("app_users").select("id,name,is_evaluator")
-        .eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras");
-      if (active) setEvaluators((data as Evaluator[]) ?? []);
+      const [{ data: evs }, { data: procs }] = await Promise.all([
+        withTimeout(supabase.from("app_users").select("id,name,is_evaluator")
+          .eq("active", true).or("role.eq.admin,is_evaluator.eq.true").order("name"), 10000, "Carregamento das avaliadoras"),
+        withTimeout(supabase.from("procedures").select("id,name").eq("active", true).order("name"), 10000, "Carregamento dos procedimentos"),
+      ]);
+      if (!active) return;
+      setEvaluators((evs as Evaluator[]) ?? []);
+      setProcedures((procs as Procedure[]) ?? []);
     })();
     return () => { active = false; };
   }, []);
@@ -55,7 +101,6 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
           backMime: back?.type,
         },
       });
-      // Try to match evaluator by name
       const match = result.evaluator_name
         ? evaluators.find((e) => e.name.toLowerCase().includes(result.evaluator_name!.toLowerCase().split(" ")[0]))
         : null;
@@ -67,6 +112,21 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
         evaluatorId: match?.id ?? "",
         notes: result.notes ?? "",
       });
+      // pre-fill history
+      const rows: HistoryRow[] = (result.procedures_history ?? []).map((h: ProcedureHistoryItem) => {
+        const procId = bestProcedureMatch(h.procedure_name, procedures);
+        const done = Math.max(0, Math.floor(h.sessions_done ?? 0));
+        const total = h.sessions_total != null
+          ? Math.max(done, Math.floor(h.sessions_total))
+          : Math.max(done, 10);
+        return {
+          procedure_id: procId,
+          procedure_name_raw: h.procedure_name,
+          sessions_done: done,
+          sessions_total: total,
+        };
+      });
+      setHistory(rows);
       setStep("review");
       toast.success("Dados extraídos! Confira e ajuste se necessário.");
     } catch (err: unknown) {
@@ -76,9 +136,19 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
     }
   };
 
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const goHistory = () => {
     if (!form.name.trim() || !form.phone.trim()) return toast.error("Nome e WhatsApp obrigatórios");
+    setStep("history");
+  };
+
+  const addHistoryRow = () => {
+    setHistory((h) => [...h, { procedure_id: "", procedure_name_raw: "", sessions_done: 0, sessions_total: 10 }]);
+  };
+  const removeHistoryRow = (i: number) => setHistory((h) => h.filter((_, idx) => idx !== i));
+  const updateHistoryRow = (i: number, patch: Partial<HistoryRow>) =>
+    setHistory((h) => h.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+
+  const finalize = async (skipHistory: boolean) => {
     setBusy(true);
     try {
       const notes = [form.notes, form.phone_commercial ? `Tel. comercial: ${form.phone_commercial}` : ""].filter(Boolean).join("\n");
@@ -90,8 +160,55 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
         notes: notes || null,
       }).select("id").single(), 12000, "Cadastro da cliente");
       if (error) throw error;
+      const clientId = (data as { id: string }).id;
+
+      if (!skipHistory) {
+        const valid = history.filter((h) => h.procedure_id && h.sessions_total > 0);
+        for (const row of valid) {
+          const done = Math.max(0, Math.min(row.sessions_done, row.sessions_total));
+          const total = row.sessions_total;
+          const completed = done >= total;
+          const { data: pkg, error: pkgErr } = await supabase
+            .from("packages")
+            .insert({
+              client_id: clientId,
+              procedure_id: row.procedure_id,
+              sess_total: total,
+              sess_done: done,
+              price_full: 0,
+              price_paid: 0,
+              discount_pct: 0,
+              pay_method: "importado",
+              status: completed ? "completed" : "active",
+              is_bonus: false,
+              origin: "ficha_importada",
+            })
+            .select("id")
+            .single();
+          if (pkgErr) {
+            console.error("Erro criando pacote importado:", pkgErr);
+            continue;
+          }
+          const pkgId = (pkg as { id: string }).id;
+          const sessRows = Array.from({ length: total }, (_, i) => {
+            const num = i + 1;
+            const isDone = num <= done;
+            return {
+              package_id: pkgId,
+              client_id: clientId,
+              session_num: num,
+              status: isDone ? "done" : "pending",
+              session_status: isDone ? "confirmed" : "pending",
+              done_at: null,
+              signature_data: null,
+            };
+          });
+          await supabase.from("sessions").insert(sessRows);
+        }
+      }
+
       toast.success("Cliente cadastrada!");
-      onCreated((data as { id: string }).id);
+      onCreated(clientId);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao salvar");
     } finally {
@@ -106,18 +223,19 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
           <div className="font-display text-2xl text-navy flex items-center gap-2">
             <IconCamera size={22} /> Escanear ficha
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
         </div>
 
-        {step === "upload" ? (
+        {step === "upload" && (
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <UploadBox label="Frente da ficha*" file={front} onFile={setFront} inputRef={frontRef} />
               <UploadBox label="Verso (opcional)" file={back} onFile={setBack} inputRef={backRef} />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+              <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
               <button
+                type="button"
                 onClick={doScan}
                 disabled={!front || scanning}
                 className="px-5 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 disabled:opacity-50 flex items-center gap-2"
@@ -126,10 +244,12 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
               </button>
             </div>
           </div>
-        ) : (
-          <form onSubmit={save} className="p-6 space-y-4">
+        )}
+
+        {step === "review" && (
+          <div className="p-6 space-y-4">
             <div className="text-xs text-text2 bg-gold/10 border border-gold/30 rounded-lg p-3">
-              ✨ Confira os dados extraídos pela IA e corrija se necessário antes de salvar.
+              ✨ Confira os dados extraídos pela IA e corrija se necessário antes de continuar.
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Número da ficha"><input type="number" value={form.recordNum} onChange={(e) => setForm({ ...form, recordNum: e.target.value })} className={inp} placeholder="Automático" /></Field>
@@ -148,11 +268,119 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
             </Field>
             <div className="flex justify-between gap-2 pt-2">
               <button type="button" onClick={() => setStep("upload")} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Voltar</button>
-              <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
-                {busy ? "Salvando..." : "Cadastrar cliente"}
+              <button type="button" onClick={goHistory} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2">
+                Avançar →
               </button>
             </div>
-          </form>
+          </div>
+        )}
+
+        {step === "history" && (
+          <div className="p-6 space-y-4">
+            <div>
+              <div className="font-display text-lg text-navy">Histórico de procedimentos</div>
+              <div className="text-xs text-text2 mt-1">
+                Confira os procedimentos e sessões já realizadas detectadas na ficha. Você pode ajustar, remover ou adicionar manualmente.
+                <br/><span className="text-text3">Estes pacotes serão importados sem gerar lançamento financeiro.</span>
+              </div>
+            </div>
+
+            {history.length === 0 && (
+              <div className="text-sm text-text3 italic bg-bg2 rounded-lg p-4 text-center">
+                Nenhum histórico detectado pela IA. Você pode adicionar manualmente abaixo ou pular esta etapa.
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {history.map((row, i) => (
+                <div key={i} className="bh-card p-3 space-y-2">
+                  {row.procedure_name_raw && (
+                    <div className="text-xs text-text3">Lido da ficha: <span className="italic">"{row.procedure_name_raw}"</span></div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                    <div className="md:col-span-6">
+                      <label className="block text-[10px] font-semibold text-text2 uppercase tracking-wide mb-1">Procedimento</label>
+                      <select
+                        value={row.procedure_id}
+                        onChange={(e) => updateHistoryRow(i, { procedure_id: e.target.value })}
+                        className={inp}
+                      >
+                        <option value="">— selecione —</option>
+                        {procedures.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-semibold text-text2 uppercase tracking-wide mb-1">Já realizadas</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={row.sessions_done}
+                        onChange={(e) => updateHistoryRow(i, { sessions_done: Math.max(0, Number(e.target.value) || 0) })}
+                        className={inp}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-semibold text-text2 uppercase tracking-wide mb-1">Total</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={row.sessions_total}
+                        onChange={(e) => updateHistoryRow(i, { sessions_total: Math.max(1, Number(e.target.value) || 1) })}
+                        className={inp}
+                      />
+                    </div>
+                    <div className="md:col-span-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeHistoryRow(i)}
+                        className="p-2 rounded-lg border border-border text-danger hover:bg-danger/10"
+                        title="Remover"
+                      >
+                        <IconTrash size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={addHistoryRow}
+              className="w-full px-4 py-2 rounded-lg border border-dashed border-border text-text2 hover:bg-bg2 flex items-center justify-center gap-2 text-sm"
+            >
+              <IconPlus size={16} /> Adicionar procedimento manualmente
+            </button>
+
+            <div className="flex justify-between gap-2 pt-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setStep("review")}
+                disabled={busy}
+                className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2 disabled:opacity-50"
+              >
+                Voltar
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => finalize(true)}
+                  disabled={busy}
+                  className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2 disabled:opacity-50"
+                >
+                  Pular esta etapa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => finalize(false)}
+                  disabled={busy}
+                  className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50"
+                >
+                  {busy ? "Salvando..." : "Cadastrar cliente"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
