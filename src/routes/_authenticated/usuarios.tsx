@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { createAppUser, updateAppUser, deleteAppUser } from "@/lib/users.functions";
 import { EvaluatorBadge } from "@/components/ui/evaluator-badge";
 import { SystemSettingsModal } from "@/components/system/SystemSettingsModal";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Link } from "@tanstack/react-router";
 
 
@@ -28,21 +29,22 @@ const PERM_LABELS: Array<[keyof Permissions, string]> = [
   ["financeiro", "Financeiro"],
   ["relatorios", "Relatórios"],
   ["escala", "Escala & Ponto"],
+  ["meu_ponto", "Meu Ponto"],
   ["usuarios", "Usuários"],
 ];
 
 const DEFAULT_PERMS_BY_ROLE: Record<AppUser["role"], Permissions> = {
   admin: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: true,
-    procedimentos: true, estoque: true, financeiro: true, relatorios: true, usuarios: true, escala: true,
+    procedimentos: true, estoque: true, financeiro: true, relatorios: true, usuarios: true, escala: true, meu_ponto: false,
   },
   receptionist: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: true,
-    procedimentos: true, estoque: true, financeiro: false, relatorios: false, usuarios: false, escala: true,
+    procedimentos: true, estoque: true, financeiro: false, relatorios: false, usuarios: false, escala: true, meu_ponto: false,
   },
   professional: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: false,
-    procedimentos: false, estoque: false, financeiro: false, relatorios: false, usuarios: false, escala: true,
+    procedimentos: false, estoque: false, financeiro: false, relatorios: false, usuarios: false, escala: false, meu_ponto: true,
   },
 };
 
@@ -235,7 +237,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
             <Field label="Nome*"><input value={name} onChange={(e) => setName(e.target.value)} className={inp} required /></Field>
             <Field label="Email*"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inp} required disabled={isEdit} /></Field>
             <Field label={isEdit ? "Nova senha (opcional)" : "Senha*"}>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inp} required={!isEdit} minLength={6} />
+              <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} className={inp} required={!isEdit} minLength={6} />
             </Field>
             <Field label="Cargo">
               <input value={cargo} onChange={(e) => setCargo(e.target.value)} className={inp} placeholder="Massagista, Esteticista..." />

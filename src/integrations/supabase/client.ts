@@ -23,6 +23,7 @@ export type Permissions = {
   relatorios: boolean;
   usuarios: boolean;
   escala: boolean;
+  meu_ponto: boolean;
 };
 
 export type AppUser = {

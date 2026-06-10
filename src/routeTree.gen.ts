@@ -17,6 +17,7 @@ import { Route as AuthenticatedTrocarSenhaRouteImport } from './routes/_authenti
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedProcedimentosRouteImport } from './routes/_authenticated/procedimentos'
 import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated/notificacoes'
+import { Route as AuthenticatedMeuPontoRouteImport } from './routes/_authenticated/meu-ponto'
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedFichaRouteImport } from './routes/_authenticated/ficha'
 import { Route as AuthenticatedFecharPacoteRouteImport } from './routes/_authenticated/fechar-pacote'
@@ -68,6 +69,11 @@ const AuthenticatedNotificacoesRoute =
     path: '/notificacoes',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMeuPontoRoute = AuthenticatedMeuPontoRouteImport.update({
+  id: '/meu-ponto',
+  path: '/meu-ponto',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedFinanceiroRoute = AuthenticatedFinanceiroRouteImport.update({
   id: '/financeiro',
   path: '/financeiro',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/fechar-pacote': typeof AuthenticatedFecharPacoteRoute
   '/ficha': typeof AuthenticatedFichaRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/procedimentos': typeof AuthenticatedProcedimentosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/fechar-pacote': typeof AuthenticatedFecharPacoteRoute
   '/ficha': typeof AuthenticatedFichaRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/procedimentos': typeof AuthenticatedProcedimentosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/_authenticated/fechar-pacote': typeof AuthenticatedFecharPacoteRoute
   '/_authenticated/ficha': typeof AuthenticatedFichaRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/_authenticated/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/_authenticated/procedimentos': typeof AuthenticatedProcedimentosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | '/fechar-pacote'
     | '/ficha'
     | '/financeiro'
+    | '/meu-ponto'
     | '/notificacoes'
     | '/procedimentos'
     | '/relatorios'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/fechar-pacote'
     | '/ficha'
     | '/financeiro'
+    | '/meu-ponto'
     | '/notificacoes'
     | '/procedimentos'
     | '/relatorios'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/fechar-pacote'
     | '/_authenticated/ficha'
     | '/_authenticated/financeiro'
+    | '/_authenticated/meu-ponto'
     | '/_authenticated/notificacoes'
     | '/_authenticated/procedimentos'
     | '/_authenticated/relatorios'
@@ -279,6 +291,13 @@ declare module '@tanstack/react-router' {
       path: '/notificacoes'
       fullPath: '/notificacoes'
       preLoaderRoute: typeof AuthenticatedNotificacoesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/meu-ponto': {
+      id: '/_authenticated/meu-ponto'
+      path: '/meu-ponto'
+      fullPath: '/meu-ponto'
+      preLoaderRoute: typeof AuthenticatedMeuPontoRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/financeiro': {
@@ -361,6 +380,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFecharPacoteRoute: typeof AuthenticatedFecharPacoteRoute
   AuthenticatedFichaRoute: typeof AuthenticatedFichaRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
+  AuthenticatedMeuPontoRoute: typeof AuthenticatedMeuPontoRoute
   AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
   AuthenticatedProcedimentosRoute: typeof AuthenticatedProcedimentosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -377,6 +397,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFecharPacoteRoute: AuthenticatedFecharPacoteRoute,
   AuthenticatedFichaRoute: AuthenticatedFichaRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
+  AuthenticatedMeuPontoRoute: AuthenticatedMeuPontoRoute,
   AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
   AuthenticatedProcedimentosRoute: AuthenticatedProcedimentosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
