@@ -1,13 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { IconSearch, IconPackage, IconTrash, IconPlus, IconLock } from "@tabler/icons-react";
+import { IconSearch, IconPackage, IconTrash, IconPlus, IconLock, IconFileText } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
+import { ContractModal, type ContractInput } from "@/components/contracts/ContractModal";
 
 export const Route = createFileRoute("/_authenticated/fechar-pacote")({
   component: ClosePackagePage,
 });
+
 
 type Client = { id: string; name: string; record_num: number; phone: string | null };
 type Procedure = {
@@ -37,6 +39,8 @@ function ClosePackagePage() {
   const [discountUnlocked, setDiscountUnlocked] = useState(false);
   const [adminPin, setAdminPin] = useState("");
   const [busy, setBusy] = useState(false);
+  const [contractInput, setContractInput] = useState<ContractInput | null>(null);
+
 
   useEffect(() => {
     (async () => {
