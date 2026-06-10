@@ -22,6 +22,7 @@ export type Permissions = {
   financeiro: boolean;
   relatorios: boolean;
   usuarios: boolean;
+  escala: boolean;
 };
 
 export type AppUser = {
