@@ -161,9 +161,10 @@ function FinanceiroUnlocked() {
         ))}
       </div>
 
-      {tab === "receitas" && <ReceitasTab />}
-      {tab === "despesas" && <DespesasTab />}
-      {tab === "fechamento" && <FechamentoTab />}
+      {/* Mantém todas as abas montadas para alternar instantaneamente */}
+      <div className={tab === "receitas" ? "" : "hidden"}><ReceitasTab /></div>
+      <div className={tab === "despesas" ? "" : "hidden"}><DespesasTab /></div>
+      <div className={tab === "fechamento" ? "" : "hidden"}><FechamentoTab /></div>
     </div>
   );
 }
