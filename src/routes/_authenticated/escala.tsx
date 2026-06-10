@@ -229,8 +229,61 @@ function AbsenceModal({ initial, pros, onClose, onSaved }: { initial: Absence | 
   const [note, setNote] = useState(initial?.note ?? "");
   const [busy, setBusy] = useState(false);
 
+  const today = new Date();
+  const [monthCursor, setMonthCursor] = useState(() => {
+    if (initial?.date_start) {
+      const d = new Date(initial.date_start + "T00:00:00");
+      return new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [selectedDays, setSelectedDays] = useState<Set<string>>(() => {
+    if (initial && initial.type === "dayoff") return new Set([initial.date_start]);
+    return new Set();
+  });
+
+  const isDayoffMulti = type === "dayoff" && !initial;
+
+  const monthDays = useMemo(() => {
+    const y = monthCursor.getFullYear();
+    const m = monthCursor.getMonth();
+    const first = new Date(y, m, 1);
+    const last = new Date(y, m + 1, 0);
+    const startOffset = first.getDay();
+    const days: Array<{ iso: string; day: number } | null> = [];
+    for (let i = 0; i < startOffset; i++) days.push(null);
+    for (let d = 1; d <= last.getDate(); d++) {
+      const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      days.push({ iso, day: d });
+    }
+    return days;
+  }, [monthCursor]);
+
+  const toggleDay = (iso: string) => {
+    setSelectedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(iso)) next.delete(iso); else next.add(iso);
+      return next;
+    });
+  };
+
   const save = async () => {
     if (!userId) return toast.error("Selecione um funcionário");
+
+    if (isDayoffMulti) {
+      if (selectedDays.size === 0) return toast.error("Selecione ao menos um dia de folga");
+      setBusy(true);
+      const rows = Array.from(selectedDays).map(d => ({
+        user_id: userId, type: "dayoff" as const, date_start: d, date_end: d, note: note || null, created_by: me?.id ?? null,
+      }));
+      const { error } = await supabase.from("staff_absences").insert(rows);
+      setBusy(false);
+      if (error) return toast.error(error.message);
+      toast.success(`${rows.length} folga(s) adicionada(s)!`);
+      onSaved();
+      return;
+    }
+
     if (!dateStart || !dateEnd) return toast.error("Informe as datas");
     if (dateEnd < dateStart) return toast.error("Data final inválida");
     setBusy(true);
@@ -264,6 +317,8 @@ function AbsenceModal({ initial, pros, onClose, onSaved }: { initial: Absence | 
   };
 
   const inp = "w-full px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-gold/40";
+  const monthLabel = monthCursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const weekdayLabels = ["D", "S", "T", "Q", "Q", "S", "S"];
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
@@ -288,16 +343,51 @@ function AbsenceModal({ initial, pros, onClose, onSaved }: { initial: Absence | 
               <option value="leave">Licença</option>
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+
+          {isDayoffMulti ? (
             <div>
-              <label className="block text-xs font-semibold text-text2 uppercase mb-1">De</label>
-              <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} className={inp} />
+              <label className="block text-xs font-semibold text-text2 uppercase mb-2">Selecione as folgas do mês</label>
+              <div className="flex items-center justify-between mb-2">
+                <button type="button" onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))} className="px-2 py-1 rounded-md border border-border hover:bg-bg2 text-sm">‹</button>
+                <div className="font-semibold text-navy capitalize text-sm">{monthLabel}</div>
+                <button type="button" onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1))} className="px-2 py-1 rounded-md border border-border hover:bg-bg2 text-sm">›</button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-text2 uppercase mb-1">
+                {weekdayLabels.map((w, i) => <div key={i}>{w}</div>)}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {monthDays.map((d, i) => {
+                  if (!d) return <div key={i} />;
+                  const sel = selectedDays.has(d.iso);
+                  return (
+                    <button
+                      type="button"
+                      key={d.iso}
+                      onClick={() => toggleDay(d.iso)}
+                      className={`aspect-square rounded-md text-sm font-medium transition ${sel ? "bg-navy text-white" : "bg-bg2 hover:bg-gold/20 text-navy"}`}
+                    >
+                      {d.day}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedDays.size > 0 && (
+                <div className="mt-2 text-xs text-text2">{selectedDays.size} dia(s) selecionado(s)</div>
+              )}
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-text2 uppercase mb-1">Até</label>
-              <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} className={inp} />
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-semibold text-text2 uppercase mb-1">De</label>
+                <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} className={inp} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text2 uppercase mb-1">Até</label>
+                <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} className={inp} />
+              </div>
             </div>
-          </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-text2 uppercase mb-1">Observação</label>
             <input value={note} onChange={(e) => setNote(e.target.value)} className={inp} placeholder="Opcional" />
