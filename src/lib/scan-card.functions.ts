@@ -70,8 +70,22 @@ export const scanClientCard = createServerFn({ method: "POST" })
                 record_num: { type: ["string", "null"], description: "Número da ficha." },
                 evaluator_name: { type: ["string", "null"], description: "Nome da avaliadora." },
                 notes: { type: ["string", "null"], description: "Tratamento + observações + renovações." },
+                procedures_history: {
+                  type: "array",
+                  description: "Procedimentos e sessões já realizadas detectadas na ficha. Vazio se nada confiável foi identificado.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      procedure_name: { type: "string", description: "Nome do procedimento como escrito na ficha." },
+                      sessions_done: { type: "number", description: "Sessões já realizadas (carimbos/vistos/datas)." },
+                      sessions_total: { type: ["number", "null"], description: "Total contratado se visível, senão null." },
+                    },
+                    required: ["procedure_name", "sessions_done", "sessions_total"],
+                    additionalProperties: false,
+                  },
+                },
               },
-              required: ["name", "phone", "phone_commercial", "record_num", "evaluator_name", "notes"],
+              required: ["name", "phone", "phone_commercial", "record_num", "evaluator_name", "notes", "procedures_history"],
               additionalProperties: false,
             },
           },
