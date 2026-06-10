@@ -286,6 +286,24 @@ function AgendaPage() {
       {viewing && (
         <ApptViewModal appt={viewing} onClose={() => setViewing(null)} onChanged={() => { setViewing(null); load(); }} />
       )}
+      {slotChoice && (
+        <SlotChoiceModal
+          onClose={() => setSlotChoice(null)}
+          onAgendar={() => { setCreating({ proId: slotChoice.proId, hour: slotChoice.hour, min: slotChoice.min }); setSlotChoice(null); }}
+          onFechar={() => { setBlocking({ proId: slotChoice.proId, hour: slotChoice.hour, min: slotChoice.min }); setSlotChoice(null); }}
+        />
+      )}
+      {blocking && (
+        <BlockSlotModal
+          date={date}
+          hour={blocking.hour}
+          min={blocking.min}
+          proId={blocking.proId}
+          proName={pros.find((p) => p.id === blocking.proId)?.name ?? ""}
+          onClose={() => setBlocking(null)}
+          onSaved={() => { setBlocking(null); load(); }}
+        />
+      )}
     </div>
   );
 }
