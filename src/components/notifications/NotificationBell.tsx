@@ -151,6 +151,8 @@ export function NotificationBell() {
 
 // ===== Geradores =====
 
+// Anti-duplicata: usa (type + reference_id). Se já existe (lida ou não), não recria.
+// Para pacote: só recria se a quantidade restante mudou (compara via body).
 async function genLowPackages() {
   const { data: pkgs } = await supabase
     .from("packages")
@@ -170,21 +172,42 @@ async function genLowPackages() {
     }))
     .filter((p) => p.remaining > 0 && p.remaining <= 2);
   if (!candidates.length) return;
-  const tags = candidates.map((c) => `pkg=${c.id}`);
+
+  const refIds = candidates.map((c) => c.id);
   const { data: existing } = await supabase
-    .from("notifications").select("action_url").eq("type", "package_low").in("action_url", tags.map((t) => `/clientes?${t}`));
-  const seen = new Set(((existing ?? []) as Array<{ action_url: string | null }>).map((e) => e.action_url));
-  const toInsert = candidates
-    .filter((c) => !seen.has(`/clientes?pkg=${c.id}`))
-    .map((c) => ({
+    .from("notifications")
+    .select("id,reference_id,body,is_read")
+    .eq("type", "package_low")
+    .in("reference_id", refIds);
+  const byRef = new Map<string, { id: string; body: string | null; is_read: boolean }>();
+  for (const e of (existing ?? []) as Array<{ id: string; reference_id: string; body: string | null; is_read: boolean }>) {
+    byRef.set(e.reference_id, e);
+  }
+
+  const toInsert: Array<Record<string, unknown>> = [];
+  for (const c of candidates) {
+    const body = `⚠️ ${c.cliName ?? "Cliente"} — ${c.procName ?? "Procedimento"} com ${c.remaining} sessão(ões) restante(s)`;
+    const ex = byRef.get(c.id);
+    if (ex) {
+      // Recria apenas se mudou a contagem E a notificação anterior já foi lida.
+      if (ex.body !== body && ex.is_read) {
+        await supabase.from("notifications").delete().eq("id", ex.id);
+      } else {
+        continue;
+      }
+    }
+    toInsert.push({
       type: "package_low",
       target_roles: ["admin", "receptionist"],
       title: "Pacote vencendo",
-      body: `⚠️ ${c.cliName ?? "Cliente"} — ${c.procName ?? "Procedimento"} com ${c.remaining} sessão(ões) restante(s)`,
-      action_url: `/clientes?pkg=${c.id}`,
+      body,
+      action_url: `/clientes/${c.client_id}?pkg=${c.id}`,
       client_id: c.client_id,
       deep_tab: "sessoes",
-    }));
+      reference_id: c.id,
+      reference_type: "package",
+    });
+  }
   if (toInsert.length) await supabase.from("notifications").insert(toInsert);
 }
 
@@ -192,7 +215,6 @@ async function genInactiveClients() {
   const now = Date.now();
   const d30 = new Date(now - 30 * 86400000).toISOString();
   const d60 = new Date(now - 60 * 86400000).toISOString();
-  // Busca clientes ativos cuja última sessão está há +30d
   const { data: clients } = await supabase
     .from("clients").select("id,name").eq("active", true).limit(500);
   if (!clients?.length) return;
@@ -203,24 +225,37 @@ async function genInactiveClients() {
   for (const s of (lastSess ?? []) as Array<{ client_id: string; done_at: string }>) {
     if (!lastByClient.has(s.client_id)) lastByClient.set(s.client_id, s.done_at);
   }
+
+  // Já existentes: por reference_id+type (ignorar status read — não recriar lidas)
+  const { data: existing } = await supabase
+    .from("notifications")
+    .select("reference_id,reference_type")
+    .in("type", ["client_inactive_30", "client_inactive_60"])
+    .in("reference_id", ids);
+  const seen = new Set(
+    ((existing ?? []) as Array<{ reference_id: string; reference_type: string | null }>)
+      .map((e) => `${e.reference_type}:${e.reference_id}`),
+  );
+
   const toInsert: Array<Record<string, unknown>> = [];
   for (const c of clients as Array<{ id: string; name: string }>) {
     const last = lastByClient.get(c.id);
     if (!last) continue;
     if (last < d60) {
-      const tag = `/clientes?inactive60=${c.id}`;
-      const { data: ex } = await supabase.from("notifications").select("id").eq("type", "client_inactive_60").eq("client_id", c.id).limit(1);
-      if (!ex?.length) toInsert.push({
+      if (seen.has(`client_inactive_60:${c.id}`)) continue;
+      toInsert.push({
         type: "client_inactive_60", target_roles: ["admin", "receptionist"],
         title: "Cliente sumindo (+60 dias)", body: `👻 ${c.name} sem visita há mais de 60 dias`,
-        action_url: tag, client_id: c.id, deep_tab: "dados",
+        action_url: `/clientes?inactive60=${c.id}`, client_id: c.id, deep_tab: "dados",
+        reference_id: c.id, reference_type: "client_inactive_60",
       });
     } else if (last < d30) {
-      const { data: ex } = await supabase.from("notifications").select("id").eq("type", "client_inactive_30").eq("client_id", c.id).limit(1);
-      if (!ex?.length) toInsert.push({
+      if (seen.has(`client_inactive_30:${c.id}`)) continue;
+      toInsert.push({
         type: "client_inactive_30", target_roles: ["admin", "receptionist"],
         title: "Cliente sumindo (+30 dias)", body: `👻 ${c.name} sem visita há mais de 30 dias`,
         action_url: `/clientes?inactive30=${c.id}`, client_id: c.id, deep_tab: "dados",
+        reference_id: c.id, reference_type: "client_inactive_30",
       });
     }
   }
@@ -247,9 +282,12 @@ async function genUnconfirmedAppts() {
     return end + 30 * 60_000 < now;
   });
   if (!candidates.length) return;
+  const ids = candidates.map((c) => c.id);
   const { data: existing } = await supabase
-    .from("notifications").select("appointment_id").in("appointment_id", candidates.map((c) => c.id));
-  const seen = new Set(((existing ?? []) as Array<{ appointment_id: string | null }>).map((e) => e.appointment_id));
+    .from("notifications").select("reference_id")
+    .eq("type", "appointment_unconfirmed")
+    .in("reference_id", ids);
+  const seen = new Set(((existing ?? []) as Array<{ reference_id: string | null }>).map((e) => e.reference_id));
   const toInsert = candidates.filter((c) => !seen.has(c.id)).map((c) => {
     const cli = Array.isArray(c.clients) ? c.clients[0]?.name : c.clients?.name;
     const proc = Array.isArray(c.procedures) ? c.procedures[0]?.name : c.procedures?.name;
@@ -259,7 +297,9 @@ async function genUnconfirmedAppts() {
       title: "Sessão sem confirmação",
       body: `⏰ ${cli ?? "Cliente"} — ${proc ?? "Procedimento"} às ${hh} não foi confirmada`,
       action_url: `/agenda`, client_id: c.client_id, appointment_id: c.id, deep_tab: "sessoes",
+      reference_id: c.id, reference_type: "appointment",
     };
   });
   if (toInsert.length) await supabase.from("notifications").insert(toInsert);
 }
+

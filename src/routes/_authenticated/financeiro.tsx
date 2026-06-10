@@ -12,9 +12,11 @@ import {
   IconEye,
   IconEyeOff,
 } from "@tabler/icons-react";
+import { IconFileText } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { exportFinanceiroPdf } from "@/lib/pdf-export";
+import { ContractModal } from "@/components/contracts/ContractModal";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   component: FinanceiroPage,
@@ -174,6 +176,8 @@ function ReceitasTab() {
   const [to, setTo] = useState(todayStr());
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
+  const [viewContract, setViewContract] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -193,6 +197,24 @@ function ReceitasTab() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
+
+  // Mapa package_id → contract.id para exibir "Ver contrato" nas receitas com pacote.
+  useEffect(() => {
+    (async () => {
+      const pkgIds = items.map((i) => i.package_id).filter(Boolean) as string[];
+      if (!pkgIds.length) { setContractsByPkg({}); return; }
+      const { data } = await supabase
+        .from("contracts").select("id,package_ids")
+        .order("created_at", { ascending: false });
+      const map: Record<string, string> = {};
+      for (const c of (data ?? []) as Array<{ id: string; package_ids: string[] | null }>) {
+        for (const pid of c.package_ids ?? []) {
+          if (pkgIds.includes(pid) && !map[pid]) map[pid] = c.id;
+        }
+      }
+      setContractsByPkg(map);
+    })();
+  }, [items]);
 
   const total = useMemo(() => items.reduce((s, i) => s + Number(i.amount ?? 0), 0), [items]);
   const totalDiscount = useMemo(
@@ -273,13 +295,25 @@ function ReceitasTab() {
                     {fmtMoney(Number(i.amount))}
                   </td>
                   <td className="p-3">
-                    <button
-                      onClick={() => remove(i.id)}
-                      className="text-text3 hover:text-danger p-1"
-                      title="Excluir"
-                    >
-                      <IconTrash size={16} />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      {i.package_id && contractsByPkg[i.package_id] && (
+                        <button
+                          type="button"
+                          onClick={() => setViewContract(contractsByPkg[i.package_id!])}
+                          className="text-text3 hover:text-navy p-1"
+                          title="Ver contrato"
+                        >
+                          <IconFileText size={16} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => remove(i.id)}
+                        className="text-text3 hover:text-danger p-1"
+                        title="Excluir"
+                      >
+                        <IconTrash size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -296,6 +330,9 @@ function ReceitasTab() {
             load();
           }}
         />
+      )}
+      {viewContract && (
+        <ContractModal existingContractId={viewContract} onClose={() => setViewContract(null)} />
       )}
     </>
   );

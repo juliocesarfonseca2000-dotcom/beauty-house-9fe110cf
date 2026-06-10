@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift } from "@tabler/icons-react";
+import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift, IconFileText } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
+import { ContractModal } from "@/components/contracts/ContractModal";
 
 // Cria notificação no sino quando pacote tem ≤2 sessões restantes. Evita duplicar
 // procurando notificações não lidas cujo action_url já referencie o package_id.
@@ -68,6 +69,8 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [viewSig, setViewSig] = useState<{ pkg: Package; session: Session } | null>(null);
   const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
+  const [viewContract, setViewContract] = useState<string | null>(null);
+  const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   const { data = { packages: [], sessions: [] }, isLoading, refetch } = useQuery({
@@ -127,6 +130,23 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packages.length, sessions.length]);
 
+  // Mapeia pacote → contrato (se houver) para exibir botão "Ver contrato"
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("contracts").select("id,package_ids")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+      const map: Record<string, string> = {};
+      for (const c of (data ?? []) as Array<{ id: string; package_ids: string[] | null }>) {
+        for (const pid of c.package_ids ?? []) {
+          if (!map[pid]) map[pid] = c.id;
+        }
+      }
+      setContractsByPkg(map);
+    })();
+  }, [clientId, packages.length]);
+
 
   if (isLoading) return <TableSkeleton rows={4} cols={6} />;
   if (packages.length === 0)
@@ -170,6 +190,16 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                   className="px-3 py-1.5 rounded-lg bg-gold text-white text-xs font-semibold hover:bg-gold2"
                 >
                   ✓ Validar bônus
+                </button>
+              )}
+              {contractsByPkg[pkg.id] && (
+                <button
+                  type="button"
+                  onClick={() => setViewContract(contractsByPkg[pkg.id])}
+                  className="px-3 py-1.5 rounded-lg border border-border text-text2 text-xs font-semibold hover:bg-bg2 flex items-center gap-1"
+                  title="Ver contrato assinado"
+                >
+                  <IconFileText size={14} /> Ver contrato
                 </button>
               )}
             </div>
@@ -259,6 +289,9 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       )}
       {viewSig && (
         <SignatureViewerModal clientId={clientId} pkg={viewSig.pkg} session={viewSig.session} onClose={() => setViewSig(null)} />
+      )}
+      {viewContract && (
+        <ContractModal existingContractId={viewContract} onClose={() => setViewContract(null)} />
       )}
     </div>
   );
