@@ -50,14 +50,16 @@ type SavedContract = {
 export function ContractModal({
   input,
   existingContractId,
+  client: clientProp,
   onClose,
 }: {
   input?: ContractInput;
   existingContractId?: string;
+  client?: Client | null;
   onClose: () => void;
 }) {
   const { user: me } = useAuth();
-  const [client, setClient] = useState<Client | null>(null);
+  const [client, setClient] = useState<Client | null>(clientProp ?? null);
   const [clinic, setClinic] = useState<ClinicInfo | null>(null);
   const [clauses, setClauses] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -82,14 +84,17 @@ export function ContractModal({
           if (snap) setClient(snap as Client);
         }
       } else if (input) {
+        // Try to refresh from DB but fall back to clientProp/state
         const { data } = await supabase
           .from("clients").select("id,name,cpf,phone,address,record_num")
           .eq("id", input.clientId).maybeSingle();
         if (data) setClient(data as Client);
+        else if (clientProp) setClient(clientProp);
       }
       setLoading(false);
     })();
-  }, [existingContractId, input]);
+  }, [existingContractId, input, clientProp]);
+
 
   const openSignatureModal = (who: "client" | "pro") => {
     setSigningWho(who);
