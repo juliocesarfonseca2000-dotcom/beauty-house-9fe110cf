@@ -55,11 +55,15 @@ function fmtDate(d: Date) {
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 
 function AgendaPage() {
+  const { user: me } = useAuth();
+  const canManage = me?.role === "admin" || me?.role === "receptionist";
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
   const [proFilter, setProFilter] = useState<string>("all");
   const [appts, setAppts] = useState<Appt[]>([]);
+  const [slotChoice, setSlotChoice] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
+  const [blocking, setBlocking] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
   const [loading, setLoading] = useState(true);
   const [absences, setAbsences] = useState<Absence[]>([]);
