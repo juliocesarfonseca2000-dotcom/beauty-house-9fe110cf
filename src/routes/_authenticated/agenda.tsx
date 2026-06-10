@@ -237,14 +237,23 @@ function AgendaPage() {
                     return (
                       <div
                         key={a.id}
-                        onClick={() => setViewing(a)}
-                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 cursor-pointer shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending}`}
+                        onClick={() => canManage && setViewing(a)}
+                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending}`}
                         style={{ top, height }}
                       >
-                        <div className="font-semibold truncate text-[11px]">
-                          {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
-                        </div>
-                        <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
+                        {a.status === "blocked" ? (
+                          <div className="font-semibold truncate text-[11px] flex items-center gap-1">
+                            <IconLock size={11} /> {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · Bloqueado
+                            {a.notes && <span className="font-normal opacity-80"> — {a.notes}</span>}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="font-semibold truncate text-[11px]">
+                              {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
+                            </div>
+                            <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
