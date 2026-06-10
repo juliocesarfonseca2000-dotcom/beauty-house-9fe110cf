@@ -68,6 +68,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
   const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [viewSig, setViewSig] = useState<{ pkg: Package; session: Session } | null>(null);
+  const [attachingSig, setAttachingSig] = useState<{ pkg: Package; session: Session } | null>(null);
   const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
   const [viewContract, setViewContract] = useState<string | null>(null);
   const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
