@@ -23,7 +23,8 @@ type CartItem = {
   price: number;
 };
 
-const PAY_METHODS = ["Pix", "Cartão Crédito", "Cartão Débito", "Dinheiro", "Transferência"];
+const PAY_METHODS = ["Pix", "Cartão Crédito", "Cartão Débito", "Dinheiro", "Transferência", "Cheque"];
+const INSTALLMENT_METHODS = ["Cartão Crédito", "Cheque"];
 
 function ClosePackagePage() {
   const navigate = useNavigate();
@@ -35,6 +36,10 @@ function ClosePackagePage() {
   const [sessions, setSessions] = useState<5 | 10 | 20>(10);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [payMethod, setPayMethod] = useState(PAY_METHODS[0]);
+  const [installments, setInstallments] = useState(1);
+  const showInstallments = INSTALLMENT_METHODS.includes(payMethod);
+  const effectiveInstallments = showInstallments ? Math.max(1, installments) : 1;
+  const payMethodLabel = showInstallments && effectiveInstallments > 1 ? `${payMethod} ${effectiveInstallments}x` : payMethod;
   const [discountPct, setDiscountPct] = useState(0);
   const [discountUnlocked, setDiscountUnlocked] = useState(false);
   const [adminPin, setAdminPin] = useState("");
@@ -114,7 +119,7 @@ function ClosePackagePage() {
                 price_full: itemFull,
                 price_paid: itemPaid,
                 discount_pct: discountPct,
-                pay_method: payMethod,
+                pay_method: payMethodLabel,
                 status: "active",
               })
               .select("id")
@@ -160,8 +165,8 @@ function ClosePackagePage() {
         packageIds: pkgIds,
         items,
         total,
-        paymentMethod: payMethod,
-        installments: null,
+        paymentMethod: payMethodLabel,
+        installments: showInstallments ? effectiveInstallments : null,
       });
 
     } catch (err: unknown) {
@@ -272,6 +277,24 @@ function ClosePackagePage() {
           <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border">
             {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
+          {showInstallments && (
+            <div className="mt-3">
+              <label className="block text-xs font-semibold text-text2 uppercase mb-1">Parcelas</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={installments}
+                  onChange={(e) => setInstallments(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+                  className="w-24 px-3 py-2 rounded-lg border border-border"
+                />
+                <span className="text-sm text-text2">
+                  {effectiveInstallments}x de {(total / effectiveInstallments).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
