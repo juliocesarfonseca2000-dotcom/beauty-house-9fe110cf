@@ -130,6 +130,23 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packages.length, sessions.length]);
 
+  // Mapeia pacote → contrato (se houver) para exibir botão "Ver contrato"
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("contracts").select("id,package_ids")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+      const map: Record<string, string> = {};
+      for (const c of (data ?? []) as Array<{ id: string; package_ids: string[] | null }>) {
+        for (const pid of c.package_ids ?? []) {
+          if (!map[pid]) map[pid] = c.id;
+        }
+      }
+      setContractsByPkg(map);
+    })();
+  }, [clientId, packages.length]);
+
 
   if (isLoading) return <TableSkeleton rows={4} cols={6} />;
   if (packages.length === 0)
