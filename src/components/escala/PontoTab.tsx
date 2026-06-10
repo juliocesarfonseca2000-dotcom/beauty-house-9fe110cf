@@ -301,8 +301,9 @@ function PontoHistory() {
   const exportPdf = async () => {
     const { jsPDF } = await import("jspdf");
     const autoTableMod = await import("jspdf-autotable");
-    const autoTable = (autoTableMod.default || autoTableMod) as unknown as (doc: jsPDF, opts: Record<string, unknown>) => void;
     const doc = new jsPDF();
+    const autoTable = (autoTableMod.default || autoTableMod) as unknown as (d: typeof doc, opts: Record<string, unknown>) => void;
+
     doc.setFontSize(16); doc.text("Espelho de Ponto — Beauty House", 14, 18);
     doc.setFontSize(10);
     doc.text(`Período: ${new Date(start+"T00:00").toLocaleDateString("pt-BR")} → ${new Date(end+"T00:00").toLocaleDateString("pt-BR")}`, 14, 26);
