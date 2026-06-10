@@ -12,9 +12,11 @@ import {
   IconEye,
   IconEyeOff,
 } from "@tabler/icons-react";
+import { IconFileText } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { exportFinanceiroPdf } from "@/lib/pdf-export";
+import { ContractModal } from "@/components/contracts/ContractModal";
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   component: FinanceiroPage,
