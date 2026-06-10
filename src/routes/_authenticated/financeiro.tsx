@@ -295,13 +295,25 @@ function ReceitasTab() {
                     {fmtMoney(Number(i.amount))}
                   </td>
                   <td className="p-3">
-                    <button
-                      onClick={() => remove(i.id)}
-                      className="text-text3 hover:text-danger p-1"
-                      title="Excluir"
-                    >
-                      <IconTrash size={16} />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      {i.package_id && contractsByPkg[i.package_id] && (
+                        <button
+                          type="button"
+                          onClick={() => setViewContract(contractsByPkg[i.package_id!])}
+                          className="text-text3 hover:text-navy p-1"
+                          title="Ver contrato"
+                        >
+                          <IconFileText size={16} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => remove(i.id)}
+                        className="text-text3 hover:text-danger p-1"
+                        title="Excluir"
+                      >
+                        <IconTrash size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -318,6 +330,9 @@ function ReceitasTab() {
             load();
           }}
         />
+      )}
+      {viewContract && (
+        <ContractModal existingContractId={viewContract} onClose={() => setViewContract(null)} />
       )}
     </>
   );
