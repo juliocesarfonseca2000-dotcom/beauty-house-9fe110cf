@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift, IconFileText } from "@tabler/icons-react";
+import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift, IconFileText, IconCamera, IconUpload } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -68,6 +68,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
   const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [viewSig, setViewSig] = useState<{ pkg: Package; session: Session } | null>(null);
+  const [attachingSig, setAttachingSig] = useState<{ pkg: Package; session: Session } | null>(null);
   const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
   const [viewContract, setViewContract] = useState<string | null>(null);
   const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
@@ -215,9 +216,12 @@ export function SessionsTab({ clientId }: { clientId: string }) {
               {pkgSess.map((s, i) => {
                 const isNext = i === nextIdx;
                 const isMissedJ = s.session_status === "missed_justified";
+                const isImported = s.status === "done" && !s.signature_data && !s.signature_url;
                 const cls =
                   s.status === "done"
-                    ? "bg-success text-white"
+                    ? isImported
+                      ? "bg-success/70 text-white cursor-pointer hover:bg-success"
+                      : "bg-success text-white"
                     : isMissedJ
                     ? "bg-text3 text-white"
                     : s.status === "missed"
@@ -228,25 +232,36 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                 return (
                   <button
                     key={s.id}
+                    type="button"
                     disabled={!isNext && s.status === "pending"}
                     onClick={() => {
                       if (s.status === "done") {
-                        setViewSig({ pkg, session: s });
+                        if (isImported) {
+                          setAttachingSig({ pkg, session: s });
+                        } else {
+                          setViewSig({ pkg, session: s });
+                        }
                       } else if (isNext) {
                         setChoosing({ pkg, session: s });
                       }
                     }}
                     className={`relative w-11 h-11 rounded-md text-sm font-semibold ${cls} transition`}
                     title={
-                      s.status === "done" ? "Realizada — clique para ver" :
-                      isMissedJ ? "Falta justificada — reposição agendada" :
-                      s.status === "missed" ? "Sessão perdida — sem reposição" :
-                      isNext ? "Próxima sessão" : "Aguardando"
+                      s.status === "done"
+                        ? isImported
+                          ? "Sessão importada — clique para anexar assinatura"
+                          : "Realizada — clique para ver"
+                        : isMissedJ ? "Falta justificada — reposição agendada"
+                        : s.status === "missed" ? "Sessão perdida — sem reposição"
+                        : isNext ? "Próxima sessão" : "Aguardando"
                     }
                   >
                     {s.session_num}
-                    {s.status === "done" && (
+                    {s.status === "done" && !isImported && (
                       <IconLock size={9} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-px" />
+                    )}
+                    {s.status === "done" && isImported && (
+                      <IconCamera size={10} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-0.5" />
                     )}
                     {(s.status === "missed" || isMissedJ) && (
                       <span className="absolute inset-0 flex items-center justify-center text-white text-lg">✗</span>
@@ -298,6 +313,118 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       {viewContract && (
         <ContractModal existingContractId={viewContract} onClose={() => setViewContract(null)} />
       )}
+      {attachingSig && (
+        <AttachSignatureModal
+          session={attachingSig.session}
+          onClose={() => setAttachingSig(null)}
+          onSaved={() => { setAttachingSig(null); reload(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AttachSignatureModal({ session, onClose, onSaved }: {
+  session: Session; onClose: () => void; onSaved: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const preview = file ? URL.createObjectURL(file) : null;
+
+  const save = async () => {
+    if (!file) { toast.error("Selecione uma imagem da assinatura."); return; }
+    setBusy(true);
+    try {
+      // Lê o arquivo como dataURL (base64) — mesmo formato usado pela assinatura digital existente.
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      // Tenta também subir para o bucket "signatures" (se existir) — se falhar, usa apenas o dataURL.
+      let publicUrl: string | null = null;
+      try {
+        const path = `imported/${session.id}-${Date.now()}.${(file.name.split(".").pop() || "jpg").toLowerCase()}`;
+        const { error: upErr } = await supabase.storage.from("signatures").upload(path, file, {
+          contentType: file.type || "image/jpeg",
+          upsert: true,
+        });
+        if (!upErr) {
+          const { data: pub } = supabase.storage.from("signatures").getPublicUrl(path);
+          publicUrl = pub?.publicUrl ?? null;
+        }
+      } catch {
+        // bucket pode não existir — ignoramos e seguimos com dataURL
+      }
+      const { error } = await withTimeout(
+        supabase.from("sessions").update({
+          signature_data: dataUrl,
+          signature_url: publicUrl,
+        }).eq("id", session.id),
+        12000,
+        "Anexar assinatura",
+      );
+      if (error) throw error;
+      toast.success("Assinatura anexada");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao anexar");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-2xl text-navy">Anexar assinatura — Sessão #{session.session_num}</div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          <div className="text-sm text-text2">
+            Esta sessão foi importada de uma ficha de papel. Tire foto da assinatura na ficha ou envie um arquivo.
+          </div>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="w-full aspect-[4/2] rounded-lg border-2 border-dashed border-border hover:border-gold bg-bg2 flex flex-col items-center justify-center gap-2 text-text2 overflow-hidden"
+          >
+            {preview ? (
+              <img src={preview} alt="" className="w-full h-full object-contain" />
+            ) : (
+              <>
+                <IconUpload size={28} className="text-text3" />
+                <div className="text-xs">Tirar foto ou escolher arquivo</div>
+              </>
+            )}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          {file && (
+            <button type="button" onClick={() => setFile(null)} className="text-xs text-danger hover:underline">Remover</button>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={!file || busy}
+              className="px-5 py-2 rounded-lg bg-success text-white font-semibold disabled:opacity-50"
+            >
+              {busy ? "Salvando..." : "Salvar assinatura"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -623,7 +750,7 @@ function SignatureViewerModal({ clientId, pkg, session, onClose }: {
         <div className="p-6 space-y-4 text-sm">
           <div className="grid grid-cols-2 gap-3">
             <div><div className="text-text3 text-xs uppercase">Profissional</div><div className="font-semibold text-navy">{info.profName ?? "—"}</div></div>
-            <div><div className="text-text3 text-xs uppercase">Data</div><div className="font-semibold text-navy">{done ? done.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}</div></div>
+            <div><div className="text-text3 text-xs uppercase">Data</div><div className="font-semibold text-navy">{done ? done.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Data não registrada"}</div></div>
             <div><div className="text-text3 text-xs uppercase">Cliente</div><div className="font-semibold text-navy">{info.clientName ?? "—"}</div></div>
             <div><div className="text-text3 text-xs uppercase">Procedimento</div><div className="font-semibold text-navy">{pkg.procedures?.name ?? "—"}</div></div>
           </div>

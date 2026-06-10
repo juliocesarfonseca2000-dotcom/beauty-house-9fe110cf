@@ -7,6 +7,12 @@ type ScanInput = {
   backMime?: string;
 };
 
+export type ProcedureHistoryItem = {
+  procedure_name: string;
+  sessions_done: number;
+  sessions_total: number | null;
+};
+
 type ScanResult = {
   name: string | null;
   phone: string | null;
@@ -14,6 +20,7 @@ type ScanResult = {
   record_num: string | null;
   evaluator_name: string | null;
   notes: string | null;
+  procedures_history: ProcedureHistoryItem[];
 };
 
 function stripDataUrl(s: string) {
@@ -31,7 +38,7 @@ export const scanClientCard = createServerFn({ method: "POST" })
       {
         type: "text",
         text:
-          "Você está lendo uma ficha física de cliente da clínica Beauty House Estética. Extraia os campos pedidos pela função. Se algum campo não estiver visível, retorne null. Para o telefone, devolva apenas dígitos (sem máscara). O 'evaluator_name' é a avaliadora responsável (nome da profissional). 'notes' deve conter o tratamento, observações e renovações concatenados.",
+          "Você está lendo uma ficha física de cliente da clínica Beauty House Estética. Extraia os campos pedidos pela função. Se algum campo não estiver visível, retorne null. Para o telefone, devolva apenas dígitos (sem máscara). O 'evaluator_name' é a avaliadora responsável (nome da profissional). 'notes' deve conter o tratamento, observações e renovações concatenados.\n\nIMPORTANTE — HISTÓRICO DE PROCEDIMENTOS:\nFichas físicas costumam ter tabelas/grades de controle de sessões (geralmente numeradas 1 a 10, ou 1 a 20) com datas, carimbos, vistos (X, ✓) ou assinaturas indicando sessões já realizadas. Para CADA procedimento/tratamento identificável na ficha, retorne um item em 'procedures_history' com:\n- procedure_name: nome do procedimento como aparece escrito (ex: 'Dermapen', 'Massagem 40min', 'Botox', 'Drenagem')\n- sessions_done: número de sessões já marcadas/realizadas (conte carimbos, vistos, datas preenchidas)\n- sessions_total: total contratado se visível (ex: pacote de 10 sessões), ou null se não houver indicação clara\n\nSe não conseguir identificar o histórico com confiança, retorne array vazio em vez de inventar números. É preferível devolver vazio a errar.",
       },
       {
         type: "image_url",
@@ -63,8 +70,22 @@ export const scanClientCard = createServerFn({ method: "POST" })
                 record_num: { type: ["string", "null"], description: "Número da ficha." },
                 evaluator_name: { type: ["string", "null"], description: "Nome da avaliadora." },
                 notes: { type: ["string", "null"], description: "Tratamento + observações + renovações." },
+                procedures_history: {
+                  type: "array",
+                  description: "Procedimentos e sessões já realizadas detectadas na ficha. Vazio se nada confiável foi identificado.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      procedure_name: { type: "string", description: "Nome do procedimento como escrito na ficha." },
+                      sessions_done: { type: "number", description: "Sessões já realizadas (carimbos/vistos/datas)." },
+                      sessions_total: { type: ["number", "null"], description: "Total contratado se visível, senão null." },
+                    },
+                    required: ["procedure_name", "sessions_done", "sessions_total"],
+                    additionalProperties: false,
+                  },
+                },
               },
-              required: ["name", "phone", "phone_commercial", "record_num", "evaluator_name", "notes"],
+              required: ["name", "phone", "phone_commercial", "record_num", "evaluator_name", "notes", "procedures_history"],
               additionalProperties: false,
             },
           },
@@ -90,7 +111,16 @@ export const scanClientCard = createServerFn({ method: "POST" })
     const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("A IA não retornou dados estruturados.");
     try {
-      return JSON.parse(args) as ScanResult;
+      const parsed = JSON.parse(args) as Partial<ScanResult>;
+      return {
+        name: parsed.name ?? null,
+        phone: parsed.phone ?? null,
+        phone_commercial: parsed.phone_commercial ?? null,
+        record_num: parsed.record_num ?? null,
+        evaluator_name: parsed.evaluator_name ?? null,
+        notes: parsed.notes ?? null,
+        procedures_history: Array.isArray(parsed.procedures_history) ? parsed.procedures_history : [],
+      };
     } catch {
       throw new Error("Resposta da IA inválida.");
     }
