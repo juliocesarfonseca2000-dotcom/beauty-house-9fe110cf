@@ -219,8 +219,9 @@ function AgendaPage() {
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setCreating({ proId: p.id, hour: s.h, min: s.m })}
-                      className={`block w-full hover:bg-gold/5 ${s.m === 0 ? "border-t" : "border-t border-dashed border-border/40"}`}
+                      disabled={!canManage}
+                      onClick={() => canManage && setSlotChoice({ proId: p.id, hour: s.h, min: s.m })}
+                      className={`block w-full ${canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"} ${s.m === 0 ? "border-t" : "border-t border-dashed border-border/40"}`}
                       style={{ height: SLOT_PX }}
                     />
                   ))}
