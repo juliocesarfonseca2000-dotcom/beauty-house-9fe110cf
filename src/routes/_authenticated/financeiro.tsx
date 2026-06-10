@@ -73,19 +73,48 @@ function firstDayOfMonth(d = new Date()) {
 }
 
 function FinanceiroPage() {
+  const { user } = useAuth();
   const [unlocked, setUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [showReset, setShowReset] = useState(false);
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [savingPin, setSavingPin] = useState(false);
 
-  useEffect(() => {
-    supabase
-      .from("settings")
-      .select("finance_pin")
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => setStoredPin(data?.finance_pin ?? "1234"));
-  }, []);
+  const loadPin = async () => {
+    const { data } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "financeiro_pin")
+      .maybeSingle();
+    const pin = (data?.value as { pin?: string } | null)?.pin;
+    if (pin) { setStoredPin(pin); return; }
+    // Fallback legado
+    const { data: legacy } = await supabase.from("settings").select("finance_pin").limit(1).maybeSingle();
+    setStoredPin(legacy?.finance_pin ?? "1234");
+  };
+
+  useEffect(() => { loadPin(); }, []);
+
+  const savePin = async () => {
+    if (!/^\d{4}$/.test(newPin)) { toast.error("PIN deve ter 4 dígitos"); return; }
+    if (newPin !== confirmPin) { toast.error("Os PINs não coincidem"); return; }
+    setSavingPin(true);
+    try {
+      const { error } = await supabase
+        .from("system_settings")
+        .upsert({ key: "financeiro_pin", value: { pin: newPin }, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      toast.success("PIN atualizado com sucesso ✓");
+      setStoredPin(newPin);
+      setNewPin(""); setConfirmPin("");
+      setShowReset(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar PIN");
+    } finally { setSavingPin(false); }
+  };
 
   if (!unlocked) {
     return (
@@ -130,14 +159,73 @@ function FinanceiroPage() {
             <button type="submit" className="bh-btn bh-btn-primary w-full">
               Desbloquear
             </button>
+            <button
+              type="button"
+              onClick={() => setShowReset(true)}
+              className="text-xs text-text3 hover:text-navy underline w-full"
+            >
+              Esqueci o PIN / Redefinir
+            </button>
           </form>
         </div>
+
+        {showReset && (
+          <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4" onClick={() => setShowReset(false)}>
+            <div className="bg-card rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b font-display text-xl text-navy">Redefinir PIN do Financeiro</div>
+              <div className="p-6 space-y-4">
+                {user?.role !== "admin" ? (
+                  <div className="text-sm text-text2">
+                    Apenas o administrador pode redefinir o PIN. Solicite ao admin para fazer essa alteração.
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-xs uppercase text-text3 font-semibold">Novo PIN (4 dígitos)</label>
+                      <PasswordInput
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={newPin}
+                        onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                        className="bh-input w-full text-center text-2xl tracking-[0.5em] font-mono"
+                        placeholder="••••"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase text-text3 font-semibold">Confirmar novo PIN</label>
+                      <PasswordInput
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={confirmPin}
+                        onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+                        className="bh-input w-full text-center text-2xl tracking-[0.5em] font-mono"
+                        placeholder="••••"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 px-6 py-4 border-t">
+                <button type="button" onClick={() => setShowReset(false)} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">
+                  {user?.role === "admin" ? "Cancelar" : "Fechar"}
+                </button>
+                {user?.role === "admin" && (
+                  <button type="button" onClick={savePin} disabled={savingPin}
+                    className="px-5 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 disabled:opacity-50">
+                    {savingPin ? "Salvando..." : "Salvar novo PIN"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   return <FinanceiroUnlocked />;
 }
+
 
 function FinanceiroUnlocked() {
   const [tab, setTab] = useState<Tab>("receitas");
