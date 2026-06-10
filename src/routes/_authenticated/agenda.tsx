@@ -636,3 +636,86 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return <div className="flex justify-between gap-3"><span className="text-text2">{label}</span><span className="text-navy font-medium text-right">{value}</span></div>;
 }
+
+function SlotChoiceModal({ onClose, onAgendar, onFechar }: { onClose: () => void; onAgendar: () => void; onFechar: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-xl text-navy">O que deseja fazer?</div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          <button onClick={onAgendar} className="w-full px-4 py-3 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center justify-center gap-2">
+            <IconCalendarEvent size={18} /> Agendar cliente
+          </button>
+          <button onClick={onFechar} className="w-full px-4 py-3 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 flex items-center justify-center gap-2">
+            <IconLock size={18} /> Fechar horário
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BlockSlotModal({ date, hour, min, proId, proName, onClose, onSaved }: {
+  date: Date; hour: number; min: number; proId: string; proName: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [duration, setDuration] = useState("60");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const dt = new Date(date);
+      dt.setHours(hour, min, 0, 0);
+      const dur = Number(duration) || 60;
+      const { error } = await supabase.from("appointments").insert({
+        professional_id: proId,
+        datetime: dt.toISOString(),
+        duration_min: dur,
+        status: "blocked",
+        notes: reason || null,
+        client_id: null,
+        procedure_id: null,
+      });
+      if (error) throw error;
+      toast.success("Horário fechado!");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao fechar horário");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-xl text-navy flex items-center gap-2"><IconLock size={20} /> Fechar horário</div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
+        </div>
+        <form onSubmit={submit} className="p-6 space-y-4">
+          <div className="text-sm text-text2">
+            <b className="text-navy">{proName}</b> · {date.toLocaleDateString("pt-BR")} às {String(hour).padStart(2,"0")}:{String(min).padStart(2,"0")}
+          </div>
+          <Field label="Duração (min)*">
+            <input type="number" min={15} step={15} value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} required />
+          </Field>
+          <Field label="Motivo">
+            <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex: almoço, reunião, indisponível" className={inp} />
+          </Field>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
+              {busy ? "Salvando..." : "Fechar horário"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
