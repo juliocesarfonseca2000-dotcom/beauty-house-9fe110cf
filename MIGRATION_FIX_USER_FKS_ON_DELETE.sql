@@ -1,37 +1,48 @@
 -- Permite excluir um usuário (app_users) mesmo que ele esteja referenciado
--- em outras tabelas. As referências são automaticamente setadas para NULL.
+-- em outras tabelas. As referências viram NULL automaticamente.
+-- Só altera FKs cujas colunas realmente existem no schema atual.
 
--- appointments.professional_id
-ALTER TABLE public.appointments
-  DROP CONSTRAINT IF EXISTS appointments_professional_id_fkey;
-ALTER TABLE public.appointments
-  ADD CONSTRAINT appointments_professional_id_fkey
-  FOREIGN KEY (professional_id) REFERENCES public.app_users(id) ON DELETE SET NULL;
+DO $$
+DECLARE
+  rec record;
+  pairs text[][] := ARRAY[
+    ['appointments','professional_id','appointments_professional_id_fkey'],
+    ['clients','evaluator_id','clients_evaluator_id_fkey'],
+    ['sessions','professional_id','sessions_professional_id_fkey'],
+    ['packages','professional_id','packages_professional_id_fkey'],
+    ['income','professional_id','income_professional_id_fkey']
+  ];
+  i int;
+  tbl text; col text; fk text;
+BEGIN
+  FOR i IN 1..array_length(pairs,1) LOOP
+    tbl := pairs[i][1]; col := pairs[i][2]; fk := pairs[i][3];
 
--- clients.evaluator_id
-ALTER TABLE public.clients
-  DROP CONSTRAINT IF EXISTS clients_evaluator_id_fkey;
-ALTER TABLE public.clients
-  ADD CONSTRAINT clients_evaluator_id_fkey
-  FOREIGN KEY (evaluator_id) REFERENCES public.app_users(id) ON DELETE SET NULL;
+    -- Verifica se a tabela e coluna existem
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='public' AND table_name=tbl AND column_name=col
+    ) THEN
+      -- Dropa qualquer FK existente nessa coluna apontando para app_users
+      FOR rec IN
+        SELECT tc.constraint_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+           AND tc.table_schema = kcu.table_schema
+         WHERE tc.constraint_type='FOREIGN KEY'
+           AND tc.table_schema='public'
+           AND tc.table_name = tbl
+           AND kcu.column_name = col
+      LOOP
+        EXECUTE format('ALTER TABLE public.%I DROP CONSTRAINT %I', tbl, rec.constraint_name);
+      END LOOP;
 
--- sessions.professional_id
-ALTER TABLE public.sessions
-  DROP CONSTRAINT IF EXISTS sessions_professional_id_fkey;
-ALTER TABLE public.sessions
-  ADD CONSTRAINT sessions_professional_id_fkey
-  FOREIGN KEY (professional_id) REFERENCES public.app_users(id) ON DELETE SET NULL;
-
--- packages.professional_id
-ALTER TABLE public.packages
-  DROP CONSTRAINT IF EXISTS packages_professional_id_fkey;
-ALTER TABLE public.packages
-  ADD CONSTRAINT packages_professional_id_fkey
-  FOREIGN KEY (professional_id) REFERENCES public.app_users(id) ON DELETE SET NULL;
-
--- income.professional_id
-ALTER TABLE public.income
-  DROP CONSTRAINT IF EXISTS income_professional_id_fkey;
-ALTER TABLE public.income
-  ADD CONSTRAINT income_professional_id_fkey
-  FOREIGN KEY (professional_id) REFERENCES public.app_users(id) ON DELETE SET NULL;
+      -- Recria a FK com ON DELETE SET NULL
+      EXECUTE format(
+        'ALTER TABLE public.%I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES public.app_users(id) ON DELETE SET NULL',
+        tbl, fk, col
+      );
+    END IF;
+  END LOOP;
+END $$;
