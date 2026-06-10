@@ -313,6 +313,118 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       {viewContract && (
         <ContractModal existingContractId={viewContract} onClose={() => setViewContract(null)} />
       )}
+      {attachingSig && (
+        <AttachSignatureModal
+          session={attachingSig.session}
+          onClose={() => setAttachingSig(null)}
+          onSaved={() => { setAttachingSig(null); reload(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AttachSignatureModal({ session, onClose, onSaved }: {
+  session: Session; onClose: () => void; onSaved: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const preview = file ? URL.createObjectURL(file) : null;
+
+  const save = async () => {
+    if (!file) { toast.error("Selecione uma imagem da assinatura."); return; }
+    setBusy(true);
+    try {
+      // Lê o arquivo como dataURL (base64) — mesmo formato usado pela assinatura digital existente.
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      // Tenta também subir para o bucket "signatures" (se existir) — se falhar, usa apenas o dataURL.
+      let publicUrl: string | null = null;
+      try {
+        const path = `imported/${session.id}-${Date.now()}.${(file.name.split(".").pop() || "jpg").toLowerCase()}`;
+        const { error: upErr } = await supabase.storage.from("signatures").upload(path, file, {
+          contentType: file.type || "image/jpeg",
+          upsert: true,
+        });
+        if (!upErr) {
+          const { data: pub } = supabase.storage.from("signatures").getPublicUrl(path);
+          publicUrl = pub?.publicUrl ?? null;
+        }
+      } catch {
+        // bucket pode não existir — ignoramos e seguimos com dataURL
+      }
+      const { error } = await withTimeout(
+        supabase.from("sessions").update({
+          signature_data: dataUrl,
+          signature_url: publicUrl,
+        }).eq("id", session.id),
+        12000,
+        "Anexar assinatura",
+      );
+      if (error) throw error;
+      toast.success("Assinatura anexada");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao anexar");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-2xl text-navy">Anexar assinatura — Sessão #{session.session_num}</div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          <div className="text-sm text-text2">
+            Esta sessão foi importada de uma ficha de papel. Tire foto da assinatura na ficha ou envie um arquivo.
+          </div>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="w-full aspect-[4/2] rounded-lg border-2 border-dashed border-border hover:border-gold bg-bg2 flex flex-col items-center justify-center gap-2 text-text2 overflow-hidden"
+          >
+            {preview ? (
+              <img src={preview} alt="" className="w-full h-full object-contain" />
+            ) : (
+              <>
+                <IconUpload size={28} className="text-text3" />
+                <div className="text-xs">Tirar foto ou escolher arquivo</div>
+              </>
+            )}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          {file && (
+            <button type="button" onClick={() => setFile(null)} className="text-xs text-danger hover:underline">Remover</button>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={!file || busy}
+              className="px-5 py-2 rounded-lg bg-success text-white font-semibold disabled:opacity-50"
+            >
+              {busy ? "Salvando..." : "Salvar assinatura"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
