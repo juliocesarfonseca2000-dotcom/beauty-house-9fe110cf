@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift } from "@tabler/icons-react";
+import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift, IconFileText } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
+import { ContractModal } from "@/components/contracts/ContractModal";
 
 // Cria notificação no sino quando pacote tem ≤2 sessões restantes. Evita duplicar
 // procurando notificações não lidas cujo action_url já referencie o package_id.
