@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { createAppUser, updateAppUser, deleteAppUser } from "@/lib/users.functions";
 import { EvaluatorBadge } from "@/components/ui/evaluator-badge";
 import { SystemSettingsModal } from "@/components/system/SystemSettingsModal";
-import { AbsencesTab } from "@/components/users/AbsencesTab";
 import { Link } from "@tanstack/react-router";
 
 
@@ -28,21 +27,22 @@ const PERM_LABELS: Array<[keyof Permissions, string]> = [
   ["estoque", "Estoque"],
   ["financeiro", "Financeiro"],
   ["relatorios", "Relatórios"],
+  ["escala", "Escala & Ponto"],
   ["usuarios", "Usuários"],
 ];
 
 const DEFAULT_PERMS_BY_ROLE: Record<AppUser["role"], Permissions> = {
   admin: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: true,
-    procedimentos: true, estoque: true, financeiro: true, relatorios: true, usuarios: true,
+    procedimentos: true, estoque: true, financeiro: true, relatorios: true, usuarios: true, escala: true,
   },
   receptionist: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: true,
-    procedimentos: true, estoque: true, financeiro: false, relatorios: false, usuarios: false,
+    procedimentos: true, estoque: true, financeiro: false, relatorios: false, usuarios: false, escala: true,
   },
   professional: {
     dash: true, agenda: true, clientes: true, ficha: true, fechar: false,
-    procedimentos: false, estoque: false, financeiro: false, relatorios: false, usuarios: false,
+    procedimentos: false, estoque: false, financeiro: false, relatorios: false, usuarios: false, escala: true,
   },
 };
 
