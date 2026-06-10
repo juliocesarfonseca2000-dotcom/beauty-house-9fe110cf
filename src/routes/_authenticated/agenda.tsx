@@ -162,12 +162,14 @@ function AgendaPage() {
             <option value="all">Todos profissionais</option>
             {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <button
-            onClick={() => setCreating({ hour: 9, min: 0 })}
-            className="px-4 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
-          >
-            <IconPlus size={18} /> Agendar
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setCreating({ hour: 9, min: 0 })}
+              className="px-4 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
+            >
+              <IconPlus size={18} /> Agendar
+            </button>
+          )}
         </div>
       </div>
 
