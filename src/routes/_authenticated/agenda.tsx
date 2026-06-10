@@ -135,6 +135,12 @@ function AgendaPage() {
 
   return (
     <div className="space-y-4">
+      {!canManage && (
+        <div className="bh-card p-3 bg-gold/10 border border-gold/40 text-sm text-navy">
+          Visualização somente leitura. Apenas administradores e a recepção podem alterar a agenda.
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button onClick={() => setDate(addDays(date, -1))} className="p-2 rounded-lg hover:bg-bg2 border border-border">
