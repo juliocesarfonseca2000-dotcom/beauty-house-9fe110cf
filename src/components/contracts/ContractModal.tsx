@@ -150,7 +150,9 @@ export function ContractModal({
   };
 
   const finalizeAndSave = async () => {
-    if (!input || !client || !clinic) return;
+    if (!input) return toast.error("Dados do contrato ausentes");
+    if (!client) return toast.error("Cliente não carregado — feche e tente novamente");
+    if (!clinic) return toast.error("Dados da clínica não carregados");
     if (!clientSigData) return toast.error("Falta assinatura da cliente");
     if (!proSigData) return toast.error("Falta assinatura do responsável");
 
@@ -162,15 +164,20 @@ export function ContractModal({
 
       const fileName = `${client.id}/${Date.now()}.pdf`;
       let pdf_path: string | null = null;
-      const up = await supabase.storage.from("contracts").upload(fileName, blob, {
-        contentType: "application/pdf",
-        upsert: false,
-      });
-      if (up.error) {
-        console.warn("Bucket contracts indisponível:", up.error.message);
-        toast.warning("Bucket 'contracts' não encontrado — contrato salvo sem PDF anexado.");
-      } else {
-        pdf_path = up.data.path;
+      try {
+        const up = await supabase.storage.from("contracts").upload(fileName, blob, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+        if (up.error) {
+          console.warn("Bucket contracts indisponível:", up.error.message);
+          toast.warning("Bucket 'contracts' não encontrado — contrato salvo sem PDF anexado.");
+        } else {
+          pdf_path = up.data.path;
+        }
+      } catch (storageErr) {
+        console.warn("Falha no upload do PDF:", storageErr);
+        toast.warning("Não foi possível anexar o PDF — contrato será salvo mesmo assim.");
       }
 
       const { error } = await supabase.from("contracts").insert({
@@ -190,10 +197,14 @@ export function ContractModal({
         signed_at: new Date().toISOString(),
         created_by: me?.id ?? null,
       });
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao inserir contrato:", error);
+        throw new Error(error.message || "Falha ao gravar contrato");
+      }
       toast.success("Contrato salvo com sucesso ✓");
       onClose();
     } catch (e) {
+      console.error("finalizeAndSave:", e);
       toast.error(e instanceof Error ? e.message : "Erro ao salvar contrato");
     } finally {
       setBusy(false);
