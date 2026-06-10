@@ -192,6 +192,16 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                   ✓ Validar bônus
                 </button>
               )}
+              {contractsByPkg[pkg.id] && (
+                <button
+                  type="button"
+                  onClick={() => setViewContract(contractsByPkg[pkg.id])}
+                  className="px-3 py-1.5 rounded-lg border border-border text-text2 text-xs font-semibold hover:bg-bg2 flex items-center gap-1"
+                  title="Ver contrato assinado"
+                >
+                  <IconFileText size={14} /> Ver contrato
+                </button>
+              )}
             </div>
             <div className="w-full h-2 bg-bg2 rounded-full overflow-hidden mb-4">
               <div className="h-full bg-gold transition-all" style={{ width: `${(done / Math.max(pkgSess.length, 1)) * 100}%` }} />
