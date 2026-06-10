@@ -36,6 +36,10 @@ function ClosePackagePage() {
   const [sessions, setSessions] = useState<5 | 10 | 20>(10);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [payMethod, setPayMethod] = useState(PAY_METHODS[0]);
+  const [installments, setInstallments] = useState(1);
+  const showInstallments = INSTALLMENT_METHODS.includes(payMethod);
+  const effectiveInstallments = showInstallments ? Math.max(1, installments) : 1;
+  const payMethodLabel = showInstallments && effectiveInstallments > 1 ? `${payMethod} ${effectiveInstallments}x` : payMethod;
   const [discountPct, setDiscountPct] = useState(0);
   const [discountUnlocked, setDiscountUnlocked] = useState(false);
   const [adminPin, setAdminPin] = useState("");
