@@ -1,97 +1,107 @@
-# Beauty House — Pacote de melhorias (14 itens)
+# Plano de implementação
 
-Vou implementar tudo em um único pacote, criando 1 migration SQL nova e refatorando os módulos afetados. Abaixo o que será feito agrupado por área.
+## 1. Remover aba "Escala & Ponto" do modal de usuário
+- `usuarios.tsx`: remover state `tab`, abas, render condicional do `AbsencesTab`. Modal volta a ter só "Dados & Permissões".
+- Manter `AbsencesTab.tsx` (será reutilizado no módulo dedicado).
 
-## 1. Banco de dados — `MIGRATION_FASE9.sql`
+## 2. Permissão "Escala & Ponto" + acesso da recepção
+- `client.ts`: adicionar `escala: boolean` em `Permissions`.
+- `usuarios.tsx`: adicionar `["escala", "Escala & Ponto"]` em `PERM_LABELS`. Defaults: admin=true, receptionist=true, professional=true (somente leitura via lógica de role).
+- `Sidebar.tsx`: já mostra link conforme permissão — garantir entrada `escala`.
+- Migração SQL: backfill `permissions->escala` para usuários existentes.
 
-Nova migration única com:
+## 3. Estrutura do módulo Escala & Ponto (`/escala`)
+- Refatorar `src/routes/_authenticated/escala.tsx` em duas abas: **Calendário** (atual) e **Ponto**.
+- **Aba Calendário**: manter calendário atual + botão "+ Adicionar ausência" (modal com funcionário/tipo/datas/obs). Clique em célula abre modal de edição/exclusão. Todos os botões `type="button"` + `onClick`.
+- **Aba Ponto**: nova UI com seletor de data, lista de funcionários ativos, status (sem registro / presente / em pausa / saiu / falta), botões "Entrada", "Iniciar pausa", "Fim pausa", "Saída". Edição inline de horários. Totalizador.
+- **Histórico**: filtro por funcionário+período, tabela com colunas pedidas, badge de status (normal / hora extra / falta / folga), botão "Exportar PDF".
 
-- Tabela `staff_absences` (id, user_id, type enum: vacation|absent|dayoff|leave, date_start, date_end, note, created_by, created_at) + RLS + GRANTs
-- Coluna `sessions.miss_reason` (text) + `sessions.miss_kind` (`justified|unjustified|null`) para guardar histórico de faltas
-- Coluna `appointments.recurrence_group` (uuid) para agrupar recorrências
-- Coluna `sessions.signed_by` (uuid → app_users.id) e `signed_at` (timestamp) — já pode existir; só adicionar se faltar
-- Coluna `notifications.client_id` (uuid) opcional para deep-link
-- Adicionar todas as tabelas críticas ao `supabase_realtime` publication: clients, packages, sessions, appointments, procedures, products, financial_entries, app_users, staff_absences, notifications, client_packages
-- `REPLICA IDENTITY FULL` em cada uma
+### Banco — nova tabela `time_entries`
+```
+id uuid pk, user_id uuid fk app_users, date date,
+clock_in timestamptz, break_start timestamptz, break_end timestamptz, clock_out timestamptz,
+note text, created_at, updated_at
+unique(user_id, date)
+```
+RLS: SELECT/INSERT/UPDATE/DELETE para authenticated; lógica de role tratada no client (admin/recepção = todos; profissional = apenas próprio).
 
-## 2. Realtime global (item 1)
+## 4. Cálculo automático de horas
+- Função utilitária `computeTotalMinutes(entry)` em `src/lib/timeUtils.ts`.
+- Formatação `formatHM(min)` → "8h30".
+- Badges: >8h laranja (hora extra), <4h amarelo (suspeito).
 
-- Expandir `src/hooks/useRealtimeSync.ts` para incluir as 10 tabelas listadas
-- Garantir invalidate em chaves derivadas (já faz)
-- Confirmar que está sendo chamado no root autenticado
+## 5. Sidebar
+- `Sidebar.tsx`: já tem item Escala. Confirmar visibilidade conforme `permissions.escala` (com fallback por role).
 
-## 3. Topbar (itens 2, 3, 4, 5, 6, 7, 8, 9)
+## 6. Contrato digital
+### Dependências
+- Adicionar `jspdf` e `jspdf-autotable` via `bun add`.
 
-- Remover o ícone de triângulo (low packages dropdown) do `Topbar.tsx`
-- Manter sino + cubo
-- Refatorar `NotificationBell.tsx`:
-  - Geração consolidada de alertas: pacote ≤2, cliente +30d, cliente +60d, sessão não confirmada +30min
-  - Só roda/exibe para admin e receptionist
-  - Cada item: nome, descrição, "há X tempo", botão ✕ para excluir individual
-  - Botão "Marcar todas como lidas"
-  - Rodapé: link "Ver todas as notificações →"
-  - Click no item: navega para `/clientes/{id}?tab=sessions|data` ou `/agenda?date=...` e marca como lida
+### Tabela `contracts`
+```
+id uuid pk, client_id uuid fk, package_id uuid fk nullable, financial_id uuid fk nullable,
+clinic_snapshot jsonb, client_snapshot jsonb, items jsonb, total numeric,
+payment_method text, installments int, pdf_path text,
+client_signature text (data-url), pro_signature text, pro_user_id uuid,
+signed_at timestamptz, created_at timestamptz default now()
+```
+RLS: leitura/insert/update para authenticated. Após `signed_at` setado, bloquear UPDATE via policy.
 
-## 4. Nova página `/notificacoes` (item 9)
+### Storage
+- Bucket `contracts` (privado). Política: authenticated read/write.
 
-- Rota `_authenticated/notificacoes.tsx` com filtros (Todas/Pacotes/Clientes sumindo/Sessões), tabela, ações ir para ficha + excluir, "Limpar todas lidas"
+### Settings (`system_settings`)
+- Adicionar campos: `clinic_cnpj`, `clinic_address`, `clinic_phone`, `clinic_logo_url`, `contract_clauses` (text).
+- Editáveis em `SystemSettingsModal.tsx`.
 
-## 5. Ficha do cliente — aceitar `?tab=` (item 5)
+### UI
+- `src/lib/contract-pdf.ts`: gera PDF via jsPDF + autoTable, embute assinaturas (base64 PNG).
+- `src/components/contracts/ContractModal.tsx`: preview + 2 canvas (`SignaturePad` reutilizado das sessões) + botão "Finalizar e salvar".
+- `fechar-pacote.tsx`: após confirmar pacote, botão "📄 Gerar Contrato".
+- `SessionsTab.tsx`: botão "Ver contrato" em cada pacote.
+- `financeiro` (histórico $ na ficha): botão "📄 Ver contrato".
+- Contrato assinado: somente leitura (download/print).
 
-- `clientes.$id.tsx` lê `useSearch` e define aba inicial
+## 7. Notificações anti-duplicata
+### Migração
+```sql
+ALTER TABLE public.notifications
+  ADD COLUMN IF NOT EXISTS reference_id UUID,
+  ADD COLUMN IF NOT EXISTS reference_type TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS notifications_dedup
+  ON public.notifications(user_id, type, reference_id)
+  WHERE read = false AND reference_id IS NOT NULL;
+```
+### Lógica
+- `NotificationBell.tsx`: antes de inserir, `SELECT` por `(type, reference_id, read=false)`. Se existir, pula. Para pacotes: comparar `available` salvo (guardar em `meta.sessions_left`); só recriar quando muda. Para inativos: usar ciclo (`reference_type='client_inactive_30'` / `_60`).
+- Garantir que a varredura não recria notificações já lidas no mesmo ciclo.
 
-## 6. Login redirect por perfil (item 11)
-
-- Em `login.tsx`: após autenticar, navegar para `/` se admin, `/agenda` caso contrário
-- Em `_authenticated/index.tsx` (dashboard): se `user.role !== "admin"`, `redirect({ to: "/agenda" })` no `beforeLoad`/effect
-
-## 7. Modal de assinatura salva (item 12)
-
-- Em `SessionsTab.tsx`: ícone cadeado clicável quando sessão concluída → modal mostra miniatura, profissional (`signed_by`), data/hora, cliente, procedimento
-
-## 8. Lógica de faltas (item 13)
-
-- No modal de sessão (SessionsTab): substituir botão "falta" por sub-modal com "Justificada / Não justificada"
-- Justificada: motivo obrigatório, gera +1 sessão extra (incrementa `sess_total`), círculo cinza
-- Não justificada: aviso, marca `miss_kind='unjustified'`, círculo vermelho escuro, sem incremento
-- Nenhum dos casos altera `sess_done`
-
-## 9. Agendamento recorrente (item 14)
-
-- No modal "+ Agendar" da Agenda: toggle "Repetir para todas as sessões do pacote"
-- Campos: dia da semana, horário, data início, lê sessões restantes do pacote ativo
-- Cria N appointments com mesmo `recurrence_group`, pulando dias de ausência (avisa)
-
-## 10. Escala & Ponto (item 10)
-
-- Em `usuarios.tsx`: aba "Escala & Ponto" no `UserModal` com CRUD de `staff_absences` (badges coloridos por tipo)
-- Botão "Ver escala geral" no topo → nova rota `_authenticated/escala.tsx` com calendário mensal
-- Acesso: admin edita todos; recepção lê profissionais; profissional só a própria
-- Agenda (`agenda.tsx`): consulta `staff_absences` por dia e bloqueia coluna do profissional com banner; destaca appointments existentes em vermelho
+## Arquivo de migração
+- Criar `MIGRATION_FASE10.sql` com: `time_entries`, `contracts`, alterações de `notifications`, novos campos em `system_settings`, atualização de defaults de `permissions`, bucket `contracts` (instrução manual), RLS/GRANTs.
 
 ## Arquivos a criar
-- `MIGRATION_FASE9.sql`
-- `src/routes/_authenticated/notificacoes.tsx`
-- `src/routes/_authenticated/escala.tsx`
-- `src/components/users/AbsencesTab.tsx`
-- `src/components/clients/SignatureViewerModal.tsx`
-- `src/components/clients/MissSessionModal.tsx`
-- `src/components/agenda/RecurrenceFields.tsx` (inline ok também)
+- `src/routes/_authenticated/escala.tsx` (refatorado: abas)
+- `src/components/escala/CalendarTab.tsx`
+- `src/components/escala/PontoTab.tsx`
+- `src/components/escala/AbsenceModal.tsx`
+- `src/components/escala/PontoHistory.tsx`
+- `src/lib/timeUtils.ts`
+- `src/lib/contract-pdf.ts`
+- `src/components/contracts/ContractModal.tsx`
+- `MIGRATION_FASE10.sql`
 
 ## Arquivos a editar
-- `src/hooks/useRealtimeSync.ts`
-- `src/components/layout/Topbar.tsx`
-- `src/components/notifications/NotificationBell.tsx`
-- `src/routes/login.tsx`
-- `src/routes/_authenticated/index.tsx`
-- `src/routes/_authenticated/clientes.$id.tsx`
-- `src/routes/_authenticated/usuarios.tsx`
-- `src/routes/_authenticated/agenda.tsx`
-- `src/components/clients/SessionsTab.tsx`
-- `src/routeTree.gen.ts` (auto)
+- `src/integrations/supabase/client.ts` (Permissions)
+- `src/routes/_authenticated/usuarios.tsx` (remover aba, novo perm label)
+- `src/components/layout/Sidebar.tsx` (perm escala)
+- `src/components/system/SystemSettingsModal.tsx` (campos clínica + cláusulas)
+- `src/routes/_authenticated/fechar-pacote.tsx` (botão contrato)
+- `src/components/clients/SessionsTab.tsx` (botão ver contrato)
+- `src/routes/_authenticated/financeiro.tsx` ou ficha $ tab (botão ver contrato)
+- `src/components/notifications/NotificationBell.tsx` (anti-duplicata)
+- `package.json` (jspdf, jspdf-autotable)
 
-## Observação sobre a migration
+## Observação
+`MIGRATION_FASE10.sql` precisa ser executado manualmente no Supabase SQL Editor + criação do bucket `contracts` (privado).
 
-`MIGRATION_FASE9.sql` precisa ser executada manualmente no SQL Editor do Supabase antes que as features de escala, faltas detalhadas e recorrência funcionem 100%. O Realtime publication também é aplicado nela.
-
-Posso prosseguir com a implementação?
+Posso prosseguir com a implementação completa?
