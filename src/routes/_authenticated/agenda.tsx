@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
-import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { withTimeout } from "@/lib/with-timeout";
 
@@ -42,6 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
   confirmed: "bg-blue-500/15 text-navy border-l-blue-500",
   done: "bg-success/15 text-success border-l-success",
   cancelled: "bg-danger/10 text-danger border-l-danger line-through",
+  blocked: "bg-text2/20 text-text2 border-l-text2",
 };
 
 function fmtDate(d: Date) {
@@ -53,11 +55,15 @@ function fmtDate(d: Date) {
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 
 function AgendaPage() {
+  const { user: me } = useAuth();
+  const canManage = me?.role === "admin" || me?.role === "receptionist";
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
   const [proFilter, setProFilter] = useState<string>("all");
   const [appts, setAppts] = useState<Appt[]>([]);
+  const [slotChoice, setSlotChoice] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
+  const [blocking, setBlocking] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
   const [loading, setLoading] = useState(true);
   const [absences, setAbsences] = useState<Absence[]>([]);
@@ -129,6 +135,12 @@ function AgendaPage() {
 
   return (
     <div className="space-y-4">
+      {!canManage && (
+        <div className="bh-card p-3 bg-gold/10 border border-gold/40 text-sm text-navy">
+          Visualização somente leitura. Apenas administradores e a recepção podem alterar a agenda.
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button onClick={() => setDate(addDays(date, -1))} className="p-2 rounded-lg hover:bg-bg2 border border-border">
@@ -156,12 +168,14 @@ function AgendaPage() {
             <option value="all">Todos profissionais</option>
             {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <button
-            onClick={() => setCreating({ hour: 9, min: 0 })}
-            className="px-4 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
-          >
-            <IconPlus size={18} /> Agendar
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setCreating({ hour: 9, min: 0 })}
+              className="px-4 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
+            >
+              <IconPlus size={18} /> Agendar
+            </button>
+          )}
         </div>
       </div>
 
@@ -211,8 +225,9 @@ function AgendaPage() {
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setCreating({ proId: p.id, hour: s.h, min: s.m })}
-                      className={`block w-full hover:bg-gold/5 ${s.m === 0 ? "border-t" : "border-t border-dashed border-border/40"}`}
+                      disabled={!canManage}
+                      onClick={() => canManage && setSlotChoice({ proId: p.id, hour: s.h, min: s.m })}
+                      className={`block w-full ${canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"} ${s.m === 0 ? "border-t" : "border-t border-dashed border-border/40"}`}
                       style={{ height: SLOT_PX }}
                     />
                   ))}
@@ -228,14 +243,23 @@ function AgendaPage() {
                     return (
                       <div
                         key={a.id}
-                        onClick={() => setViewing(a)}
-                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 cursor-pointer shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending}`}
+                        onClick={() => canManage && setViewing(a)}
+                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending}`}
                         style={{ top, height }}
                       >
-                        <div className="font-semibold truncate text-[11px]">
-                          {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
-                        </div>
-                        <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
+                        {a.status === "blocked" ? (
+                          <div className="font-semibold truncate text-[11px] flex items-center gap-1">
+                            <IconLock size={11} /> {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · Bloqueado
+                            {a.notes && <span className="font-normal opacity-80"> — {a.notes}</span>}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="font-semibold truncate text-[11px]">
+                              {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
+                            </div>
+                            <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -261,6 +285,24 @@ function AgendaPage() {
       )}
       {viewing && (
         <ApptViewModal appt={viewing} onClose={() => setViewing(null)} onChanged={() => { setViewing(null); load(); }} />
+      )}
+      {slotChoice && (
+        <SlotChoiceModal
+          onClose={() => setSlotChoice(null)}
+          onAgendar={() => { setCreating({ proId: slotChoice.proId, hour: slotChoice.hour, min: slotChoice.min }); setSlotChoice(null); }}
+          onFechar={() => { setBlocking({ proId: slotChoice.proId, hour: slotChoice.hour, min: slotChoice.min }); setSlotChoice(null); }}
+        />
+      )}
+      {blocking && (
+        <BlockSlotModal
+          date={date}
+          hour={blocking.hour}
+          min={blocking.min}
+          proId={blocking.proId}
+          proName={pros.find((p) => p.id === blocking.proId)?.name ?? ""}
+          onClose={() => setBlocking(null)}
+          onSaved={() => { setBlocking(null); load(); }}
+        />
       )}
     </div>
   );
@@ -593,4 +635,87 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return <div className="flex justify-between gap-3"><span className="text-text2">{label}</span><span className="text-navy font-medium text-right">{value}</span></div>;
+}
+
+function SlotChoiceModal({ onClose, onAgendar, onFechar }: { onClose: () => void; onAgendar: () => void; onFechar: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-xl text-navy">O que deseja fazer?</div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          <button onClick={onAgendar} className="w-full px-4 py-3 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center justify-center gap-2">
+            <IconCalendarEvent size={18} /> Agendar cliente
+          </button>
+          <button onClick={onFechar} className="w-full px-4 py-3 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 flex items-center justify-center gap-2">
+            <IconLock size={18} /> Fechar horário
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BlockSlotModal({ date, hour, min, proId, proName, onClose, onSaved }: {
+  date: Date; hour: number; min: number; proId: string; proName: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [duration, setDuration] = useState("60");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const dt = new Date(date);
+      dt.setHours(hour, min, 0, 0);
+      const dur = Number(duration) || 60;
+      const { error } = await supabase.from("appointments").insert({
+        professional_id: proId,
+        datetime: dt.toISOString(),
+        duration_min: dur,
+        status: "blocked",
+        notes: reason || null,
+        client_id: null,
+        procedure_id: null,
+      });
+      if (error) throw error;
+      toast.success("Horário fechado!");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao fechar horário");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-xl text-navy flex items-center gap-2"><IconLock size={20} /> Fechar horário</div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
+        </div>
+        <form onSubmit={submit} className="p-6 space-y-4">
+          <div className="text-sm text-text2">
+            <b className="text-navy">{proName}</b> · {date.toLocaleDateString("pt-BR")} às {String(hour).padStart(2,"0")}:{String(min).padStart(2,"0")}
+          </div>
+          <Field label="Duração (min)*">
+            <input type="number" min={15} step={15} value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} required />
+          </Field>
+          <Field label="Motivo">
+            <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex: almoço, reunião, indisponível" className={inp} />
+          </Field>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
+              {busy ? "Salvando..." : "Fechar horário"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
