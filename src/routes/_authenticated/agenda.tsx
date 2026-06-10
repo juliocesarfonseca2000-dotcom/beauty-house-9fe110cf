@@ -43,6 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
   confirmed: "bg-blue-500/15 text-navy border-l-blue-500",
   done: "bg-success/15 text-success border-l-success",
   cancelled: "bg-danger/10 text-danger border-l-danger line-through",
+  blocked: "bg-text2/20 text-text2 border-l-text2",
 };
 
 function fmtDate(d: Date) {
