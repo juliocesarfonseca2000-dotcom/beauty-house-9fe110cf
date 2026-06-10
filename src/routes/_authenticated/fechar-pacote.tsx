@@ -352,6 +352,17 @@ function ClosePackagePage() {
           </button>
         </div>
       </div>
+
+      {contractInput && client && (
+        <ContractModal
+          input={contractInput}
+          onClose={() => {
+            setContractInput(null);
+            navigate({ to: "/clientes/$id", params: { id: client.id } });
+          }}
+        />
+      )}
     </div>
   );
+
 }
