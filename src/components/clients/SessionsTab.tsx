@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift, IconFileText } from "@tabler/icons-react";
+import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift, IconFileText, IconCamera, IconUpload } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
