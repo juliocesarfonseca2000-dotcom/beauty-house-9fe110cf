@@ -10,6 +10,7 @@ import {
   IconAlertTriangle,
   IconSearch,
   IconX,
+  IconHistory,
 } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ type Movement = {
   quantity: number;
   reason: string | null;
   notes: string | null;
+  taken_by: string | null;
   created_at: string;
 };
 
