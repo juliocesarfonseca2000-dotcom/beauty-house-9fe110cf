@@ -38,8 +38,13 @@ export const scanClientCard = createServerFn({ method: "POST" })
       {
         type: "text",
         text:
-          "Você está lendo uma ficha física de cliente da clínica Beauty House Estética. Extraia os campos pedidos pela função. Se algum campo não estiver visível, retorne null. Para o telefone, devolva apenas dígitos (sem máscara). O 'evaluator_name' é a avaliadora responsável (nome da profissional). 'notes' deve conter o tratamento, observações e renovações concatenados.",
+          "Você está lendo uma ficha física de cliente da clínica Beauty House Estética. Extraia os campos pedidos pela função. Se algum campo não estiver visível, retorne null. Para o telefone, devolva apenas dígitos (sem máscara). O 'evaluator_name' é a avaliadora responsável (nome da profissional). 'notes' deve conter o tratamento, observações e renovações concatenados.\n\nIMPORTANTE — HISTÓRICO DE PROCEDIMENTOS:\nFichas físicas costumam ter tabelas/grades de controle de sessões (geralmente numeradas 1 a 10, ou 1 a 20) com datas, carimbos, vistos (X, ✓) ou assinaturas indicando sessões já realizadas. Para CADA procedimento/tratamento identificável na ficha, retorne um item em 'procedures_history' com:\n- procedure_name: nome do procedimento como aparece escrito (ex: 'Dermapen', 'Massagem 40min', 'Botox', 'Drenagem')\n- sessions_done: número de sessões já marcadas/realizadas (conte carimbos, vistos, datas preenchidas)\n- sessions_total: total contratado se visível (ex: pacote de 10 sessões), ou null se não houver indicação clara\n\nSe não conseguir identificar o histórico com confiança, retorne array vazio em vez de inventar números. É preferível devolver vazio a errar.",
       },
+      {
+        type: "image_url",
+        image_url: { url: `data:${data.frontMime};base64,${stripDataUrl(data.frontBase64)}` },
+      },
+    ];
       {
         type: "image_url",
         image_url: { url: `data:${data.frontMime};base64,${stripDataUrl(data.frontBase64)}` },
