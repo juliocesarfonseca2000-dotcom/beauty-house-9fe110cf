@@ -45,11 +45,6 @@ export const scanClientCard = createServerFn({ method: "POST" })
         image_url: { url: `data:${data.frontMime};base64,${stripDataUrl(data.frontBase64)}` },
       },
     ];
-      {
-        type: "image_url",
-        image_url: { url: `data:${data.frontMime};base64,${stripDataUrl(data.frontBase64)}` },
-      },
-    ];
     if (data.backBase64 && data.backMime) {
       content.push({
         type: "image_url",
