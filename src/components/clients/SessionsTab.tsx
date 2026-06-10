@@ -216,9 +216,12 @@ export function SessionsTab({ clientId }: { clientId: string }) {
               {pkgSess.map((s, i) => {
                 const isNext = i === nextIdx;
                 const isMissedJ = s.session_status === "missed_justified";
+                const isImported = s.status === "done" && !s.signature_data && !s.signature_url;
                 const cls =
                   s.status === "done"
-                    ? "bg-success text-white"
+                    ? isImported
+                      ? "bg-success/70 text-white cursor-pointer hover:bg-success"
+                      : "bg-success text-white"
                     : isMissedJ
                     ? "bg-text3 text-white"
                     : s.status === "missed"
@@ -229,25 +232,36 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                 return (
                   <button
                     key={s.id}
+                    type="button"
                     disabled={!isNext && s.status === "pending"}
                     onClick={() => {
                       if (s.status === "done") {
-                        setViewSig({ pkg, session: s });
+                        if (isImported) {
+                          setAttachingSig({ pkg, session: s });
+                        } else {
+                          setViewSig({ pkg, session: s });
+                        }
                       } else if (isNext) {
                         setChoosing({ pkg, session: s });
                       }
                     }}
                     className={`relative w-11 h-11 rounded-md text-sm font-semibold ${cls} transition`}
                     title={
-                      s.status === "done" ? "Realizada — clique para ver" :
-                      isMissedJ ? "Falta justificada — reposição agendada" :
-                      s.status === "missed" ? "Sessão perdida — sem reposição" :
-                      isNext ? "Próxima sessão" : "Aguardando"
+                      s.status === "done"
+                        ? isImported
+                          ? "Sessão importada — clique para anexar assinatura"
+                          : "Realizada — clique para ver"
+                        : isMissedJ ? "Falta justificada — reposição agendada"
+                        : s.status === "missed" ? "Sessão perdida — sem reposição"
+                        : isNext ? "Próxima sessão" : "Aguardando"
                     }
                   >
                     {s.session_num}
-                    {s.status === "done" && (
+                    {s.status === "done" && !isImported && (
                       <IconLock size={9} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-px" />
+                    )}
+                    {s.status === "done" && isImported && (
+                      <IconCamera size={10} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-0.5" />
                     )}
                     {(s.status === "missed" || isMissedJ) && (
                       <span className="absolute inset-0 flex items-center justify-center text-white text-lg">✗</span>
