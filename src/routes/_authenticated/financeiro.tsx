@@ -17,6 +17,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { exportFinanceiroPdf } from "@/lib/pdf-export";
 import { ContractModal } from "@/components/contracts/ContractModal";
+import { useAuth } from "@/lib/auth";
+import { PasswordInput } from "@/components/ui/password-input";
+
 
 export const Route = createFileRoute("/_authenticated/financeiro")({
   component: FinanceiroPage,
