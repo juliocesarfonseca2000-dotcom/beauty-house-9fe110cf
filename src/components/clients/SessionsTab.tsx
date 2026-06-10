@@ -69,6 +69,8 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [viewSig, setViewSig] = useState<{ pkg: Package; session: Session } | null>(null);
   const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
+  const [viewContract, setViewContract] = useState<string | null>(null);
+  const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   const { data = { packages: [], sessions: [] }, isLoading, refetch } = useQuery({
