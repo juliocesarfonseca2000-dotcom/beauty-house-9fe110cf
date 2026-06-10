@@ -32,12 +32,20 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
     const [n, p] = await Promise.all([
       supabase.from("session_notes").select("id,date,procedure_id,equipment,parameters,notes,created_by,procedures(name)")
         .eq("client_id", clientId).order("date", { ascending: false }).order("created_at", { ascending: false }),
-      supabase.from("procedures").select("id,name").eq("active", true).order("name"),
+      supabase.from("packages").select("procedure_id,procedures(id,name)").eq("client_id", clientId),
     ]);
     setNotes(((n.data as unknown as Note[]) ?? []));
-    setProcs((p.data as Proc[]) ?? []);
+    const seen = new Set<string>();
+    const procList: Proc[] = [];
+    for (const row of ((p.data as unknown as Array<{ procedure_id: string | null; procedures: { id: string; name: string } | null }>) ?? [])) {
+      const pr = row.procedures;
+      if (pr && !seen.has(pr.id)) { seen.add(pr.id); procList.push({ id: pr.id, name: pr.name }); }
+    }
+    procList.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    setProcs(procList);
     setLoading(false);
   };
+
 
   useEffect(() => { load(); }, [clientId]);
 
