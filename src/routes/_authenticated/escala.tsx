@@ -50,7 +50,13 @@ function EscalaPage() {
           Registro de ponto
         </button>
       </div>
-      {tab === "calendario" ? <CalendarTab canManage={canManage} /> : <PontoTab />}
+      {/* Mantém ambas as abas montadas para evitar refetch e re-render ao alternar */}
+      <div className={tab === "calendario" ? "" : "hidden"}>
+        <CalendarTab canManage={canManage} />
+      </div>
+      <div className={tab === "ponto" ? "" : "hidden"}>
+        <PontoTab />
+      </div>
     </div>
   );
 }
