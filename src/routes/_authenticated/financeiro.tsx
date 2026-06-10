@@ -176,6 +176,8 @@ function ReceitasTab() {
   const [to, setTo] = useState(todayStr());
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
+  const [viewContract, setViewContract] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
