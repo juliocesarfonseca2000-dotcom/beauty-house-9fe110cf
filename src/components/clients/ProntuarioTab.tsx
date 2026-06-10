@@ -165,11 +165,12 @@ function NoteForm({ clientId, procs, userId, initial, editingId, onCancel, onSav
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Field label="Data"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inp} /></Field>
         <Field label="Procedimento">
-          <select value={procId} onChange={(e) => setProcId(e.target.value)} className={inp}>
-            <option value="">— selecione —</option>
+          <select value={procId} onChange={(e) => setProcId(e.target.value)} className={inp} disabled={procs.length === 0}>
+            <option value="">{procs.length === 0 ? "Nenhum procedimento comprado por esta cliente" : "— selecione —"}</option>
             {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </Field>
+
         <Field label="Aparelho"><input value={equipment} onChange={(e) => setEquipment(e.target.value)} className={inp} placeholder="Ex: Endermologie" /></Field>
         <Field label="Parâmetros"><input value={parameters} onChange={(e) => setParameters(e.target.value)} className={inp} placeholder="Ex: Potência 8, 2 passadas" /></Field>
       </div>
