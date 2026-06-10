@@ -414,6 +414,7 @@ function MovementModal({
   const [qty, setQty] = useState("");
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
+  const [takenBy, setTakenBy] = useState("");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -421,6 +422,8 @@ function MovementModal({
     if (!q || q <= 0) return toast.error("Quantidade inválida");
     if (type === "out" && q > Number(product.qty_current))
       return toast.error("Quantidade maior que o estoque atual");
+    if (type === "out" && !takenBy.trim())
+      return toast.error("Informe quem retirou o produto");
     setSaving(true);
     const { data: u } = await supabase.auth.getUser();
     const delta = type === "in" ? q : -q;
@@ -431,6 +434,7 @@ function MovementModal({
       quantity: q,
       reason: reason || null,
       notes: notes || null,
+      taken_by: takenBy.trim() || null,
       created_by: u.user?.id ?? null,
     });
     if (mv.error) {
@@ -482,6 +486,14 @@ function MovementModal({
               </>
             )}
           </select>
+        </Field>
+        <Field label={type === "out" ? "Quem retirou*" : "Recebido por"}>
+          <input
+            value={takenBy}
+            onChange={(e) => setTakenBy(e.target.value)}
+            placeholder={type === "out" ? "Nome de quem retirou" : "Nome de quem recebeu"}
+            className={inp}
+          />
         </Field>
         <Field label="Observações">
           <textarea
