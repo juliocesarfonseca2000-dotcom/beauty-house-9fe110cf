@@ -47,7 +47,7 @@ const SECTIONS: Section[] = [
       { to: "/financeiro", label: "Financeiro", icon: <IconCoin size={18} />, key: "financeiro" },
       { to: "/estoque", label: "Estoque", icon: <IconBoxSeam size={18} />, key: "estoque" },
       { to: "/relatorios", label: "Relatórios", icon: <IconChartBar size={18} />, key: "relatorios" },
-      { to: "/escala", label: "Escala & Ponto", icon: <IconCalendar size={18} />, key: "agenda" },
+      { to: "/escala", label: "Escala & Ponto", icon: <IconCalendar size={18} />, key: "escala" },
       { to: "/usuarios", label: "Usuários", icon: <IconUserShield size={18} />, key: "usuarios" },
     ],
   },

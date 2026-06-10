@@ -1,13 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { IconSearch, IconPackage, IconTrash, IconPlus, IconLock } from "@tabler/icons-react";
+import { IconSearch, IconPackage, IconTrash, IconPlus, IconLock, IconFileText } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
+import { ContractModal, type ContractInput } from "@/components/contracts/ContractModal";
 
 export const Route = createFileRoute("/_authenticated/fechar-pacote")({
   component: ClosePackagePage,
 });
+
 
 type Client = { id: string; name: string; record_num: number; phone: string | null };
 type Procedure = {
@@ -37,6 +39,8 @@ function ClosePackagePage() {
   const [discountUnlocked, setDiscountUnlocked] = useState(false);
   const [adminPin, setAdminPin] = useState("");
   const [busy, setBusy] = useState(false);
+  const [contractInput, setContractInput] = useState<ContractInput | null>(null);
+
 
   useEffect(() => {
     (async () => {
@@ -143,8 +147,23 @@ function ClosePackagePage() {
       );
       if (sErr) throw sErr;
 
+      const pkgIds = pkgResults.map((r) => r.data!.id);
+      const items = cart.map((it) => ({
+        procedure_name: it.procedure.name,
+        sessions: it.sessions,
+        unit_price: it.price * (1 - discountPct / 100) / it.sessions,
+        total: it.price * (1 - discountPct / 100),
+      }));
       toast.success(`Pacote fechado! ${cart.length} item(s) adicionado(s).`);
-      navigate({ to: "/clientes/$id", params: { id: client.id } });
+      setContractInput({
+        clientId: client.id,
+        packageIds: pkgIds,
+        items,
+        total,
+        paymentMethod: payMethod,
+        installments: null,
+      });
+
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao fechar pacote");
     } finally {
@@ -333,6 +352,17 @@ function ClosePackagePage() {
           </button>
         </div>
       </div>
+
+      {contractInput && client && (
+        <ContractModal
+          input={contractInput}
+          onClose={() => {
+            setContractInput(null);
+            navigate({ to: "/clientes/$id", params: { id: client.id } });
+          }}
+        />
+      )}
     </div>
   );
+
 }
