@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
 import { ContractModal, type ContractInput } from "@/components/contracts/ContractModal";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export const Route = createFileRoute("/_authenticated/fechar-pacote")({
   component: ClosePackagePage,
