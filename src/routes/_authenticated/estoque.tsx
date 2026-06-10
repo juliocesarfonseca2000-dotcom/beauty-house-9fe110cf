@@ -50,6 +50,7 @@ function EstoquePage() {
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [moving, setMoving] = useState<{ product: Product; type: "in" | "out" } | null>(null);
   const [historyOf, setHistoryOf] = useState<Product | null>(null);
+  const [globalHistory, setGlobalHistory] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -95,12 +96,20 @@ function EstoquePage() {
           <div className="font-display text-3xl text-navy">Estoque</div>
           <div className="text-text2 text-sm">Produtos, entradas, saídas e alertas de mínimo</div>
         </div>
-        <button
-          onClick={() => setEditing("new")}
-          className="px-4 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 flex items-center gap-2"
-        >
-          <IconPlus size={16} /> Novo produto
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setGlobalHistory(true)}
+            className="px-4 py-2 rounded-lg border border-border text-text2 font-semibold hover:bg-bg2 flex items-center gap-2"
+          >
+            <IconHistory size={16} /> Histórico
+          </button>
+          <button
+            onClick={() => setEditing("new")}
+            className="px-4 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 flex items-center gap-2"
+          >
+            <IconPlus size={16} /> Novo produto
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -259,6 +268,7 @@ function EstoquePage() {
         />
       )}
       {historyOf && <HistoryModal product={historyOf} onClose={() => setHistoryOf(null)} />}
+      {globalHistory && <GlobalHistoryModal onClose={() => setGlobalHistory(false)} />}
     </div>
   );
 }
