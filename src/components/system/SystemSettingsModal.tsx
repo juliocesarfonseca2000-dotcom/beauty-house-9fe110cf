@@ -1,42 +1,53 @@
 // Configurações do sistema (engrenagem do módulo Usuários).
-// Hoje suporta: bônus de indicação.
+// Suporta: bônus de indicação, dados da clínica e cláusulas do contrato.
 import { useEffect, useState } from "react";
 import { IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { DEFAULT_CLAUSES, DEFAULT_CLINIC, type ClinicInfo } from "@/lib/contract-pdf";
 
 type Proc = { id: string; name: string };
 export type BonusConfig = { procedure_id: string | null; procedure_name: string | null; sessions_count: number };
 
-const DEFAULT: BonusConfig = { procedure_id: null, procedure_name: null, sessions_count: 5 };
+const DEFAULT_BONUS: BonusConfig = { procedure_id: null, procedure_name: null, sessions_count: 5 };
 
 export async function getBonusConfig(): Promise<BonusConfig> {
   const { data } = await supabase.from("system_settings").select("value").eq("key", "bonus_config").maybeSingle();
-  if (!data?.value) return DEFAULT;
-  return { ...DEFAULT, ...(data.value as BonusConfig) };
+  if (!data?.value) return DEFAULT_BONUS;
+  return { ...DEFAULT_BONUS, ...(data.value as BonusConfig) };
 }
 
+type Tab = "bonus" | "clinica" | "contrato";
+
 export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
+  const [tab, setTab] = useState<Tab>("bonus");
   const [procs, setProcs] = useState<Proc[]>([]);
   const [procId, setProcId] = useState("");
   const [count, setCount] = useState(5);
+  const [clinic, setClinic] = useState<ClinicInfo>(DEFAULT_CLINIC);
+  const [clauses, setClauses] = useState<string>(DEFAULT_CLAUSES);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [pRes, cfg] = await Promise.all([
+      const [pRes, cfg, clinicRow, clausesRow] = await Promise.all([
         supabase.from("procedures").select("id,name").eq("active", true).order("name"),
         getBonusConfig(),
+        supabase.from("system_settings").select("value").eq("key", "clinic_info").maybeSingle(),
+        supabase.from("system_settings").select("value").eq("key", "contract_clauses").maybeSingle(),
       ]);
       setProcs((pRes.data as Proc[]) ?? []);
       setProcId(cfg.procedure_id ?? "");
       setCount(cfg.sessions_count ?? 5);
+      if (clinicRow.data?.value) setClinic({ ...DEFAULT_CLINIC, ...(clinicRow.data.value as ClinicInfo) });
+      const cv = clausesRow.data?.value as { text?: string } | string | null;
+      if (cv) setClauses(typeof cv === "string" ? cv : (cv.text ?? DEFAULT_CLAUSES));
       setLoading(false);
     })();
   }, []);
 
-  const save = async () => {
+  const saveBonus = async () => {
     setBusy(true);
     try {
       const proc = procs.find((p) => p.id === procId) ?? null;
@@ -48,50 +59,132 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
       const { error } = await supabase.from("system_settings")
         .upsert({ key: "bonus_config", value, updated_at: new Date().toISOString() });
       if (error) throw error;
-      toast.success("Configurações salvas");
-      onClose();
+      toast.success("Bônus salvo");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar");
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
+
+  const saveClinic = async () => {
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("system_settings")
+        .upsert({ key: "clinic_info", value: clinic, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      toast.success("Dados da clínica salvos");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar");
+    } finally { setBusy(false); }
+  };
+
+  const saveClauses = async () => {
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("system_settings")
+        .upsert({ key: "contract_clauses", value: { text: clauses }, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      toast.success("Cláusulas salvas");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar");
+    } finally { setBusy(false); }
+  };
+
+  const TabBtn = ({ id, label }: { id: Tab; label: string }) => (
+    <button type="button" onClick={() => setTab(id)}
+      className={`px-4 py-2 text-sm font-semibold border-b-2 ${tab === id ? "border-gold text-navy" : "border-transparent text-text3 hover:text-navy"}`}>
+      {label}
+    </button>
+  );
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
-      <div className="bg-card rounded-xl shadow-xl w-full max-w-lg my-8">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl my-8">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="font-display text-2xl text-navy">Configurações do sistema</div>
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
         </div>
+        <div className="flex border-b px-4">
+          <TabBtn id="bonus" label="Bônus de indicação" />
+          <TabBtn id="clinica" label="Dados da clínica" />
+          <TabBtn id="contrato" label="Cláusulas do contrato" />
+        </div>
+
         <div className="p-6 space-y-5">
-          <div>
-            <div className="font-display text-lg text-navy mb-1">Bônus de indicação</div>
-            <div className="text-xs text-text3 mb-3">Define qual pacote é gerado automaticamente quando uma cliente é indicada.</div>
-            {loading ? (
-              <div className="text-text3 text-sm">Carregando...</div>
-            ) : (
-              <div className="space-y-3">
+          {loading ? (
+            <div className="text-text3 text-sm">Carregando...</div>
+          ) : tab === "bonus" ? (
+            <div className="space-y-3">
+              <div className="text-xs text-text3">Define qual pacote é gerado automaticamente quando uma cliente é indicada.</div>
+              <div>
+                <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Procedimento do bônus</label>
+                <select value={procId} onChange={(e) => setProcId(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm">
+                  <option value="">— selecione —</option>
+                  {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Quantidade de sessões</label>
+                <input type="number" min={1} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm" />
+              </div>
+              <div className="flex justify-end">
+                <button type="button" onClick={saveBonus} disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
+                  {busy ? "Salvando..." : "Salvar bônus"}
+                </button>
+              </div>
+            </div>
+          ) : tab === "clinica" ? (
+            <div className="space-y-3">
+              <div className="text-xs text-text3">Dados que aparecem no cabeçalho do contrato.</div>
+              <div>
+                <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Nome da clínica</label>
+                <input value={clinic.name} onChange={(e) => setClinic({ ...clinic, name: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Procedimento do bônus</label>
-                  <select value={procId} onChange={(e) => setProcId(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm">
-                    <option value="">— selecione —</option>
-                    {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                  <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">CNPJ</label>
+                  <input value={clinic.cnpj} onChange={(e) => setClinic({ ...clinic, cnpj: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Quantidade de sessões</label>
-                  <input type="number" min={1} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm" />
+                  <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Telefone</label>
+                  <input value={clinic.phone} onChange={(e) => setClinic({ ...clinic, phone: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm" />
                 </div>
               </div>
-            )}
-          </div>
+              <div>
+                <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Endereço</label>
+                <input value={clinic.address} onChange={(e) => setClinic({ ...clinic, address: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">URL do logo (opcional)</label>
+                <input value={clinic.logo_url ?? ""} onChange={(e) => setClinic({ ...clinic, logo_url: e.target.value || null })} placeholder="https://..." className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm" />
+              </div>
+              <div className="flex justify-end">
+                <button type="button" onClick={saveClinic} disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
+                  {busy ? "Salvando..." : "Salvar dados"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-xs text-text3">Texto livre que aparece nas cláusulas do contrato gerado.</div>
+              <textarea
+                value={clauses}
+                onChange={(e) => setClauses(e.target.value)}
+                rows={14}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm font-mono"
+              />
+              <div className="flex justify-between items-center">
+                <button type="button" onClick={() => setClauses(DEFAULT_CLAUSES)} className="text-xs text-text3 hover:text-navy underline">
+                  Restaurar padrão
+                </button>
+                <button type="button" onClick={saveClauses} disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
+                  {busy ? "Salvando..." : "Salvar cláusulas"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
-          <button onClick={save} disabled={busy || loading} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
-            {busy ? "Salvando..." : "Salvar configurações"}
-          </button>
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Fechar</button>
         </div>
       </div>
     </div>
