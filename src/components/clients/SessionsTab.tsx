@@ -166,11 +166,16 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           <div key={pkg.id} className="bh-card p-5">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
-                <div className="font-display text-lg text-navy flex items-center gap-2">
+                <div className="font-display text-lg text-navy flex items-center gap-2 flex-wrap">
                   {pkg.procedures?.name}
+                  {isBonus && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 inline-flex items-center gap-1">
+                      <IconGift size={10} /> Brinde
+                    </span>
+                  )}
                   {isBonus && !validated && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gold/20 text-gold">
-                      <IconGift size={10} className="inline mr-1" /> Bônus pendente
+                      Bônus pendente
                     </span>
                   )}
                   {isBonus && validated && (
