@@ -93,22 +93,59 @@ export function ClientFormModal({
 
       // Bônus de indicação — dispara em paralelo, não bloqueia o redirect
       if (referral === "Indicação" && referralClientId) {
-        const bonusPromise = Promise.all([
-          supabase.from("referral_bonuses").insert({
-            from_client_id: referralClientId,
-            to_client_name: name.trim(),
-            awarded: true,
-          }),
-          supabase.from("income").insert({
-            client_id: referralClientId,
-            description: "Massagem Comum 40' — 5 sessões · Bônus indicação",
-            amount: 0,
-            pay_method: "bonus",
-          }),
-        ]);
+        const bonusPromise = (async () => {
+          const { getBonusConfig } = await import("@/components/system/SystemSettingsModal");
+          const cfg = await getBonusConfig();
+          const sessionsCount = cfg.sessions_count ?? 5;
+          const procName = cfg.procedure_name ?? "Massagem Comum 40'";
+          const description = `${procName} — ${sessionsCount} sessões · Bônus indicação`;
+
+          await Promise.all([
+            supabase.from("referral_bonuses").insert({
+              from_client_id: referralClientId,
+              to_client_name: name.trim(),
+              awarded: true,
+            }),
+            supabase.from("income").insert({
+              client_id: referralClientId,
+              description,
+              amount: 0,
+              pay_method: "bonus",
+            }),
+          ]);
+
+          // Cria o pacote de brinde + sessões pendentes, para aparecer na aba Sessões
+          if (cfg.procedure_id) {
+            const { data: pkg, error: pkgErr } = await supabase
+              .from("packages")
+              .insert({
+                client_id: referralClientId,
+                procedure_id: cfg.procedure_id,
+                sess_total: sessionsCount,
+                sess_done: 0,
+                price_full: 0,
+                price_paid: 0,
+                discount_pct: 0,
+                pay_method: "bonus",
+                status: "active",
+                is_bonus: true,
+              })
+              .select("id")
+              .single();
+            if (pkgErr) throw pkgErr;
+            const sessRows = Array.from({ length: sessionsCount }, (_, i) => ({
+              package_id: (pkg as { id: string }).id,
+              client_id: referralClientId,
+              session_num: i + 1,
+              status: "pending",
+            }));
+            await supabase.from("sessions").insert(sessRows);
+          }
+        })();
         // Não await — segue o fluxo. Só logamos erro silenciosamente.
         bonusPromise.catch((e) => console.error("Bônus indicação falhou:", e));
       }
+
 
       toast.success("Cliente cadastrada!");
       onCreated(newId);
