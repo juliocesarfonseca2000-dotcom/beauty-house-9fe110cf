@@ -290,6 +290,9 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       {viewSig && (
         <SignatureViewerModal clientId={clientId} pkg={viewSig.pkg} session={viewSig.session} onClose={() => setViewSig(null)} />
       )}
+      {viewContract && (
+        <ContractModal existingContractId={viewContract} onClose={() => setViewContract(null)} />
+      )}
     </div>
   );
 }
