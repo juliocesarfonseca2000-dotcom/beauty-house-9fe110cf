@@ -7,6 +7,12 @@ type ScanInput = {
   backMime?: string;
 };
 
+export type ProcedureHistoryItem = {
+  procedure_name: string;
+  sessions_done: number;
+  sessions_total: number | null;
+};
+
 type ScanResult = {
   name: string | null;
   phone: string | null;
@@ -14,6 +20,7 @@ type ScanResult = {
   record_num: string | null;
   evaluator_name: string | null;
   notes: string | null;
+  procedures_history: ProcedureHistoryItem[];
 };
 
 function stripDataUrl(s: string) {
