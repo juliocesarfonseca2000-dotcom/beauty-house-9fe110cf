@@ -165,8 +165,8 @@ function ClosePackagePage() {
         packageIds: pkgIds,
         items,
         total,
-        paymentMethod: payMethod,
-        installments: null,
+        paymentMethod: payMethodLabel,
+        installments: showInstallments ? effectiveInstallments : null,
       });
 
     } catch (err: unknown) {
