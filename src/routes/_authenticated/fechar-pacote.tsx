@@ -341,12 +341,12 @@ function ClosePackagePage() {
               />
             ) : (
               <div className="flex gap-2">
-                <input
-                  type="password"
+                <PasswordInput
                   value={adminPin}
                   onChange={(e) => setAdminPin(e.target.value)}
                   placeholder="Senha admin"
                   className="flex-1 px-3 py-2 rounded-lg border border-border text-sm"
+                  wrapperClassName="flex-1"
                 />
                 <button onClick={unlockDiscount} className="px-3 py-2 rounded-lg bg-navy text-white text-xs font-semibold hover:bg-navy2">
                   Liberar
