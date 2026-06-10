@@ -147,8 +147,23 @@ function ClosePackagePage() {
       );
       if (sErr) throw sErr;
 
+      const pkgIds = pkgResults.map((r) => r.data!.id);
+      const items = cart.map((it) => ({
+        procedure_name: it.procedure.name,
+        sessions: it.sessions,
+        unit_price: it.price * (1 - discountPct / 100) / it.sessions,
+        total: it.price * (1 - discountPct / 100),
+      }));
       toast.success(`Pacote fechado! ${cart.length} item(s) adicionado(s).`);
-      navigate({ to: "/clientes/$id", params: { id: client.id } });
+      setContractInput({
+        clientId: client.id,
+        packageIds: pkgIds,
+        items,
+        total,
+        paymentMethod: payMethod,
+        installments: null,
+      });
+
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao fechar pacote");
     } finally {
