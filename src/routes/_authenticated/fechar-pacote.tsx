@@ -380,12 +380,14 @@ function ClosePackagePage() {
       {contractInput && client && (
         <ContractModal
           input={contractInput}
+          client={{ id: client.id, name: client.name, cpf: (client as { cpf?: string | null }).cpf ?? null, phone: client.phone ?? null, address: (client as { address?: string | null }).address ?? null, record_num: client.record_num ?? null }}
           onClose={() => {
             setContractInput(null);
             navigate({ to: "/clientes/$id", params: { id: client.id } });
           }}
         />
       )}
+
     </div>
   );
 
