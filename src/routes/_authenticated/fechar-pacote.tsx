@@ -119,7 +119,7 @@ function ClosePackagePage() {
                 price_full: itemFull,
                 price_paid: itemPaid,
                 discount_pct: discountPct,
-                pay_method: payMethod,
+                pay_method: payMethodLabel,
                 status: "active",
               })
               .select("id")
