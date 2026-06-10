@@ -277,6 +277,24 @@ function ClosePackagePage() {
           <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border">
             {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
+          {showInstallments && (
+            <div className="mt-3">
+              <label className="block text-xs font-semibold text-text2 uppercase mb-1">Parcelas</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={installments}
+                  onChange={(e) => setInstallments(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+                  className="w-24 px-3 py-2 rounded-lg border border-border"
+                />
+                <span className="text-sm text-text2">
+                  {effectiveInstallments}x de {(total / effectiveInstallments).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
