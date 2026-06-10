@@ -10,6 +10,7 @@ import {
   IconAlertTriangle,
   IconSearch,
   IconX,
+  IconHistory,
 } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ type Movement = {
   quantity: number;
   reason: string | null;
   notes: string | null;
+  taken_by: string | null;
   created_at: string;
 };
 
@@ -48,6 +50,7 @@ function EstoquePage() {
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [moving, setMoving] = useState<{ product: Product; type: "in" | "out" } | null>(null);
   const [historyOf, setHistoryOf] = useState<Product | null>(null);
+  const [globalHistory, setGlobalHistory] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -93,12 +96,20 @@ function EstoquePage() {
           <div className="font-display text-3xl text-navy">Estoque</div>
           <div className="text-text2 text-sm">Produtos, entradas, saídas e alertas de mínimo</div>
         </div>
-        <button
-          onClick={() => setEditing("new")}
-          className="px-4 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 flex items-center gap-2"
-        >
-          <IconPlus size={16} /> Novo produto
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setGlobalHistory(true)}
+            className="px-4 py-2 rounded-lg border border-border text-text2 font-semibold hover:bg-bg2 flex items-center gap-2"
+          >
+            <IconHistory size={16} /> Histórico
+          </button>
+          <button
+            onClick={() => setEditing("new")}
+            className="px-4 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 flex items-center gap-2"
+          >
+            <IconPlus size={16} /> Novo produto
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -257,6 +268,7 @@ function EstoquePage() {
         />
       )}
       {historyOf && <HistoryModal product={historyOf} onClose={() => setHistoryOf(null)} />}
+      {globalHistory && <GlobalHistoryModal onClose={() => setGlobalHistory(false)} />}
     </div>
   );
 }
@@ -402,6 +414,7 @@ function MovementModal({
   const [qty, setQty] = useState("");
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
+  const [takenBy, setTakenBy] = useState("");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -409,6 +422,8 @@ function MovementModal({
     if (!q || q <= 0) return toast.error("Quantidade inválida");
     if (type === "out" && q > Number(product.qty_current))
       return toast.error("Quantidade maior que o estoque atual");
+    if (type === "out" && !takenBy.trim())
+      return toast.error("Informe quem retirou o produto");
     setSaving(true);
     const { data: u } = await supabase.auth.getUser();
     const delta = type === "in" ? q : -q;
@@ -419,6 +434,7 @@ function MovementModal({
       quantity: q,
       reason: reason || null,
       notes: notes || null,
+      taken_by: takenBy.trim() || null,
       created_by: u.user?.id ?? null,
     });
     if (mv.error) {
@@ -470,6 +486,14 @@ function MovementModal({
               </>
             )}
           </select>
+        </Field>
+        <Field label={type === "out" ? "Quem retirou*" : "Recebido por"}>
+          <input
+            value={takenBy}
+            onChange={(e) => setTakenBy(e.target.value)}
+            placeholder={type === "out" ? "Nome de quem retirou" : "Nome de quem recebeu"}
+            className={inp}
+          />
         </Field>
         <Field label="Observações">
           <textarea
@@ -526,6 +550,7 @@ function HistoryModal({ product, onClose }: { product: Product; onClose: () => v
               <th className="text-left px-3 py-2">Tipo</th>
               <th className="text-right px-3 py-2">Qtd</th>
               <th className="text-left px-3 py-2">Motivo</th>
+              <th className="text-left px-3 py-2">Quem retirou/recebeu</th>
             </tr>
           </thead>
           <tbody>
@@ -546,10 +571,129 @@ function HistoryModal({ product, onClose }: { product: Product; onClose: () => v
                   {Number(r.quantity)}
                 </td>
                 <td className="px-3 py-2 text-text2">{r.reason ?? "—"}</td>
+                <td className="px-3 py-2 text-text2">{r.taken_by ?? "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+    </Modal>
+  );
+}
+
+function GlobalHistoryModal({ onClose }: { onClose: () => void }) {
+  type Row = Movement & { products: { name: string; unit: string | null } | null };
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "in" | "out">("all");
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from("stock_movements")
+        .select("*, products(name, unit)")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) toast.error(error.message);
+      setRows(((data as unknown) as Row[]) ?? []);
+      setLoading(false);
+    })();
+  }, []);
+
+  const filtered = useMemo(() => {
+    let r = rows;
+    if (filterType !== "all") r = r.filter((x) => x.type === filterType);
+    if (search) {
+      const q = search.toLowerCase();
+      r = r.filter(
+        (x) =>
+          (x.products?.name ?? "").toLowerCase().includes(q) ||
+          (x.taken_by ?? "").toLowerCase().includes(q) ||
+          (x.reason ?? "").toLowerCase().includes(q),
+      );
+    }
+    return r;
+  }, [rows, search, filterType]);
+
+  return (
+    <Modal title="Histórico de movimentações" onClose={onClose}>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text3" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar produto, motivo ou pessoa..."
+            className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm"
+          />
+        </div>
+        <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+          <button
+            type="button"
+            onClick={() => setFilterType("all")}
+            className={`px-3 py-2 ${filterType === "all" ? "bg-navy text-white" : "bg-card text-text2 hover:bg-bg2"}`}
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterType("in")}
+            className={`px-3 py-2 ${filterType === "in" ? "bg-success text-white" : "bg-card text-text2 hover:bg-bg2"}`}
+          >
+            Entradas
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterType("out")}
+            className={`px-3 py-2 ${filterType === "out" ? "bg-danger text-white" : "bg-card text-text2 hover:bg-bg2"}`}
+          >
+            Saídas
+          </button>
+        </div>
+      </div>
+      {loading ? (
+        <TableSkeleton rows={6} cols={5} />
+      ) : filtered.length === 0 ? (
+        <div className="text-center text-text3 text-sm py-6">Sem movimentações.</div>
+      ) : (
+        <div className="max-h-[60vh] overflow-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-bg2 text-text2 sticky top-0">
+              <tr>
+                <th className="text-left px-3 py-2">Data</th>
+                <th className="text-left px-3 py-2">Produto</th>
+                <th className="text-left px-3 py-2">Tipo</th>
+                <th className="text-right px-3 py-2">Qtd</th>
+                <th className="text-left px-3 py-2">Motivo</th>
+                <th className="text-left px-3 py-2">Quem retirou/recebeu</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r) => (
+                <tr key={r.id} className="border-t border-border">
+                  <td className="px-3 py-2 text-text2 whitespace-nowrap">
+                    {new Date(r.created_at).toLocaleString("pt-BR")}
+                  </td>
+                  <td className="px-3 py-2 font-semibold text-navy">{r.products?.name ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`bh-badge ${r.type === "in" ? "bg-success/15 text-success" : "bg-danger/15 text-danger"}`}
+                    >
+                      {r.type === "in" ? "Entrada" : "Saída"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right font-semibold">
+                    {r.type === "in" ? "+" : "−"}
+                    {Number(r.quantity)} {r.products?.unit ?? ""}
+                  </td>
+                  <td className="px-3 py-2 text-text2">{r.reason ?? "—"}</td>
+                  <td className="px-3 py-2 text-text2">{r.taken_by ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </Modal>
   );
