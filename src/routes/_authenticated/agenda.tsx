@@ -699,12 +699,16 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
     onChanged();
   };
 
-  const setStatus = async (status: string) => {
+  const markNoShow = async () => {
+    if (!window.confirm("Marcar cliente como FALTA?")) return;
     setBusy(true);
-    const { error } = await supabase.from("appointments").update({ status }).eq("id", appt.id);
+    const { error } = await supabase.from("appointments").update({
+      attendance_status: "no_show",
+      status: "cancelled",
+    }).eq("id", appt.id);
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Status atualizado");
+    toast.success("Falta registrada");
     onChanged();
   };
 
