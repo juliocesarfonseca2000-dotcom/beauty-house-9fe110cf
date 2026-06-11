@@ -165,10 +165,12 @@ function AgendaPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <select value={proFilter} onChange={(e) => setProFilter(e.target.value)} className="px-3 py-2 rounded-lg border border-border text-sm">
-            <option value="all">Todos profissionais</option>
-            {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          {!isProfessional && (
+            <select value={proFilter} onChange={(e) => setProFilter(e.target.value)} className="px-3 py-2 rounded-lg border border-border text-sm">
+              <option value="all">Todos profissionais</option>
+              {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          )}
           {canManage && (
             <button
               onClick={() => setCreating({ hour: 9, min: 0 })}
