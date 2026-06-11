@@ -537,26 +537,31 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       }
 
 
-      const recurrenceGroup = recurring && targets.length > 1
+      const recurrenceGroup = recurring && targets.length > 1 && !isLoose
         ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
         : null;
 
-      const rows = targets.map((dt) => ({
-        client_id: client.id,
-        procedure_id: procId,
-        professional_id: proId,
-        datetime: dt.toISOString(),
-        duration_min: dur,
-        status: "pending",
-        notes: notes || null,
-        recurrence_group: recurrenceGroup,
-      }));
+      const rows = targets.map((dt) => {
+        const row: Record<string, unknown> = {
+          client_id: client.id,
+          procedure_id: effectiveProcId,
+          professional_id: proId,
+          datetime: dt.toISOString(),
+          duration_min: dur,
+          status: "pending",
+          notes: notes || null,
+          is_loose: isLoose,
+        };
+        if (recurrenceGroup) row.recurrence_group = recurrenceGroup;
+        return row;
+      });
 
       const { error } = await withTimeout(supabase.from("appointments").insert(rows), 12000, "Criação do agendamento");
       if (error) throw error;
       toast.success(rows.length > 1 ? `${rows.length} agendamentos criados!` : "Agendamento criado!");
       onSaved();
     } catch (err) {
+      console.error("[agenda] erro ao agendar:", err);
       toast.error(err instanceof Error ? err.message : "Erro ao agendar");
     } finally {
       setBusy(false);
