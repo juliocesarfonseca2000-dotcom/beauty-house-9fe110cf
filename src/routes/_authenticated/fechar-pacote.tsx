@@ -162,8 +162,8 @@ function ClosePackagePage() {
       const pkgIds = pkgResults.map((r) => r.data!.id);
 
       // Taxa de cartão — pós-processo do income criado pelo trigger
-      if (isCard && cardFeePct > 0) {
-        const feePctNum = Number(cardFeePct);
+      if (isCard && cardFeePctNum > 0) {
+        const feePctNum = cardFeePctNum;
         const feeValueTotal = total * (feePctNum / 100);
         try {
           await supabase.from("income")
@@ -342,13 +342,13 @@ function ClosePackagePage() {
                   max={20}
                   step={0.1}
                   value={cardFeePct}
-                  onChange={(e) => setCardFeePct(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                  onChange={(e) => setCardFeePct(e.target.value)}
                   className="w-24 px-3 py-2 rounded-lg border border-border"
                   placeholder="%"
                 />
                 <span className="text-xs text-text2">% sobre o total</span>
               </div>
-              {cardFeePct > 0 && (
+              {cardFeePctNum > 0 && (
                 <div className="flex gap-3 text-xs">
                   <label className="flex items-center gap-1">
                     <input type="radio" checked={cardFeePayer === "empresa"} onChange={() => setCardFeePayer("empresa")} />
