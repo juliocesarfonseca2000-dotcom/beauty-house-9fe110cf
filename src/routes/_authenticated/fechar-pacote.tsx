@@ -166,7 +166,7 @@ function ClosePackagePage() {
       // Taxa de cartão — pós-processo do income criado pelo trigger
       if (isCard && cardFeePctNum > 0) {
         const feePctNum = cardFeePctNum;
-        const feeValueTotal = total * (feePctNum / 100);
+        const feeValueTotal = baseTotal * (feePctNum / 100);
         try {
           await supabase.from("income")
             .update({ card_fee_pct: feePctNum, card_fee_payer: cardFeePayer })
