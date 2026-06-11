@@ -47,6 +47,11 @@ function ClosePackagePage() {
   const [busy, setBusy] = useState(false);
   const [contractInput, setContractInput] = useState<ContractInput | null>(null);
 
+  // Taxa de cartão
+  const isCard = payMethod.startsWith("Cartão");
+  const [cardFeePct, setCardFeePct] = useState<number>(0);
+  const [cardFeePayer, setCardFeePayer] = useState<"empresa" | "cliente">("empresa");
+
 
   useEffect(() => {
     (async () => {
