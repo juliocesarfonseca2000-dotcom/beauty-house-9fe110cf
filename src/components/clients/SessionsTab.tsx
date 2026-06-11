@@ -48,7 +48,7 @@ type Package = {
   is_bonus: boolean | null;
   bonus_validated: boolean | null;
   bonus_validated_at: string | null;
-  procedures: { name: string } | null;
+  procedures: { name: string; requires_term: boolean | null; term_text: string | null } | null;
 };
 type Session = {
   id: string;
