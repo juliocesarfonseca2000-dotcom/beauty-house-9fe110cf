@@ -263,6 +263,16 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                   <IconFileText size={14} /> Ver contrato
                 </button>
               )}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => cancelSale(pkg)}
+                  className="px-3 py-1.5 rounded-lg border border-danger/40 text-danger text-xs font-semibold hover:bg-danger/10"
+                  title="Cancelar venda — remove pacote, sessões e lançamento"
+                >
+                  Cancelar venda
+                </button>
+              )}
             </div>
             <div className="w-full h-2 bg-bg2 rounded-full overflow-hidden mb-4">
               <div className="h-full bg-gold transition-all" style={{ width: `${(done / Math.max(pkgSess.length, 1)) * 100}%` }} />
