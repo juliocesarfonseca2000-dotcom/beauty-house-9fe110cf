@@ -17,7 +17,17 @@ export async function getBonusConfig(): Promise<BonusConfig> {
   return { ...DEFAULT_BONUS, ...(data.value as BonusConfig) };
 }
 
-type Tab = "bonus" | "clinica" | "contrato";
+type Tab = "bonus" | "clinica" | "contrato" | "chamados";
+
+type Ticket = {
+  id: string;
+  user_name: string | null;
+  user_email: string | null;
+  page: string | null;
+  message: string;
+  created_at: string;
+  resolved_at: string | null;
+};
 
 export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("bonus");
@@ -28,6 +38,36 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
   const [clauses, setClauses] = useState<string>(DEFAULT_CLAUSES);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+
+  const loadTickets = async () => {
+    setTicketsLoading(true);
+    const { data } = await supabase
+      .from("support_tickets")
+      .select("id,user_name,user_email,page,message,created_at,resolved_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    setTickets((data as Ticket[]) ?? []);
+    setTicketsLoading(false);
+  };
+
+  useEffect(() => {
+    if (tab === "chamados") void loadTickets();
+  }, [tab]);
+
+  const markResolved = async (id: string) => {
+    const { error } = await supabase
+      .from("support_tickets")
+      .update({ resolved_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Chamado marcado como resolvido");
+    void loadTickets();
+  };
 
   useEffect(() => {
     (async () => {
@@ -103,10 +143,11 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
           <div className="font-display text-2xl text-navy">Configurações do sistema</div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
         </div>
-        <div className="flex border-b px-4">
+        <div className="flex border-b px-4 overflow-x-auto">
           <TabBtn id="bonus" label="Bônus de indicação" />
           <TabBtn id="clinica" label="Dados da clínica" />
           <TabBtn id="contrato" label="Cláusulas do contrato" />
+          <TabBtn id="chamados" label="Chamados" />
         </div>
 
         <div className="p-6 space-y-5">
@@ -163,7 +204,7 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : tab === "contrato" ? (
             <div className="space-y-3">
               <div className="text-xs text-text3">Texto livre que aparece nas cláusulas do contrato gerado.</div>
               <textarea
@@ -180,6 +221,45 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
                   {busy ? "Salvando..." : "Salvar cláusulas"}
                 </button>
               </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-text3">Chamados de suporte enviados pelos usuários (mais recentes primeiro).</div>
+                <button type="button" onClick={loadTickets} className="text-xs text-navy hover:underline">Recarregar</button>
+              </div>
+              {ticketsLoading ? (
+                <div className="text-text3 text-sm">Carregando chamados...</div>
+              ) : tickets.length === 0 ? (
+                <div className="text-text3 text-sm py-6 text-center">Nenhum chamado registrado.</div>
+              ) : (
+                <div className="space-y-2 max-h-[420px] overflow-y-auto">
+                  {tickets.map((t) => (
+                    <div key={t.id} className={`p-3 rounded-lg border ${t.resolved_at ? "bg-bg2 border-border opacity-60" : "bg-card border-gold/40"}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-xs text-text3">
+                          <span className="font-semibold text-navy">{t.user_name ?? "—"}</span>
+                          {t.user_email && <span> · {t.user_email}</span>}
+                          {t.page && <span> · <code className="text-[10px]">{t.page}</code></span>}
+                        </div>
+                        <div className="text-[10px] text-text3 whitespace-nowrap">
+                          {new Date(t.created_at).toLocaleString("pt-BR")}
+                        </div>
+                      </div>
+                      <div className="mt-1.5 text-sm text-navy whitespace-pre-wrap">{t.message}</div>
+                      <div className="mt-2 flex justify-end">
+                        {t.resolved_at ? (
+                          <span className="text-[11px] text-text3">✓ Resolvido em {new Date(t.resolved_at).toLocaleString("pt-BR")}</span>
+                        ) : (
+                          <button type="button" onClick={() => markResolved(t.id)} className="text-xs px-3 py-1 rounded bg-navy text-white hover:bg-navy2">
+                            Marcar como resolvido
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
