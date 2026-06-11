@@ -476,6 +476,39 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         }
       }
 
+      // Validação de recurso/aparelho: se o procedimento tem resource_id, conta
+      // quantos appointments simultâneos usam o mesmo recurso e bloqueia se
+      // exceder a capacity do recurso.
+      const resourceId = selectedProc?.resource_id ?? null;
+      if (resourceId) {
+        const { data: resData } = await supabase
+          .from("resources").select("name,capacity").eq("id", resourceId).maybeSingle();
+        const capacity = Math.max(1, Number((resData as { capacity?: number } | null)?.capacity ?? 1));
+        const resourceName = (resData as { name?: string } | null)?.name ?? "Recurso";
+        const { data: sameRes } = await supabase
+          .from("appointments")
+          .select("datetime,duration_min,procedures!inner(resource_id)")
+          .eq("procedures.resource_id", resourceId)
+          .neq("status", "cancelled")
+          .gte("datetime", minD.toISOString())
+          .lt("datetime", maxD.toISOString());
+        type ResAppt = { datetime: string; duration_min: number | null };
+        const resList = (sameRes as unknown as ResAppt[] | null) ?? [];
+        for (const dt of targets) {
+          const end = new Date(dt.getTime() + dur * 60_000);
+          const overlap = resList.filter((a) => {
+            const aStart = new Date(a.datetime);
+            const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+            return aStart < end && aEnd > dt;
+          }).length;
+          if (overlap >= capacity) {
+            toast.error(`${resourceName} sem disponibilidade em ${dt.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})} (capacidade ${capacity}).`);
+            return;
+          }
+        }
+      }
+
+
       const recurrenceGroup = recurring && targets.length > 1
         ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
         : null;
