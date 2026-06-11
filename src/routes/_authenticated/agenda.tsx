@@ -335,7 +335,9 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Client[]>([]);
   const [procs, setProcs] = useState<PurchasedProcedure[]>([]);
+  const [allProcs, setAllProcs] = useState<Procedure[]>([]);
   const [procId, setProcId] = useState("");
+  const [looseProcId, setLooseProcId] = useState("");
   const [proId, setProId] = useState(initialProId ?? pros[0]?.id ?? "");
   const [date, setDate] = useState(fmtDate(initialDate));
   const [time, setTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
@@ -343,7 +345,13 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [notes, setNotes] = useState("");
   const [recurring, setRecurring] = useState(false);
   const [recWeekday, setRecWeekday] = useState<number>(initialDate.getDay());
+  const [recTime, setRecTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    supabase.from("procedures").select("id,name,duration_min,resource_id").eq("active", true).order("name")
+      .then(({ data }) => setAllProcs((data as Procedure[]) ?? []));
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -395,11 +403,23 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (p?.duration_min) setDuration(String(p.duration_min));
   }, [procId, procs]);
 
+  useEffect(() => {
+    if (!looseProcId) return;
+    const p = allProcs.find((x) => x.id === looseProcId);
+    if (p?.duration_min) setDuration(String(p.duration_min));
+  }, [looseProcId, allProcs]);
+
+  useEffect(() => {
+    setRecTime(time);
+  }, [time]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!client) return toast.error("Selecione uma cliente");
     if (!proId) return toast.error("Selecione um profissional");
-    // procId opcional → agendamento avulso (será definido no fechamento)
+    const isLoose = !procId;
+    const effectiveProcId = procId || looseProcId;
+    if (isLoose && !looseProcId) return toast.error("Escolha qual procedimento será realizado (avulso)");
     setBusy(true);
     try {
       const dur = Number(duration) || 60;
@@ -411,15 +431,18 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       const first = new Date(`${date}T${time}:00`);
       targets.push(first);
 
-      if (recurring && available > 1) {
-        // Generate next (available - 1) weekly slots matching recWeekday
+      if (recurring && available > 1 && !isLoose) {
+        // Generate next (available - 1) weekly slots matching recWeekday at recTime
+        const [rh, rm] = recTime.split(":").map(Number);
         const dayMs = 86400000;
         let cursor = new Date(first);
         while (targets.length < available) {
           cursor = new Date(cursor.getTime() + 7 * dayMs);
           // align weekday
           while (cursor.getDay() !== recWeekday) cursor = new Date(cursor.getTime() + dayMs);
-          targets.push(new Date(cursor));
+          const next = new Date(cursor);
+          next.setHours(rh || 0, rm || 0, 0, 0);
+          targets.push(next);
         }
 
         // Check absences across the range
@@ -429,7 +452,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           .select("date_start,date_end").eq("user_id", proId)
           .lte("date_start", lastYmd).gte("date_end", firstYmd);
         const skipped: string[] = [];
-        const filtered = targets.filter((t) => {
+        const filtered = targets.filter((t, idx) => {
+          if (idx === 0) return true; // always keep primary
           const y = fmtDate(t);
           const blocked = (absData ?? []).some((a) => a.date_start <= y && a.date_end >= y);
           if (blocked) skipped.push(t.toLocaleDateString("pt-BR"));
@@ -482,7 +506,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       // Validação de recurso/aparelho: se o procedimento tem resource_id, conta
       // quantos appointments simultâneos usam o mesmo recurso e bloqueia se
       // exceder a capacity do recurso.
-      const resourceId = selectedProc?.resource_id ?? null;
+      const procForResource = selectedProc ?? allProcs.find((p) => p.id === effectiveProcId);
+      const resourceId = procForResource?.resource_id ?? null;
       if (resourceId) {
         const { data: resData } = await supabase
           .from("resources").select("name,capacity").eq("id", resourceId).maybeSingle();
@@ -512,26 +537,31 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       }
 
 
-      const recurrenceGroup = recurring && targets.length > 1
+      const recurrenceGroup = recurring && targets.length > 1 && !isLoose
         ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
         : null;
 
-      const rows = targets.map((dt) => ({
-        client_id: client.id,
-        procedure_id: procId,
-        professional_id: proId,
-        datetime: dt.toISOString(),
-        duration_min: dur,
-        status: "pending",
-        notes: notes || null,
-        recurrence_group: recurrenceGroup,
-      }));
+      const rows = targets.map((dt) => {
+        const row: Record<string, unknown> = {
+          client_id: client.id,
+          procedure_id: effectiveProcId,
+          professional_id: proId,
+          datetime: dt.toISOString(),
+          duration_min: dur,
+          status: "pending",
+          notes: notes || null,
+          is_loose: isLoose,
+        };
+        if (recurrenceGroup) row.recurrence_group = recurrenceGroup;
+        return row;
+      });
 
       const { error } = await withTimeout(supabase.from("appointments").insert(rows), 12000, "Criação do agendamento");
       if (error) throw error;
       toast.success(rows.length > 1 ? `${rows.length} agendamentos criados!` : "Agendamento criado!");
       onSaved();
     } catch (err) {
+      console.error("[agenda] erro ao agendar:", err);
       toast.error(err instanceof Error ? err.message : "Erro ao agendar");
     } finally {
       setBusy(false);
@@ -585,6 +615,16 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                 {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </Field>
+            {client && !procId && (
+              <div className="md:col-span-2">
+                <Field label="Qual procedimento será realizado? (avulso)*">
+                  <select value={looseProcId} onChange={(e) => setLooseProcId(e.target.value)} className={inp} required>
+                    <option value="">Selecionar procedimento...</option>
+                    {allProcs.map((p) => <option key={p.id} value={p.id}>{p.name}{p.duration_min ? ` · ${p.duration_min} min` : ""}</option>)}
+                  </select>
+                </Field>
+              </div>
+            )}
             <Field label="Data*"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inp} required /></Field>
             <Field label="Hora*"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inp} required /></Field>
             <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>
@@ -601,14 +641,17 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                   Repetir semanalmente para todas as sessões deste pacote
                 </label>
                 {recurring && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pl-6">
                     <Field label="Dia da semana">
                       <select value={recWeekday} onChange={(e) => setRecWeekday(Number(e.target.value))} className={inp}>
                         {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((n, i) => <option key={i} value={i}>{n}</option>)}
                       </select>
                     </Field>
-                    <div className="text-xs text-text2 self-end pb-2">
-                      Serão criados <b>{avail}</b> agendamentos (sessões restantes). Datas em ausência serão puladas.
+                    <Field label="Horário">
+                      <input type="time" value={recTime} onChange={(e) => setRecTime(e.target.value)} className={inp} />
+                    </Field>
+                    <div className="text-xs text-text2 self-end pb-2 md:col-span-1">
+                      Serão criados <b>{avail}</b> agendamentos (sessões restantes) toda <b>{["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][recWeekday]}</b> às <b>{recTime}</b>. Datas em ausência serão puladas.
                     </div>
                   </div>
                 )}
@@ -656,12 +699,16 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
     onChanged();
   };
 
-  const setStatus = async (status: string) => {
+  const markNoShow = async () => {
+    if (!window.confirm("Marcar cliente como FALTA?")) return;
     setBusy(true);
-    const { error } = await supabase.from("appointments").update({ status }).eq("id", appt.id);
+    const { error } = await supabase.from("appointments").update({
+      attendance_status: "no_show",
+      status: "cancelled",
+    }).eq("id", appt.id);
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Status atualizado");
+    toast.success("Falta registrada");
     onChanged();
   };
 
@@ -698,15 +745,17 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
           )}
 
           <div className="flex flex-wrap gap-2 pt-3 border-t">
-            {appt.attendance_status !== "confirmed" && (
-              <button onClick={confirmAttendance} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/15 text-success text-xs font-bold hover:bg-success/25 flex items-center gap-1">
+            {appt.attendance_status !== "confirmed" && appt.attendance_status !== "no_show" && (
+              <button type="button" onClick={confirmAttendance} disabled={busy} className="px-3 py-1.5 rounded-md bg-success text-white text-xs font-bold hover:bg-success/90 flex items-center gap-1">
                 ✓ Confirmar presença
               </button>
             )}
-            <button onClick={() => setStatus("confirmed")} disabled={busy} className="px-3 py-1.5 rounded-md bg-blue-500/10 text-blue-600 text-xs font-semibold hover:bg-blue-500/20">Confirmar</button>
-            <button onClick={() => setStatus("done")} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/10 text-success text-xs font-semibold hover:bg-success/20">Atendido</button>
-            <button onClick={() => setStatus("cancelled")} disabled={busy} className="px-3 py-1.5 rounded-md bg-danger/10 text-danger text-xs font-semibold hover:bg-danger/20">Cancelar</button>
-            <button onClick={remove} disabled={busy} className="ml-auto px-3 py-1.5 rounded-md text-text2 hover:text-danger text-xs font-semibold flex items-center gap-1">
+            {appt.attendance_status !== "no_show" && (
+              <button type="button" onClick={markNoShow} disabled={busy} className="px-3 py-1.5 rounded-md bg-danger text-white text-xs font-bold hover:bg-danger/90">
+                ✗ Falta
+              </button>
+            )}
+            <button type="button" onClick={remove} disabled={busy} className="ml-auto px-3 py-1.5 rounded-md text-text2 hover:text-danger text-xs font-semibold flex items-center gap-1">
               <IconTrash size={14} /> Excluir
             </button>
           </div>

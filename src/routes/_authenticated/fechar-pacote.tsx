@@ -77,7 +77,9 @@ function ClosePackagePage() {
 
   const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price, 0), [cart]);
   const discountVal = (subtotal * discountPct) / 100;
-  const total = subtotal - discountVal;
+  const baseTotal = subtotal - discountVal;
+  const cardFeeVal = isCard && cardFeePctNum > 0 ? baseTotal * (cardFeePctNum / 100) : 0;
+  const total = baseTotal + (isCard && cardFeePayer === "cliente" ? cardFeeVal : 0);
 
   const addItem = () => {
     if (!currentProc || !currentPrice) return toast.error("Selecione um procedimento com preço");
@@ -164,7 +166,7 @@ function ClosePackagePage() {
       // Taxa de cartão — pós-processo do income criado pelo trigger
       if (isCard && cardFeePctNum > 0) {
         const feePctNum = cardFeePctNum;
-        const feeValueTotal = total * (feePctNum / 100);
+        const feeValueTotal = baseTotal * (feePctNum / 100);
         try {
           await supabase.from("income")
             .update({ card_fee_pct: feePctNum, card_fee_payer: cardFeePayer })
@@ -426,6 +428,16 @@ function ClosePackagePage() {
             <div className="flex justify-between"><span className="text-text2">Subtotal</span><span className="font-semibold">{subtotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></div>
             {discountPct > 0 && (
               <div className="flex justify-between"><span className="text-text2">Desconto ({discountPct}%)</span><span className="font-semibold text-danger">- {discountVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></div>
+            )}
+            {cardFeeVal > 0 && (
+              <div className="flex justify-between">
+                <span className="text-text2">Taxa de cartão ({cardFeePctNum}%)</span>
+                {cardFeePayer === "cliente" ? (
+                  <span className="font-semibold">+ {cardFeeVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                ) : (
+                  <span className="font-semibold text-danger">- {cardFeeVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (despesa)</span>
+                )}
+              </div>
             )}
             <div className="flex justify-between items-baseline pt-2 border-t mt-2">
               <span className="font-display text-navy">Total</span>
