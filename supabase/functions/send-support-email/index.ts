@@ -1,6 +1,7 @@
 // Edge Function: send-support-email
 // Envia email para o admin quando um chamado é criado em support_tickets.
 // Secret necessário: RESEND_API_KEY (configurado em Edge Function secrets).
+// Deploy: automático via Lovable Cloud ao salvar este arquivo.
 import { Resend } from "npm:resend@4.0.0";
 
 const corsHeaders = {
