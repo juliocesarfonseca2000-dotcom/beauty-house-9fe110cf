@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera, IconTrash } from "@tabler/icons-react";
+import { IconSearch, IconPlus, IconBrandWhatsapp, IconUserOff, IconUserCheck, IconCamera, IconTrash, IconDownload } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
@@ -132,6 +132,32 @@ function ClientsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["clients"] });
 
+  const exportCsv = () => {
+    if (filtered.length === 0) return toast.error("Nenhuma cliente para exportar");
+    const esc = (v: string | number | null | undefined) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["Ficha", "Nome", "Telefone", "Status", "Cadastro"];
+    const lines = [header.join(";")].concat(
+      filtered.map((r) => [
+        r.record_num,
+        r.name,
+        r.phone ?? "",
+        r.active ? "Ativa" : "Inativa",
+        new Date(r.created_at).toLocaleDateString("pt-BR"),
+      ].map(esc).join(";"))
+    );
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filtered.length} cliente(s) exportada(s)`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -157,6 +183,14 @@ function ClientsPage() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={exportCsv}
+          className="px-4 py-2.5 rounded-lg border border-border text-text2 font-semibold hover:bg-bg2 flex items-center gap-2"
+          title="Exportar CSV"
+        >
+          <IconDownload size={18} /> Exportar
+        </button>
         <button
           onClick={() => setOpenScan(true)}
           className="px-4 py-2.5 rounded-lg border-2 border-gold text-gold font-semibold hover:bg-gold/10 flex items-center gap-2"

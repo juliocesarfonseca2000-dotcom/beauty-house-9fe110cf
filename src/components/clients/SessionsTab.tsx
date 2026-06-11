@@ -60,10 +60,13 @@ type Session = {
   signature_url: string | null;
   signature_data: string | null;
   notes: string | null;
+  appointment_id: string | null;
 };
 type Professional = { id: string; name: string };
 
 export function SessionsTab({ clientId }: { clientId: string }) {
+  const { user: me } = useAuth();
+  const isAdmin = me?.role === "admin";
   const [choosing, setChoosing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signingTerm, setSigningTerm] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
@@ -74,6 +77,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [viewContract, setViewContract] = useState<string | null>(null);
   const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
   const [addingExisting, setAddingExisting] = useState(false);
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   const { data = { packages: [], sessions: [] }, isLoading, refetch } = useQuery({
@@ -96,7 +100,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       const ids = list.map((p) => p.id);
       const { data: sess, error: sessError } = await withTimeout(supabase
           .from("sessions")
-          .select("id,package_id,session_num,status,session_status,done_at,signature_url,signature_data,notes")
+          .select("id,package_id,session_num,status,session_status,done_at,signature_url,signature_data,notes,appointment_id")
           .in("package_id", ids)
           .order("session_num"), 10000, "Carregamento das sessões");
       if (sessError) throw sessError;
@@ -150,6 +154,32 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     })();
   }, [clientId, packages.length]);
 
+  // Carrega attendance_status dos appointments ligados às sessões pendentes
+  useEffect(() => {
+    const apptIds = Array.from(new Set(sessions.map((s) => s.appointment_id).filter((x): x is string => !!x)));
+    if (!apptIds.length) { setAttendanceMap({}); return; }
+    supabase.from("appointments").select("id,attendance_status").in("id", apptIds).then(({ data }) => {
+      const m: Record<string, string> = {};
+      ((data as Array<{ id: string; attendance_status: string | null }> | null) ?? []).forEach((a) => {
+        if (a.attendance_status) m[a.id] = a.attendance_status;
+      });
+      setAttendanceMap(m);
+    });
+  }, [sessions]);
+
+  const cancelSale = async (pkg: Package) => {
+    if (!window.confirm(`Cancelar a venda de ${pkg.procedures?.name ?? "este pacote"}? Esta ação remove o pacote, todas as sessões e o lançamento financeiro.`)) return;
+    try {
+      await supabase.from("income").delete().eq("package_id", pkg.id);
+      await supabase.from("sessions").delete().eq("package_id", pkg.id);
+      const { error } = await supabase.from("packages").delete().eq("id", pkg.id);
+      if (error) throw error;
+      toast.success("Venda cancelada");
+      reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao cancelar venda");
+    }
+  };
 
   if (isLoading) return <TableSkeleton rows={4} cols={6} />;
 
@@ -233,6 +263,16 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                   <IconFileText size={14} /> Ver contrato
                 </button>
               )}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => cancelSale(pkg)}
+                  className="px-3 py-1.5 rounded-lg border border-danger/40 text-danger text-xs font-semibold hover:bg-danger/10"
+                  title="Cancelar venda — remove pacote, sessões e lançamento"
+                >
+                  Cancelar venda
+                </button>
+              )}
             </div>
             <div className="w-full h-2 bg-bg2 rounded-full overflow-hidden mb-4">
               <div className="h-full bg-gold transition-all" style={{ width: `${(done / Math.max(pkgSess.length, 1)) * 100}%` }} />
@@ -267,6 +307,10 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                           setViewSig({ pkg, session: s });
                         }
                       } else if (isNext) {
+                        if (s.appointment_id && attendanceMap[s.appointment_id] !== "confirmed") {
+                          toast.error("Confirme a presença na Agenda antes de assinar esta sessão.");
+                          return;
+                        }
                         setChoosing({ pkg, session: s });
                       }
                     }}

@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/agenda")({
 });
 
 type Professional = { id: string; name: string };
-type Procedure = { id: string; name: string; duration_min: number | null };
+type Procedure = { id: string; name: string; duration_min: number | null; resource_id?: string | null };
 type PurchasedProcedure = Procedure & { available: number };
 type Client = { id: string; name: string; record_num: number };
 type Appt = {
@@ -24,6 +24,9 @@ type Appt = {
   duration_min: number | null;
   status: string;
   notes: string | null;
+  attendance_status: string | null;
+  attendance_confirmed_at: string | null;
+  attendance_confirmed_by: string | null;
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
@@ -57,9 +60,10 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 function AgendaPage() {
   const { user: me } = useAuth();
   const canManage = me?.role === "admin" || me?.role === "receptionist";
+  const isProfessional = me?.role === "professional";
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
-  const [proFilter, setProFilter] = useState<string>("all");
+  const [proFilter, setProFilter] = useState<string>(isProfessional && me?.id ? me.id : "all");
   const [appts, setAppts] = useState<Appt[]>([]);
   const [slotChoice, setSlotChoice] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
@@ -79,7 +83,7 @@ function AgendaPage() {
       supabase.from("app_users").select("id,name").eq("active", true)
         .eq("role", "professional").order("name"),
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
@@ -98,7 +102,7 @@ function AgendaPage() {
     Promise.all([
       supabase.from("app_users").select("id,name").eq("active", true).eq("role", "professional").order("name"),
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
@@ -164,10 +168,12 @@ function AgendaPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <select value={proFilter} onChange={(e) => setProFilter(e.target.value)} className="px-3 py-2 rounded-lg border border-border text-sm">
-            <option value="all">Todos profissionais</option>
-            {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          {!isProfessional && (
+            <select value={proFilter} onChange={(e) => setProFilter(e.target.value)} className="px-3 py-2 rounded-lg border border-border text-sm">
+              <option value="all">Todos profissionais</option>
+              {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          )}
           {canManage && (
             <button
               onClick={() => setCreating({ hour: 9, min: 0 })}
@@ -347,7 +353,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     withTimeout(
       supabase
         .from("packages")
-        .select("id,sess_total,sess_done,procedure_id,procedures(id,name,duration_min)")
+        .select("id,sess_total,sess_done,procedure_id,procedures(id,name,duration_min,resource_id)")
         .eq("client_id", client.id)
         .eq("status", "active")
         .order("created_at", { ascending: false }),
@@ -473,6 +479,39 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         }
       }
 
+      // Validação de recurso/aparelho: se o procedimento tem resource_id, conta
+      // quantos appointments simultâneos usam o mesmo recurso e bloqueia se
+      // exceder a capacity do recurso.
+      const resourceId = selectedProc?.resource_id ?? null;
+      if (resourceId) {
+        const { data: resData } = await supabase
+          .from("resources").select("name,capacity").eq("id", resourceId).maybeSingle();
+        const capacity = Math.max(1, Number((resData as { capacity?: number } | null)?.capacity ?? 1));
+        const resourceName = (resData as { name?: string } | null)?.name ?? "Recurso";
+        const { data: sameRes } = await supabase
+          .from("appointments")
+          .select("datetime,duration_min,procedures!inner(resource_id)")
+          .eq("procedures.resource_id", resourceId)
+          .neq("status", "cancelled")
+          .gte("datetime", minD.toISOString())
+          .lt("datetime", maxD.toISOString());
+        type ResAppt = { datetime: string; duration_min: number | null };
+        const resList = (sameRes as unknown as ResAppt[] | null) ?? [];
+        for (const dt of targets) {
+          const end = new Date(dt.getTime() + dur * 60_000);
+          const overlap = resList.filter((a) => {
+            const aStart = new Date(a.datetime);
+            const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+            return aStart < end && aEnd > dt;
+          }).length;
+          if (overlap >= capacity) {
+            toast.error(`${resourceName} sem disponibilidade em ${dt.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})} (capacidade ${capacity}).`);
+            return;
+          }
+        }
+      }
+
+
       const recurrenceGroup = recurring && targets.length > 1
         ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
         : null;
@@ -592,8 +631,30 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 }
 
 function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () => void; onChanged: () => void }) {
+  const { user: me } = useAuth();
   const [busy, setBusy] = useState(false);
   const dt = new Date(appt.datetime);
+  const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!appt.attendance_confirmed_by) { setConfirmedByName(null); return; }
+    supabase.from("app_users").select("name").eq("id", appt.attendance_confirmed_by).maybeSingle()
+      .then(({ data }) => setConfirmedByName((data as { name?: string } | null)?.name ?? null));
+  }, [appt.attendance_confirmed_by]);
+
+  const confirmAttendance = async () => {
+    setBusy(true);
+    const { error } = await supabase.from("appointments").update({
+      attendance_status: "confirmed",
+      attendance_confirmed_at: new Date().toISOString(),
+      attendance_confirmed_by: me?.id ?? null,
+      status: appt.status === "pending" ? "confirmed" : appt.status,
+    }).eq("id", appt.id);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Presença confirmada");
+    onChanged();
+  };
 
   const setStatus = async (status: string) => {
     setBusy(true);
@@ -628,8 +689,20 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
           <Row label="Duração" value={`${appt.duration_min ?? 60} min`} />
           <Row label="Status" value={<span className="bh-badge bg-navy/10 text-navy">{appt.status}</span>} />
           {appt.notes && <Row label="Observações" value={appt.notes} />}
+          {appt.attendance_status === "confirmed" && (
+            <div className="bh-card p-2.5 bg-success/10 border border-success/30 text-success text-xs">
+              ✓ Presença confirmada{confirmedByName ? ` por ${confirmedByName}` : ""}
+              {appt.attendance_confirmed_at ? ` às ${new Date(appt.attendance_confirmed_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}` : ""}
+              {" — "}Agenda: {dt.toLocaleDateString("pt-BR")} às {dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2 pt-3 border-t">
+            {appt.attendance_status !== "confirmed" && (
+              <button onClick={confirmAttendance} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/15 text-success text-xs font-bold hover:bg-success/25 flex items-center gap-1">
+                ✓ Confirmar presença
+              </button>
+            )}
             <button onClick={() => setStatus("confirmed")} disabled={busy} className="px-3 py-1.5 rounded-md bg-blue-500/10 text-blue-600 text-xs font-semibold hover:bg-blue-500/20">Confirmar</button>
             <button onClick={() => setStatus("done")} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/10 text-success text-xs font-semibold hover:bg-success/20">Atendido</button>
             <button onClick={() => setStatus("cancelled")} disabled={busy} className="px-3 py-1.5 rounded-md bg-danger/10 text-danger text-xs font-semibold hover:bg-danger/20">Cancelar</button>
