@@ -77,7 +77,9 @@ function ClosePackagePage() {
 
   const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price, 0), [cart]);
   const discountVal = (subtotal * discountPct) / 100;
-  const total = subtotal - discountVal;
+  const baseTotal = subtotal - discountVal;
+  const cardFeeVal = isCard && cardFeePctNum > 0 ? baseTotal * (cardFeePctNum / 100) : 0;
+  const total = baseTotal + (isCard && cardFeePayer === "cliente" ? cardFeeVal : 0);
 
   const addItem = () => {
     if (!currentProc || !currentPrice) return toast.error("Selecione um procedimento com preço");
