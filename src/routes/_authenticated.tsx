@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { ReportProblemFAB } from "@/components/support/ReportProblemFAB";
 import { IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -57,6 +58,16 @@ function AuthenticatedLayout() {
   }
   if (!user) return null;
 
+  // Modo kiosk: usuário ponto@beautyhouse.com (is_kiosk) → tela exclusiva
+  const isKiosk = (user as { is_kiosk?: boolean }).is_kiosk === true;
+  if (isKiosk && path !== "/kiosk-ponto") {
+    navigate({ to: "/kiosk-ponto", replace: true });
+    return null;
+  }
+  if (isKiosk) {
+    return <Outlet />;
+  }
+
   let title = TITLES[path];
   if (!title) {
     const base = "/" + path.split("/")[1];
@@ -98,6 +109,7 @@ function AuthenticatedLayout() {
       </div>
 
       <BottomNav />
+      <ReportProblemFAB />
     </div>
   );
 }
