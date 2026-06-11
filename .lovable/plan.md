@@ -1,107 +1,104 @@
-# Plano de implementação
 
-## 1. Remover aba "Escala & Ponto" do modal de usuário
-- `usuarios.tsx`: remover state `tab`, abas, render condicional do `AbsencesTab`. Modal volta a ter só "Dados & Permissões".
-- Manter `AbsencesTab.tsx` (será reutilizado no módulo dedicado).
+# Plano — 11 melhorias no Beauty House
 
-## 2. Permissão "Escala & Ponto" + acesso da recepção
-- `client.ts`: adicionar `escala: boolean` em `Permissions`.
-- `usuarios.tsx`: adicionar `["escala", "Escala & Ponto"]` em `PERM_LABELS`. Defaults: admin=true, receptionist=true, professional=true (somente leitura via lógica de role).
-- `Sidebar.tsx`: já mostra link conforme permissão — garantir entrada `escala`.
-- Migração SQL: backfill `permissions->escala` para usuários existentes.
+Tarefa grande, dividida em fases independentes. Antes de codar, quero alinhar **escopo e ordem de prioridade** para não passar horas em mudanças que você queira diferentes.
 
-## 3. Estrutura do módulo Escala & Ponto (`/escala`)
-- Refatorar `src/routes/_authenticated/escala.tsx` em duas abas: **Calendário** (atual) e **Ponto**.
-- **Aba Calendário**: manter calendário atual + botão "+ Adicionar ausência" (modal com funcionário/tipo/datas/obs). Clique em célula abre modal de edição/exclusão. Todos os botões `type="button"` + `onClick`.
-- **Aba Ponto**: nova UI com seletor de data, lista de funcionários ativos, status (sem registro / presente / em pausa / saiu / falta), botões "Entrada", "Iniciar pausa", "Fim pausa", "Saída". Edição inline de horários. Totalizador.
-- **Histórico**: filtro por funcionário+período, tabela com colunas pedidas, badge de status (normal / hora extra / falta / folga), botão "Exportar PDF".
+## Fase A — SQL (única migration, roda no SQL Editor)
 
-### Banco — nova tabela `time_entries`
-```
-id uuid pk, user_id uuid fk app_users, date date,
-clock_in timestamptz, break_start timestamptz, break_end timestamptz, clock_out timestamptz,
-note text, created_at, updated_at
-unique(user_id, date)
-```
-RLS: SELECT/INSERT/UPDATE/DELETE para authenticated; lógica de role tratada no client (admin/recepção = todos; profissional = apenas próprio).
-
-## 4. Cálculo automático de horas
-- Função utilitária `computeTotalMinutes(entry)` em `src/lib/timeUtils.ts`.
-- Formatação `formatHM(min)` → "8h30".
-- Badges: >8h laranja (hora extra), <4h amarelo (suspeito).
-
-## 5. Sidebar
-- `Sidebar.tsx`: já tem item Escala. Confirmar visibilidade conforme `permissions.escala` (com fallback por role).
-
-## 6. Contrato digital
-### Dependências
-- Adicionar `jspdf` e `jspdf-autotable` via `bun add`.
-
-### Tabela `contracts`
-```
-id uuid pk, client_id uuid fk, package_id uuid fk nullable, financial_id uuid fk nullable,
-clinic_snapshot jsonb, client_snapshot jsonb, items jsonb, total numeric,
-payment_method text, installments int, pdf_path text,
-client_signature text (data-url), pro_signature text, pro_user_id uuid,
-signed_at timestamptz, created_at timestamptz default now()
-```
-RLS: leitura/insert/update para authenticated. Após `signed_at` setado, bloquear UPDATE via policy.
-
-### Storage
-- Bucket `contracts` (privado). Política: authenticated read/write.
-
-### Settings (`system_settings`)
-- Adicionar campos: `clinic_cnpj`, `clinic_address`, `clinic_phone`, `clinic_logo_url`, `contract_clauses` (text).
-- Editáveis em `SystemSettingsModal.tsx`.
-
-### UI
-- `src/lib/contract-pdf.ts`: gera PDF via jsPDF + autoTable, embute assinaturas (base64 PNG).
-- `src/components/contracts/ContractModal.tsx`: preview + 2 canvas (`SignaturePad` reutilizado das sessões) + botão "Finalizar e salvar".
-- `fechar-pacote.tsx`: após confirmar pacote, botão "📄 Gerar Contrato".
-- `SessionsTab.tsx`: botão "Ver contrato" em cada pacote.
-- `financeiro` (histórico $ na ficha): botão "📄 Ver contrato".
-- Contrato assinado: somente leitura (download/print).
-
-## 7. Notificações anti-duplicata
-### Migração
 ```sql
-ALTER TABLE public.notifications
-  ADD COLUMN IF NOT EXISTS reference_id UUID,
-  ADD COLUMN IF NOT EXISTS reference_type TEXT;
-CREATE UNIQUE INDEX IF NOT EXISTS notifications_dedup
-  ON public.notifications(user_id, type, reference_id)
-  WHERE read = false AND reference_id IS NOT NULL;
+-- app_users
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS is_kiosk BOOLEAN DEFAULT false;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS cpf TEXT;
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- procedures (termo)
+ALTER TABLE procedures ADD COLUMN IF NOT EXISTS requires_term BOOLEAN DEFAULT false;
+ALTER TABLE procedures ADD COLUMN IF NOT EXISTS term_text TEXT;
+
+-- termos assinados
+CREATE TABLE IF NOT EXISTS signed_terms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  package_id UUID REFERENCES packages(id) ON DELETE CASCADE,
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  procedure_id UUID REFERENCES procedures(id),
+  term_text TEXT NOT NULL,
+  signature_data TEXT NOT NULL,
+  signed_at TIMESTAMPTZ DEFAULT now()
+);
+GRANT SELECT,INSERT,UPDATE,DELETE ON signed_terms TO authenticated;
+ALTER TABLE signed_terms ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "auth all" ON signed_terms FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- income (taxa de cartão)
+ALTER TABLE income ADD COLUMN IF NOT EXISTS card_fee_pct NUMERIC DEFAULT 0;
+ALTER TABLE income ADD COLUMN IF NOT EXISTS card_fee_payer TEXT;
+
+-- appointments (avulso)
+ALTER TABLE appointments ALTER COLUMN procedure_id DROP NOT NULL;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pending_close BOOLEAN DEFAULT false;
+
+-- support_tickets
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  user_email TEXT,
+  page TEXT,
+  user_agent TEXT,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+GRANT SELECT,INSERT ON support_tickets TO authenticated;
+ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "auth insert" ON support_tickets FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "auth select" ON support_tickets FOR SELECT TO authenticated USING (true);
 ```
-### Lógica
-- `NotificationBell.tsx`: antes de inserir, `SELECT` por `(type, reference_id, read=false)`. Se existir, pula. Para pacotes: comparar `available` salvo (guardar em `meta.sessions_left`); só recriar quando muda. Para inativos: usar ciclo (`reference_type='client_inactive_30'` / `_60`).
-- Garantir que a varredura não recria notificações já lidas no mesmo ciclo.
 
-## Arquivo de migração
-- Criar `MIGRATION_FASE10.sql` com: `time_entries`, `contracts`, alterações de `notifications`, novos campos em `system_settings`, atualização de defaults de `permissions`, bucket `contracts` (instrução manual), RLS/GRANTs.
+## Fase B — Mobile + Sidebar (itens 1 e 8)
+- `Sidebar.tsx` / `BottomNav.tsx`: garantir botão **Sair** sempre visível no drawer mobile (atualmente está, mas vou verificar e reforçar no `BottomNav` o item Logout).
+- `role=professional`: sidebar enxuta — header só "Beauty House" + itens permitidos. Sem cards admin. Topbar limpa (esconder sino de notificação/estoque se sem permissão — já é o caso pela permissão, vou validar).
 
-## Arquivos a criar
-- `src/routes/_authenticated/escala.tsx` (refatorado: abas)
-- `src/components/escala/CalendarTab.tsx`
-- `src/components/escala/PontoTab.tsx`
-- `src/components/escala/AbsenceModal.tsx`
-- `src/components/escala/PontoHistory.tsx`
-- `src/lib/timeUtils.ts`
-- `src/lib/contract-pdf.ts`
-- `src/components/contracts/ContractModal.tsx`
-- `MIGRATION_FASE10.sql`
+## Fase C — Kiosk de Ponto (item 2)
+- Detectar `user.is_kiosk` no `_authenticated.tsx` → renderiza apenas `/kiosk-ponto` (nova rota), bloqueia sidebar/outras rotas.
+- `kiosk-ponto.tsx`: tela "Identifique-se" com busca em `app_users` por nome/email/cpf/login. Mostra cards com avatar + nome + cargo → "Sou eu" → 4 botões de ponto (mesma lógica de `meu-ponto.tsx`, mas inserindo com `user_id` selecionado via server fn que usa `supabaseAdmin`) → volta para tela inicial com toast.
+- `meu-ponto.tsx`: tornar read-only (sem botões), apenas histórico do próprio usuário.
 
-## Arquivos a editar
-- `src/integrations/supabase/client.ts` (Permissions)
-- `src/routes/_authenticated/usuarios.tsx` (remover aba, novo perm label)
-- `src/components/layout/Sidebar.tsx` (perm escala)
-- `src/components/system/SystemSettingsModal.tsx` (campos clínica + cláusulas)
-- `src/routes/_authenticated/fechar-pacote.tsx` (botão contrato)
-- `src/components/clients/SessionsTab.tsx` (botão ver contrato)
-- `src/routes/_authenticated/financeiro.tsx` ou ficha $ tab (botão ver contrato)
-- `src/components/notifications/NotificationBell.tsx` (anti-duplicata)
-- `package.json` (jspdf, jspdf-autotable)
+## Fase D — Taxa de Cartão (item 3)
+- `fechar-pacote.tsx`: quando `payMethod` começa com "Cartão", exibir campo `card_fee_pct` + radio `card_fee_payer` (Empresa/Cliente).
+  - Empresa: total recebido = total × (1-fee); cria `income` com valor líquido + `expense` "Taxa de cartão" com a diferença.
+  - Cliente: total cobrado = total × (1+fee); cria `income` com valor cheio.
+- Salvar `card_fee_pct` e `card_fee_payer` no income. ContractModal e Histórico $ exibem essas infos.
 
-## Observação
-`MIGRATION_FASE10.sql` precisa ser executado manualmente no Supabase SQL Editor + criação do bucket `contracts` (privado).
+## Fase E — Agendamento Avulso (itens 4 e 6)
+- `agenda.tsx` modal `+ Agendar`: `procedure_id` opcional → permite "A definir".
+- Status novo `pending_close`. Ao marcar "Realizado", se sem `procedure_id` ou flag, abre modal Fechar Pacote dentro da agenda.
+- Revisar query de carregamento: usar `select("*")` sem inner join obrigatório com `sessions`, range amplo da semana visível, sem filtro de procedure_id.
 
-Posso prosseguir com a implementação completa?
+## Fase F — Agenda visual 22min (item 11)
+- Slots: gerar array de 07:00 → ~21:00 em passos de 22min.
+- Cada linha 40px (ajustável). Linhas horizontais com `border-bottom: 1px solid #cbd5e1` (cinza médio); linhas em hora cheia `border-bottom: 1.5px solid #94a3b8`.
+- Cards de agendamento posicionados/proporcionais à duração.
+
+## Fase G — Termos (item 5)
+- `procedimentos.tsx`: checkbox `requires_term` + textarea `term_text`.
+- `SessionsTab.tsx`: ao confirmar PRIMEIRA sessão de pacote com proc.requires_term, exibir modal com texto + canvas. Salva em `signed_terms`. Botão "Ver termo" na ficha.
+
+## Fase H — Cliente já existente: adicionar procedimento (item 9)
+- `ClientFormModal.tsx` ou `clientes.$id.tsx`: botão "+ Adicionar procedimento que a cliente já possui" → modal compacto (procedimento, sessões feitas, total). Cria package `origin='ficha_importada'`, sessions correspondentes, sem income. Mesma lógica já existente no Scan-ficha.
+
+## Fase I — Reportar Problema (item 7)
+- Componente flutuante `<ReportProblemFAB>` em `_authenticated.tsx`. Modal → insere `support_tickets` + chama server fn que envia email via Lovable Emails (ou Resend se já configurado) para `juliocesar.fonseca2000@gmail.com`.
+  - **Pergunta:** você quer email mesmo? Se sim, preciso confirmar se Lovable Emails já está configurado neste projeto, ou se devo só salvar no banco + você consulta uma tela admin de tickets.
+
+## Itens transversais (10)
+- Tudo encaixa: agendamento avulso → fechar → packages/sessions/income; taxa → income+expense; termo → signed_terms ligado a package; cliente existente → packages ficha_importada visível em sessions/prontuário.
+
+---
+
+## ⚠️ Perguntas críticas antes de começar
+
+1. **Tamanho:** isso são ~15 arquivos editados + 3-5 arquivos novos + 1 migration. Você quer **tudo de uma vez** ou prefere que eu faça em 2-3 entregas (ex: fases A-D primeiro, depois E-I)? Em um único turno o risco de quebrar algo é maior.
+2. **Reportar Problema (item 7):** envio de email exige configurar provedor. Posso (a) só salvar no banco e te mostro listagem, (b) usar Lovable Emails (precisa configurar domínio), (c) Resend (precisa API key). Qual?
+3. **Kiosk (item 2):** a conta `ponto@beautyhouse.com` já existe no `app_users` com `is_kiosk=true`? Ou preciso só adicionar a coluna e te dar o SQL para você setar manualmente?
+4. **Agenda 22min:** confirmar — você quer mesmo **22 minutos** (não 20 nem 30)? E faixa **07:00 até 21:00**?
+
+Me confirma essas 4 perguntas e o ritmo que prefere, e eu começo pela Fase A (migration) + as fases que você priorizar.
