@@ -506,7 +506,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       // Validação de recurso/aparelho: se o procedimento tem resource_id, conta
       // quantos appointments simultâneos usam o mesmo recurso e bloqueia se
       // exceder a capacity do recurso.
-      const resourceId = selectedProc?.resource_id ?? null;
+      const procForResource = selectedProc ?? allProcs.find((p) => p.id === effectiveProcId);
+      const resourceId = procForResource?.resource_id ?? null;
       if (resourceId) {
         const { data: resData } = await supabase
           .from("resources").select("name,capacity").eq("id", resourceId).maybeSingle();
