@@ -30,6 +30,8 @@ export function AbsencesTab({ userId }: { userId: string }) {
   const [dateEnd, setDateEnd]   = useState("");
   const [note, setNote]         = useState("");
   const [busy, setBusy]         = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -40,6 +42,7 @@ export function AbsencesTab({ userId }: { userId: string }) {
       .order("date_start", { ascending: false });
     if (error) toast.error(error.message);
     setRows((data as Absence[]) ?? []);
+    setSelected(new Set());
     setLoading(false);
   };
 
@@ -69,6 +72,23 @@ export function AbsencesTab({ userId }: { userId: string }) {
     const { error } = await supabase.from("staff_absences").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Excluído");
+    load();
+  };
+
+  const toggleOne = (id: string) => {
+    const s = new Set(selected);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    setSelected(s);
+  };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!window.confirm(`Excluir ${selected.size} registro(s) selecionado(s)?`)) return;
+    const ids = Array.from(selected);
+    const { error } = await supabase.from("staff_absences").delete().in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(`${ids.length} registro(s) excluído(s)`);
+    setSelectMode(false);
     load();
   };
 
