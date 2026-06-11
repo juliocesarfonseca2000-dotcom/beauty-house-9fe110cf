@@ -429,6 +429,16 @@ function ClosePackagePage() {
             {discountPct > 0 && (
               <div className="flex justify-between"><span className="text-text2">Desconto ({discountPct}%)</span><span className="font-semibold text-danger">- {discountVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></div>
             )}
+            {cardFeeVal > 0 && (
+              <div className="flex justify-between">
+                <span className="text-text2">Taxa de cartão ({cardFeePctNum}%)</span>
+                {cardFeePayer === "cliente" ? (
+                  <span className="font-semibold">+ {cardFeeVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                ) : (
+                  <span className="font-semibold text-danger">- {cardFeeVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (despesa)</span>
+                )}
+              </div>
+            )}
             <div className="flex justify-between items-baseline pt-2 border-t mt-2">
               <span className="font-display text-navy">Total</span>
               <span className="font-display text-2xl text-gold">{total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
