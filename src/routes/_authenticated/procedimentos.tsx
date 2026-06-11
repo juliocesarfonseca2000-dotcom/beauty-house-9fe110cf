@@ -167,6 +167,8 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
   const [p5, setP5] = useState(initial?.price_5?.toString() ?? "");
   const [p10, setP10] = useState(initial?.price_10?.toString() ?? "");
   const [p20, setP20] = useState(initial?.price_20?.toString() ?? "");
+  const [requiresTerm, setRequiresTerm] = useState<boolean>(initial?.requires_term ?? false);
+  const [termText, setTermText] = useState(initial?.term_text ?? "");
   const [busy, setBusy] = useState(false);
 
   const save = async (e: React.FormEvent) => {
@@ -180,6 +182,8 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
       price_5: p5 ? Number(p5) : null,
       price_10: p10 ? Number(p10) : null,
       price_20: p20 ? Number(p20) : null,
+      requires_term: requiresTerm,
+      term_text: requiresTerm ? (termText.trim() || null) : null,
     };
     const { error } = initial
       ? await supabase.from("procedures").update(payload).eq("id", initial.id)
@@ -210,6 +214,25 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
             <Field label="Pacote 10x (R$)"><input type="number" step="0.01" value={p10} onChange={(e) => setP10(e.target.value)} className={inp} /></Field>
             <Field label="Pacote 20x (R$)"><input type="number" step="0.01" value={p20} onChange={(e) => setP20(e.target.value)} className={inp} /></Field>
           </FieldRow>
+
+          <div className="border-t pt-4 space-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-navy">
+              <input type="checkbox" checked={requiresTerm} onChange={(e) => setRequiresTerm(e.target.checked)} />
+              Exige termo de consentimento (assinado antes da 1ª sessão)
+            </label>
+            {requiresTerm && (
+              <Field label="Texto do termo">
+                <textarea
+                  value={termText}
+                  onChange={(e) => setTermText(e.target.value)}
+                  rows={6}
+                  placeholder="Digite o texto do termo que será exibido para a cliente assinar..."
+                  className={inp}
+                />
+              </Field>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
             <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
