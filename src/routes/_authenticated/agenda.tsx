@@ -57,9 +57,10 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 function AgendaPage() {
   const { user: me } = useAuth();
   const canManage = me?.role === "admin" || me?.role === "receptionist";
+  const isProfessional = me?.role === "professional";
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
-  const [proFilter, setProFilter] = useState<string>("all");
+  const [proFilter, setProFilter] = useState<string>(isProfessional && me?.id ? me.id : "all");
   const [appts, setAppts] = useState<Appt[]>([]);
   const [slotChoice, setSlotChoice] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
