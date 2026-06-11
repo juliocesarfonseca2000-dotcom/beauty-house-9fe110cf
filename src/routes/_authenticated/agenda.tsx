@@ -431,15 +431,18 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       const first = new Date(`${date}T${time}:00`);
       targets.push(first);
 
-      if (recurring && available > 1) {
-        // Generate next (available - 1) weekly slots matching recWeekday
+      if (recurring && available > 1 && !isLoose) {
+        // Generate next (available - 1) weekly slots matching recWeekday at recTime
+        const [rh, rm] = recTime.split(":").map(Number);
         const dayMs = 86400000;
         let cursor = new Date(first);
         while (targets.length < available) {
           cursor = new Date(cursor.getTime() + 7 * dayMs);
           // align weekday
           while (cursor.getDay() !== recWeekday) cursor = new Date(cursor.getTime() + dayMs);
-          targets.push(new Date(cursor));
+          const next = new Date(cursor);
+          next.setHours(rh || 0, rm || 0, 0, 0);
+          targets.push(next);
         }
 
         // Check absences across the range
@@ -449,7 +452,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           .select("date_start,date_end").eq("user_id", proId)
           .lte("date_start", lastYmd).gte("date_end", firstYmd);
         const skipped: string[] = [];
-        const filtered = targets.filter((t) => {
+        const filtered = targets.filter((t, idx) => {
+          if (idx === 0) return true; // always keep primary
           const y = fmtDate(t);
           const blocked = (absData ?? []).some((a) => a.date_start <= y && a.date_end >= y);
           if (blocked) skipped.push(t.toLocaleDateString("pt-BR"));
