@@ -295,6 +295,10 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                           setViewSig({ pkg, session: s });
                         }
                       } else if (isNext) {
+                        if (s.appointment_id && attendanceMap[s.appointment_id] !== "confirmed") {
+                          toast.error("Confirme a presença na Agenda antes de assinar esta sessão.");
+                          return;
+                        }
                         setChoosing({ pkg, session: s });
                       }
                     }}
