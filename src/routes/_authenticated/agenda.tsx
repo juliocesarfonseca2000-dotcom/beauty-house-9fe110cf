@@ -34,9 +34,9 @@ const ABS_LABEL: Record<Absence["type"], string> = { vacation: "Férias", absent
 
 const START_HOUR = 7;
 const END_HOUR = 21;
-const SLOT_MIN = 30;
-const SLOT_PX = 32; // height per 30min slot
-const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
+const SLOT_MIN = 22; // grade de 22 em 22 minutos
+const SLOT_PX = 28;  // altura de cada slot
+const TOTAL_SLOTS = Math.ceil(((END_HOUR - START_HOUR) * 60) / SLOT_MIN);
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-gold/15 text-navy border-l-gold",
@@ -221,16 +221,22 @@ function AgendaPage() {
                   )}
 
                   {/* Background slots */}
-                  {slots.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      disabled={!canManage}
-                      onClick={() => canManage && setSlotChoice({ proId: p.id, hour: s.h, min: s.m })}
-                      className={`block w-full ${canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"} ${s.m === 0 ? "border-t" : "border-t border-dashed border-border/40"}`}
-                      style={{ height: SLOT_PX }}
-                    />
-                  ))}
+                  {slots.map((s, i) => {
+                    const isHour = s.m === 0;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={!canManage}
+                        onClick={() => canManage && setSlotChoice({ proId: p.id, hour: s.h, min: s.m })}
+                        className={`block w-full ${canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"}`}
+                        style={{
+                          height: SLOT_PX,
+                          borderTop: isHour ? "1.5px solid #94a3b8" : "1px solid #cbd5e1",
+                        }}
+                      />
+                    );
+                  })}
 
                   {/* Appointment blocks */}
                   {(apptsByPro[p.id] ?? []).map((a) => {
