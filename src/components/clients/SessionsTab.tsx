@@ -65,6 +65,8 @@ type Session = {
 type Professional = { id: string; name: string };
 
 export function SessionsTab({ clientId }: { clientId: string }) {
+  const { user: me } = useAuth();
+  const isAdmin = me?.role === "admin";
   const [choosing, setChoosing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signingTerm, setSigningTerm] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
