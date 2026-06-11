@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/agenda")({
 });
 
 type Professional = { id: string; name: string };
-type Procedure = { id: string; name: string; duration_min: number | null };
+type Procedure = { id: string; name: string; duration_min: number | null; resource_id?: string | null };
 type PurchasedProcedure = Procedure & { available: number };
 type Client = { id: string; name: string; record_num: number };
 type Appt = {
