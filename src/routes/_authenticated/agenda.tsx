@@ -24,6 +24,9 @@ type Appt = {
   duration_min: number | null;
   status: string;
   notes: string | null;
+  attendance_status: string | null;
+  attendance_confirmed_at: string | null;
+  attendance_confirmed_by: string | null;
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
