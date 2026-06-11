@@ -49,8 +49,9 @@ function ClosePackagePage() {
 
   // Taxa de cartão
   const isCard = payMethod.startsWith("Cartão");
-  const [cardFeePct, setCardFeePct] = useState<number>(0);
+  const [cardFeePct, setCardFeePct] = useState<string>("");
   const [cardFeePayer, setCardFeePayer] = useState<"empresa" | "cliente">("empresa");
+  const cardFeePctNum = cardFeePct === "" ? 0 : Math.max(0, Math.min(20, Number(cardFeePct.replace(",", ".")) || 0));
 
 
   useEffect(() => {
