@@ -47,6 +47,11 @@ function ClosePackagePage() {
   const [busy, setBusy] = useState(false);
   const [contractInput, setContractInput] = useState<ContractInput | null>(null);
 
+  // Taxa de cartão
+  const isCard = payMethod.startsWith("Cartão");
+  const [cardFeePct, setCardFeePct] = useState<number>(0);
+  const [cardFeePayer, setCardFeePayer] = useState<"empresa" | "cliente">("empresa");
+
 
   useEffect(() => {
     (async () => {
@@ -154,6 +159,36 @@ function ClosePackagePage() {
       if (sErr) throw sErr;
 
       const pkgIds = pkgResults.map((r) => r.data!.id);
+
+      // Taxa de cartão — pós-processo do income criado pelo trigger
+      if (isCard && cardFeePct > 0) {
+        const feePctNum = Number(cardFeePct);
+        const feeValueTotal = total * (feePctNum / 100);
+        try {
+          await supabase.from("income")
+            .update({ card_fee_pct: feePctNum, card_fee_payer: cardFeePayer })
+            .in("package_id", pkgIds);
+          if (cardFeePayer === "empresa") {
+            await supabase.from("expenses").insert({
+              description: `Taxa de cartão (${feePctNum}%) — ${client.name}`,
+              amount: feeValueTotal,
+              category: "Taxas",
+            });
+          } else {
+            await supabase.from("income").insert({
+              client_id: client.id,
+              description: `Taxa de cartão repassada (${feePctNum}%) — ${client.name}`,
+              amount: feeValueTotal,
+              pay_method: payMethodLabel,
+              card_fee_pct: feePctNum,
+              card_fee_payer: cardFeePayer,
+            });
+          }
+        } catch (e) {
+          console.warn("Taxa de cartão — pós-processo falhou:", e);
+        }
+      }
+
       const items = cart.map((it) => ({
         procedure_name: it.procedure.name,
         sessions: it.sessions,
@@ -294,6 +329,36 @@ function ClosePackagePage() {
                   {effectiveInstallments}x de {(total / effectiveInstallments).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </span>
               </div>
+            </div>
+          )}
+          {isCard && (
+            <div className="mt-3 border-t pt-3 space-y-2">
+              <label className="block text-xs font-semibold text-text2 uppercase">Taxa de cartão</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  step={0.1}
+                  value={cardFeePct}
+                  onChange={(e) => setCardFeePct(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                  className="w-24 px-3 py-2 rounded-lg border border-border"
+                  placeholder="%"
+                />
+                <span className="text-xs text-text2">% sobre o total</span>
+              </div>
+              {cardFeePct > 0 && (
+                <div className="flex gap-3 text-xs">
+                  <label className="flex items-center gap-1">
+                    <input type="radio" checked={cardFeePayer === "empresa"} onChange={() => setCardFeePayer("empresa")} />
+                    Empresa absorve (lança despesa)
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input type="radio" checked={cardFeePayer === "cliente"} onChange={() => setCardFeePayer("cliente")} />
+                    Cliente paga (acrescenta no recebido)
+                  </label>
+                </div>
+              )}
             </div>
           )}
         </div>

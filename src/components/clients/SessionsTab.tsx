@@ -48,7 +48,7 @@ type Package = {
   is_bonus: boolean | null;
   bonus_validated: boolean | null;
   bonus_validated_at: string | null;
-  procedures: { name: string } | null;
+  procedures: { name: string; requires_term: boolean | null; term_text: string | null } | null;
 };
 type Session = {
   id: string;
@@ -65,6 +65,7 @@ type Professional = { id: string; name: string };
 
 export function SessionsTab({ clientId }: { clientId: string }) {
   const [choosing, setChoosing] = useState<{ pkg: Package; session: Session } | null>(null);
+  const [signingTerm, setSigningTerm] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
   const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [viewSig, setViewSig] = useState<{ pkg: Package; session: Session } | null>(null);
@@ -72,6 +73,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
   const [viewContract, setViewContract] = useState<string | null>(null);
   const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
+  const [addingExisting, setAddingExisting] = useState(false);
   const queryClient = useQueryClient();
 
   const { data = { packages: [], sessions: [] }, isLoading, refetch } = useQuery({
@@ -79,7 +81,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     queryFn: async () => {
       const { data: pkgs, error: pkgError } = await withTimeout(supabase
         .from("packages")
-        .select("*,procedures(name)")
+        .select("*,procedures(name,requires_term,term_text)")
         .eq("client_id", clientId)
         .eq("status", "active")
         .order("created_at"), 10000, "Carregamento dos pacotes");
@@ -150,11 +152,34 @@ export function SessionsTab({ clientId }: { clientId: string }) {
 
 
   if (isLoading) return <TableSkeleton rows={4} cols={6} />;
+
+  const headerAddButton = (
+    <button
+      type="button"
+      onClick={() => setAddingExisting(true)}
+      className="px-3 py-1.5 rounded-lg border border-gold text-gold text-xs font-semibold hover:bg-gold hover:text-white"
+    >
+      + Adicionar procedimento já feito
+    </button>
+  );
+
   if (packages.length === 0)
-    return <div className="bh-card p-12 text-center"><div className="font-display text-xl text-navy mb-1">Nenhum pacote ativo</div><div className="text-text3 text-sm">Use "Fechar pacote" para começar.</div></div>;
+    return (
+      <>
+        <div className="bh-card p-12 text-center space-y-3">
+          <div className="font-display text-xl text-navy mb-1">Nenhum pacote ativo</div>
+          <div className="text-text3 text-sm">Use "Fechar pacote" para começar — ou registre fichas físicas já existentes.</div>
+          <div className="flex justify-center pt-2">{headerAddButton}</div>
+        </div>
+        {addingExisting && (
+          <AddExistingPackageModal clientId={clientId} onClose={() => setAddingExisting(false)} onSaved={() => { setAddingExisting(false); reload(); }} />
+        )}
+      </>
+    );
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">{headerAddButton}</div>
       {packages.map((pkg) => {
         const pkgSess = sessions.filter((s) => s.package_id === pkg.id).sort((a, b) => a.session_num - b.session_num);
         const done = pkgSess.filter((s) => s.status === "done").length;
@@ -278,8 +303,24 @@ export function SessionsTab({ clientId }: { clientId: string }) {
         <ChoiceModal
           session={choosing.session}
           onClose={() => setChoosing(null)}
-          onConfirm={() => { const c = choosing; setChoosing(null); setSigning(c); }}
+          onConfirm={() => {
+            const c = choosing;
+            setChoosing(null);
+            if (c.pkg.procedures?.requires_term && c.pkg.sess_done === 0) {
+              setSigningTerm(c);
+            } else {
+              setSigning(c);
+            }
+          }}
           onMiss={() => { const c = choosing; setChoosing(null); setMissing(c); }}
+        />
+      )}
+      {signingTerm && (
+        <TermSignModal
+          clientId={clientId}
+          pkg={signingTerm.pkg}
+          onClose={() => setSigningTerm(null)}
+          onSigned={() => { const c = signingTerm; setSigningTerm(null); if (c) setSigning(c); }}
         />
       )}
       {signing && (
@@ -320,6 +361,163 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           onSaved={() => { setAttachingSig(null); reload(); }}
         />
       )}
+      {addingExisting && (
+        <AddExistingPackageModal clientId={clientId} onClose={() => setAddingExisting(false)} onSaved={() => { setAddingExisting(false); reload(); }} />
+      )}
+    </div>
+  );
+}
+
+function TermSignModal({ clientId, pkg, onClose, onSigned }: {
+  clientId: string; pkg: Package; onClose: () => void; onSigned: () => void;
+}) {
+  const sigRef = useRef<SignatureCanvas | null>(null);
+  const [hasInk, setHasInk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const termText = pkg.procedures?.term_text ?? "Termo de consentimento.";
+
+  const save = async () => {
+    if (!hasInk || sigRef.current?.isEmpty()) { toast.error("Assinatura obrigatória"); return; }
+    setBusy(true);
+    try {
+      const dataUrl = sigRef.current!.getCanvas().toDataURL("image/png");
+      const { error } = await supabase.from("signed_terms").insert({
+        package_id: pkg.id,
+        client_id: clientId,
+        procedure_id: pkg.procedure_id,
+        term_text: termText,
+        signature_data: dataUrl,
+      });
+      if (error) throw error;
+      toast.success("Termo assinado");
+      onSigned();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar termo");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-2xl text-navy">Termo de consentimento — {pkg.procedures?.name}</div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-4 overflow-y-auto">
+          <div className="bh-card p-4 bg-bg2 text-sm text-navy whitespace-pre-wrap max-h-60 overflow-y-auto">{termText}</div>
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Assinatura da cliente</label>
+            <div className="border-2 border-dashed border-gold/40 rounded-lg bg-bg2 relative" style={{ minHeight: 180 }}>
+              <SignatureCanvas
+                ref={sigRef}
+                canvasProps={{ className: "w-full rounded-lg", style: { height: 180, touchAction: "none" } }}
+                onBegin={() => setHasInk(true)}
+                penColor="#12283F"
+              />
+            </div>
+            <button type="button" onClick={() => { sigRef.current?.clear(); setHasInk(false); }} className="text-xs text-text2 hover:text-navy mt-2 underline">Limpar</button>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button type="button" onClick={save} disabled={!hasInk || busy} className="px-5 py-2 rounded-lg bg-success text-white font-semibold disabled:opacity-50">
+              {busy ? "Salvando..." : "Aceito e continuar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddExistingPackageModal({ clientId, onClose, onSaved }: {
+  clientId: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [procs, setProcs] = useState<Array<{ id: string; name: string }>>([]);
+  const [procId, setProcId] = useState("");
+  const [total, setTotal] = useState(10);
+  const [done, setDone] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    supabase.from("procedures").select("id,name").eq("active", true).order("name")
+      .then(({ data }) => setProcs((data as Array<{ id: string; name: string }>) ?? []));
+  }, []);
+
+  const save = async () => {
+    if (!procId) return toast.error("Selecione um procedimento");
+    if (total <= 0) return toast.error("Total de sessões inválido");
+    if (done < 0 || done > total) return toast.error("Sessões realizadas inválidas");
+    setBusy(true);
+    try {
+      const { data: pkg, error } = await supabase.from("packages").insert({
+        client_id: clientId,
+        procedure_id: procId,
+        sess_total: total,
+        sess_done: done,
+        price_full: 0,
+        price_paid: 0,
+        discount_pct: 0,
+        pay_method: "importado",
+        status: "active",
+        origin: "ficha_importada",
+      }).select("id").single();
+      if (error) throw error;
+      const pkgId = (pkg as { id: string }).id;
+      const rows = Array.from({ length: total }, (_, i) => ({
+        package_id: pkgId,
+        client_id: clientId,
+        session_num: i + 1,
+        status: i < done ? "done" : "pending",
+        session_status: i < done ? "confirmed" : "pending",
+        done_at: i < done ? new Date().toISOString() : null,
+      }));
+      const { error: sErr } = await supabase.from("sessions").insert(rows);
+      if (sErr) throw sErr;
+      toast.success("Procedimento adicionado");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao adicionar");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-xl text-navy">Adicionar procedimento já existente</div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="text-xs text-text3">Sem cobrança no financeiro — apenas registra o histórico.</div>
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">Procedimento</label>
+            <select value={procId} onChange={(e) => setProcId(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border text-sm">
+              <option value="">Selecionar...</option>
+              {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">Total de sessões</label>
+              <input type="number" min={1} value={total} onChange={(e) => setTotal(Number(e.target.value) || 1)} className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">Já realizadas</label>
+              <input type="number" min={0} max={total} value={done} onChange={(e) => setDone(Number(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button type="button" onClick={save} disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold disabled:opacity-50">
+              {busy ? "Salvando..." : "Adicionar"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
