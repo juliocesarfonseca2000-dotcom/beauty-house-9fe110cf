@@ -48,10 +48,10 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
     setTicketsLoading(true);
     const { data } = await supabase
       .from("support_tickets")
-      .select("id,user_name,user_email,page,message,created_at,resolved_at,email_status,email_error,email_sent_at")
+      .select("id,user_name,user_email,page,message,created_at,resolved_at,email_sent,email_error,email_sent_at")
       .order("created_at", { ascending: false })
       .limit(100);
-    setTickets((data as Ticket[]) ?? []);
+    setTickets((data as unknown as Ticket[]) ?? []);
     setTicketsLoading(false);
   };
 
