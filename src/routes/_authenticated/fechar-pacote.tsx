@@ -331,6 +331,36 @@ function ClosePackagePage() {
               </div>
             </div>
           )}
+          {isCard && (
+            <div className="mt-3 border-t pt-3 space-y-2">
+              <label className="block text-xs font-semibold text-text2 uppercase">Taxa de cartão</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  step={0.1}
+                  value={cardFeePct}
+                  onChange={(e) => setCardFeePct(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                  className="w-24 px-3 py-2 rounded-lg border border-border"
+                  placeholder="%"
+                />
+                <span className="text-xs text-text2">% sobre o total</span>
+              </div>
+              {cardFeePct > 0 && (
+                <div className="flex gap-3 text-xs">
+                  <label className="flex items-center gap-1">
+                    <input type="radio" checked={cardFeePayer === "empresa"} onChange={() => setCardFeePayer("empresa")} />
+                    Empresa absorve (lança despesa)
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input type="radio" checked={cardFeePayer === "cliente"} onChange={() => setCardFeePayer("cliente")} />
+                    Cliente paga (acrescenta no recebido)
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
