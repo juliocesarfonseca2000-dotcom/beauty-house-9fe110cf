@@ -615,6 +615,16 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                 {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </Field>
+            {client && !procId && (
+              <div className="md:col-span-2">
+                <Field label="Qual procedimento será realizado? (avulso)*">
+                  <select value={looseProcId} onChange={(e) => setLooseProcId(e.target.value)} className={inp} required>
+                    <option value="">Selecionar procedimento...</option>
+                    {allProcs.map((p) => <option key={p.id} value={p.id}>{p.name}{p.duration_min ? ` · ${p.duration_min} min` : ""}</option>)}
+                  </select>
+                </Field>
+              </div>
+            )}
             <Field label="Data*"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inp} required /></Field>
             <Field label="Hora*"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inp} required /></Field>
             <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>
@@ -631,14 +641,17 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                   Repetir semanalmente para todas as sessões deste pacote
                 </label>
                 {recurring && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pl-6">
                     <Field label="Dia da semana">
                       <select value={recWeekday} onChange={(e) => setRecWeekday(Number(e.target.value))} className={inp}>
                         {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((n, i) => <option key={i} value={i}>{n}</option>)}
                       </select>
                     </Field>
-                    <div className="text-xs text-text2 self-end pb-2">
-                      Serão criados <b>{avail}</b> agendamentos (sessões restantes). Datas em ausência serão puladas.
+                    <Field label="Horário">
+                      <input type="time" value={recTime} onChange={(e) => setRecTime(e.target.value)} className={inp} />
+                    </Field>
+                    <div className="text-xs text-text2 self-end pb-2 md:col-span-1">
+                      Serão criados <b>{avail}</b> agendamentos (sessões restantes) toda <b>{["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][recWeekday]}</b> às <b>{recTime}</b>. Datas em ausência serão puladas.
                     </div>
                   </div>
                 )}
