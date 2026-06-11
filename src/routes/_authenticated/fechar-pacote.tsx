@@ -159,6 +159,36 @@ function ClosePackagePage() {
       if (sErr) throw sErr;
 
       const pkgIds = pkgResults.map((r) => r.data!.id);
+
+      // Taxa de cartão — pós-processo do income criado pelo trigger
+      if (isCard && cardFeePct > 0) {
+        const feePctNum = Number(cardFeePct);
+        const feeValueTotal = total * (feePctNum / 100);
+        try {
+          await supabase.from("income")
+            .update({ card_fee_pct: feePctNum, card_fee_payer: cardFeePayer })
+            .in("package_id", pkgIds);
+          if (cardFeePayer === "empresa") {
+            await supabase.from("expenses").insert({
+              description: `Taxa de cartão (${feePctNum}%) — ${client.name}`,
+              amount: feeValueTotal,
+              category: "Taxas",
+            });
+          } else {
+            await supabase.from("income").insert({
+              client_id: client.id,
+              description: `Taxa de cartão repassada (${feePctNum}%) — ${client.name}`,
+              amount: feeValueTotal,
+              pay_method: payMethodLabel,
+              card_fee_pct: feePctNum,
+              card_fee_payer: cardFeePayer,
+            });
+          }
+        } catch (e) {
+          console.warn("Taxa de cartão — pós-processo falhou:", e);
+        }
+      }
+
       const items = cart.map((it) => ({
         procedure_name: it.procedure.name,
         sessions: it.sessions,
