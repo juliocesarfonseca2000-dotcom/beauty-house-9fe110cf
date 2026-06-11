@@ -22,20 +22,23 @@ export function ReportProblemFAB() {
     const page = typeof window !== "undefined" ? window.location.pathname : null;
     const user_agent = typeof navigator !== "undefined" ? navigator.userAgent : null;
     const created_at = new Date().toISOString();
-    const { error } = await supabase.from("support_tickets").insert({
+    const { data: inserted, error } = await supabase.from("support_tickets").insert({
       user_id: user.id,
       user_email: user.email,
       user_name: user.name,
       page,
       user_agent,
       message: trimmed,
-    });
+      email_status: "pending",
+    }).select("id").single();
     if (error) {
       setBusy(false);
       toast.error(error.message);
       return;
     }
     // Dispara email — não bloqueia fluxo se falhar
+    let emailStatus: "ok" | "error" = "ok";
+    let emailError: string | null = null;
     try {
       const { error: fnErr } = await supabase.functions.invoke("send-support-email", {
         body: {
@@ -47,12 +50,29 @@ export function ReportProblemFAB() {
           created_at,
         },
       });
-      if (fnErr) console.error("send-support-email falhou:", fnErr);
+      if (fnErr) {
+        emailStatus = "error";
+        emailError = fnErr.message ?? String(fnErr);
+        console.error("send-support-email falhou:", fnErr);
+      }
     } catch (e) {
+      emailStatus = "error";
+      emailError = e instanceof Error ? e.message : String(e);
       console.error("send-support-email exception:", e);
     }
+    if (inserted?.id) {
+      await supabase.from("support_tickets").update({
+        email_status: emailStatus,
+        email_error: emailError,
+        email_sent_at: new Date().toISOString(),
+      }).eq("id", inserted.id);
+    }
     setBusy(false);
-    toast.success("Chamado enviado! Obrigado, vamos verificar");
+    toast.success(
+      emailStatus === "ok"
+        ? "Chamado enviado! Obrigado, vamos verificar"
+        : "Chamado registrado (email para o admin falhou — verifique o painel Chamados)"
+    );
     setMsg("");
     setOpen(false);
   };
