@@ -83,7 +83,7 @@ function AgendaPage() {
       supabase.from("app_users").select("id,name").eq("active", true)
         .eq("role", "professional").order("name"),
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
@@ -102,7 +102,7 @@ function AgendaPage() {
     Promise.all([
       supabase.from("app_users").select("id,name").eq("active", true).eq("role", "professional").order("name"),
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,clients(name),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
