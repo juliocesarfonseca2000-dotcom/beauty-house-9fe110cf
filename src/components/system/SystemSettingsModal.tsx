@@ -250,8 +250,25 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
                         </div>
                       </div>
                       <div className="mt-1.5 text-sm text-navy whitespace-pre-wrap">{t.message}</div>
+                      <div className="mt-2 flex items-center gap-2">
+                        {t.email_status === "ok" ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-green-100 text-green-800 font-medium" title={t.email_sent_at ? `Enviado em ${new Date(t.email_sent_at).toLocaleString("pt-BR")}` : ""}>
+                            ✉ Email enviado
+                          </span>
+                        ) : t.email_status === "error" ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-800 font-medium" title={t.email_error ?? ""}>
+                            ✉ Email falhou{t.email_error ? `: ${t.email_error.slice(0, 80)}` : ""}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-medium">
+                            ✉ Email pendente
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-2 flex justify-end">
                         {t.resolved_at ? (
+                          <span className="text-[11px] text-text3">✓ Resolvido em {new Date(t.resolved_at).toLocaleString("pt-BR")}</span>
+                        ) : (
                           <span className="text-[11px] text-text3">✓ Resolvido em {new Date(t.resolved_at).toLocaleString("pt-BR")}</span>
                         ) : (
                           <button type="button" onClick={() => markResolved(t.id)} className="text-xs px-3 py-1 rounded bg-navy text-white hover:bg-navy2">
