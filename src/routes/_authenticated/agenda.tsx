@@ -350,7 +350,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     withTimeout(
       supabase
         .from("packages")
-        .select("id,sess_total,sess_done,procedure_id,procedures(id,name,duration_min)")
+        .select("id,sess_total,sess_done,procedure_id,procedures(id,name,duration_min,resource_id)")
         .eq("client_id", client.id)
         .eq("status", "active")
         .order("created_at", { ascending: false }),
