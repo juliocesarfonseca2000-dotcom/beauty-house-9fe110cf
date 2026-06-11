@@ -534,8 +534,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Procedimento">
-              <select value={procId} onChange={(e) => setProcId(e.target.value)} className={inp} disabled={!client} required>
-                <option value="">{client ? "Selecionar procedimento comprado..." : "Selecione a cliente primeiro"}</option>
+              <select value={procId} onChange={(e) => setProcId(e.target.value)} className={inp} disabled={!client}>
+                <option value="">{client ? "Avulso (definir no fechamento)" : "Selecione a cliente primeiro"}</option>
                 {procs.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.available} sessão(ões)</option>)}
               </select>
               {client && procs.length === 0 && <div className="text-xs text-danger mt-1">Esta cliente não tem pacote ativo com sessões disponíveis.</div>}
