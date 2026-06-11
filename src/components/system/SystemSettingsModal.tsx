@@ -17,7 +17,17 @@ export async function getBonusConfig(): Promise<BonusConfig> {
   return { ...DEFAULT_BONUS, ...(data.value as BonusConfig) };
 }
 
-type Tab = "bonus" | "clinica" | "contrato";
+type Tab = "bonus" | "clinica" | "contrato" | "chamados";
+
+type Ticket = {
+  id: string;
+  user_name: string | null;
+  user_email: string | null;
+  page: string | null;
+  message: string;
+  created_at: string;
+  resolved_at: string | null;
+};
 
 export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("bonus");
@@ -28,6 +38,36 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
   const [clauses, setClauses] = useState<string>(DEFAULT_CLAUSES);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+
+  const loadTickets = async () => {
+    setTicketsLoading(true);
+    const { data } = await supabase
+      .from("support_tickets")
+      .select("id,user_name,user_email,page,message,created_at,resolved_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    setTickets((data as Ticket[]) ?? []);
+    setTicketsLoading(false);
+  };
+
+  useEffect(() => {
+    if (tab === "chamados") void loadTickets();
+  }, [tab]);
+
+  const markResolved = async (id: string) => {
+    const { error } = await supabase
+      .from("support_tickets")
+      .update({ resolved_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Chamado marcado como resolvido");
+    void loadTickets();
+  };
 
   useEffect(() => {
     (async () => {
