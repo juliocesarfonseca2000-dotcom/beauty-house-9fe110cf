@@ -141,6 +141,25 @@ export function AbsencesTab({ userId }: { userId: string }) {
         </button>
       </div>
 
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+          className="px-3 py-1.5 rounded-lg border border-border text-text2 hover:bg-bg2 text-xs font-semibold"
+        >
+          {selectMode ? "Cancelar seleção" : "Selecionar múltiplos"}
+        </button>
+        {selectMode && selected.size > 0 && (
+          <button
+            type="button"
+            onClick={bulkDelete}
+            className="px-3 py-1.5 rounded-lg bg-danger text-white hover:bg-danger/90 text-xs font-semibold flex items-center gap-1"
+          >
+            <IconTrash size={14} /> Excluir selecionados ({selected.size})
+          </button>
+        )}
+      </div>
+
       <div className="bh-card overflow-x-auto">
         {loading ? (
           <div className="p-6 text-center text-text3 text-sm">Carregando…</div>
@@ -150,6 +169,7 @@ export function AbsencesTab({ userId }: { userId: string }) {
           <table className="w-full text-sm">
             <thead className="bg-bg2 text-text2">
               <tr>
+                {selectMode && <th className="w-10 px-4 py-2"></th>}
                 <th className="text-left px-4 py-2 font-semibold">Tipo</th>
                 <th className="text-left px-4 py-2 font-semibold">Período</th>
                 <th className="text-left px-4 py-2 font-semibold">Observação</th>
@@ -159,6 +179,11 @@ export function AbsencesTab({ userId }: { userId: string }) {
             <tbody>
               {rows.map((a, i) => (
                 <tr key={a.id} className={i % 2 ? "bg-bg2/40" : ""}>
+                  {selectMode && (
+                    <td className="px-4 py-2">
+                      <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggleOne(a.id)} />
+                    </td>
+                  )}
                   <td className="px-4 py-2">
                     <span className={`bh-badge ${TYPE_LABELS[a.type].cls}`}>
                       {TYPE_LABELS[a.type].label}
