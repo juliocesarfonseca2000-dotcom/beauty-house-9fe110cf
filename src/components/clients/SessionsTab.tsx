@@ -65,6 +65,7 @@ type Professional = { id: string; name: string };
 
 export function SessionsTab({ clientId }: { clientId: string }) {
   const [choosing, setChoosing] = useState<{ pkg: Package; session: Session } | null>(null);
+  const [signingTerm, setSigningTerm] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
   const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [viewSig, setViewSig] = useState<{ pkg: Package; session: Session } | null>(null);
@@ -72,6 +73,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
   const [viewContract, setViewContract] = useState<string | null>(null);
   const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
+  const [addingExisting, setAddingExisting] = useState(false);
   const queryClient = useQueryClient();
 
   const { data = { packages: [], sessions: [] }, isLoading, refetch } = useQuery({
