@@ -162,8 +162,8 @@ function ClosePackagePage() {
       const pkgIds = pkgResults.map((r) => r.data!.id);
 
       // Taxa de cartão — pós-processo do income criado pelo trigger
-      if (isCard && cardFeePct > 0) {
-        const feePctNum = Number(cardFeePct);
+      if (isCard && cardFeePctNum > 0) {
+        const feePctNum = cardFeePctNum;
         const feeValueTotal = total * (feePctNum / 100);
         try {
           await supabase.from("income")
