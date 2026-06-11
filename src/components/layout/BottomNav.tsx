@@ -1,10 +1,11 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   IconLayoutDashboard,
   IconCalendar,
   IconUsers,
   IconClipboardHeart,
   IconCoin,
+  IconLogout,
 } from "@tabler/icons-react";
 import { useAuth } from "@/lib/auth";
 import type { Permissions } from "@/integrations/supabase/client";
@@ -20,13 +21,18 @@ const ITEMS: Item[] = [
 ];
 
 export function BottomNav() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   if (!user) return null;
-  const visible = ITEMS.filter((i) => user.permissions[i.key]);
+  const visible = ITEMS.filter((i) => user.permissions[i.key]).slice(0, 4);
+  const cols = visible.length + 1;
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-navy text-silver border-t border-white/10 grid grid-cols-5 h-16 pb-[env(safe-area-inset-bottom)]">
+    <nav
+      className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-navy text-silver border-t border-white/10 h-16 pb-[env(safe-area-inset-bottom)] grid"
+      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+    >
       {visible.map((i) => {
         const active = path === i.to || (i.to !== "/" && path.startsWith(i.to));
         return (
@@ -42,6 +48,15 @@ export function BottomNav() {
           </Link>
         );
       })}
+      <button
+        type="button"
+        onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
+        className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-silver/70 hover:text-danger"
+        title="Sair"
+      >
+        <IconLogout size={20} />
+        <span>Sair</span>
+      </button>
     </nav>
   );
 }

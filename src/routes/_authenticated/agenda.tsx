@@ -34,9 +34,9 @@ const ABS_LABEL: Record<Absence["type"], string> = { vacation: "Férias", absent
 
 const START_HOUR = 7;
 const END_HOUR = 21;
-const SLOT_MIN = 30;
-const SLOT_PX = 32; // height per 30min slot
-const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
+const SLOT_MIN = 22; // grade de 22 em 22 minutos
+const SLOT_PX = 28;  // altura de cada slot
+const TOTAL_SLOTS = Math.ceil(((END_HOUR - START_HOUR) * 60) / SLOT_MIN);
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-gold/15 text-navy border-l-gold",
@@ -200,11 +200,19 @@ function AgendaPage() {
             <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
               {/* Hours column */}
               <div className="border-r bg-bg2/50">
-                {slots.map((s, i) => (
-                  <div key={i} className="text-[10px] text-text3 font-mono px-2 text-right" style={{ height: SLOT_PX }}>
-                    {s.m === 0 ? `${String(s.h).padStart(2,"0")}:00` : ""}
-                  </div>
-                ))}
+                {slots.map((s, i) => {
+                  const label = `${String(s.h).padStart(2, "0")}:${String(s.m).padStart(2, "0")}`;
+                  const isHour = s.m === 0;
+                  return (
+                    <div
+                      key={i}
+                      className={`text-[10px] font-mono px-2 text-right ${isHour ? "text-navy font-semibold" : "text-text3"}`}
+                      style={{ height: SLOT_PX, lineHeight: `${SLOT_PX}px` }}
+                    >
+                      {label}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Pro columns */}
@@ -221,16 +229,22 @@ function AgendaPage() {
                   )}
 
                   {/* Background slots */}
-                  {slots.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      disabled={!canManage}
-                      onClick={() => canManage && setSlotChoice({ proId: p.id, hour: s.h, min: s.m })}
-                      className={`block w-full ${canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"} ${s.m === 0 ? "border-t" : "border-t border-dashed border-border/40"}`}
-                      style={{ height: SLOT_PX }}
-                    />
-                  ))}
+                  {slots.map((s, i) => {
+                    const isHour = s.m === 0;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={!canManage}
+                        onClick={() => canManage && setSlotChoice({ proId: p.id, hour: s.h, min: s.m })}
+                        className={`block w-full ${canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"}`}
+                        style={{
+                          height: SLOT_PX,
+                          borderTop: isHour ? "1.5px solid #94a3b8" : "1px solid #cbd5e1",
+                        }}
+                      />
+                    );
+                  })}
 
                   {/* Appointment blocks */}
                   {(apptsByPro[p.id] ?? []).map((a) => {
@@ -379,7 +393,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     e.preventDefault();
     if (!client) return toast.error("Selecione uma cliente");
     if (!proId) return toast.error("Selecione um profissional");
-    if (!procId) return toast.error("Selecione um procedimento comprado por esta cliente.");
+    // procId opcional → agendamento avulso (será definido no fechamento)
     setBusy(true);
     try {
       const dur = Number(duration) || 60;

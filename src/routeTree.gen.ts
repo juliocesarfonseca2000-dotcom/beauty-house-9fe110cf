@@ -18,6 +18,7 @@ import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authentic
 import { Route as AuthenticatedProcedimentosRouteImport } from './routes/_authenticated/procedimentos'
 import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated/notificacoes'
 import { Route as AuthenticatedMeuPontoRouteImport } from './routes/_authenticated/meu-ponto'
+import { Route as AuthenticatedKioskPontoRouteImport } from './routes/_authenticated/kiosk-ponto'
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedFichaRouteImport } from './routes/_authenticated/ficha'
 import { Route as AuthenticatedFecharPacoteRouteImport } from './routes/_authenticated/fechar-pacote'
@@ -74,6 +75,11 @@ const AuthenticatedMeuPontoRoute = AuthenticatedMeuPontoRouteImport.update({
   path: '/meu-ponto',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedKioskPontoRoute = AuthenticatedKioskPontoRouteImport.update({
+  id: '/kiosk-ponto',
+  path: '/kiosk-ponto',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedFinanceiroRoute = AuthenticatedFinanceiroRouteImport.update({
   id: '/financeiro',
   path: '/financeiro',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/fechar-pacote': typeof AuthenticatedFecharPacoteRoute
   '/ficha': typeof AuthenticatedFichaRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
   '/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/procedimentos': typeof AuthenticatedProcedimentosRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/fechar-pacote': typeof AuthenticatedFecharPacoteRoute
   '/ficha': typeof AuthenticatedFichaRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
   '/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/procedimentos': typeof AuthenticatedProcedimentosRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/_authenticated/fechar-pacote': typeof AuthenticatedFecharPacoteRoute
   '/_authenticated/ficha': typeof AuthenticatedFichaRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
+  '/_authenticated/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
   '/_authenticated/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/_authenticated/procedimentos': typeof AuthenticatedProcedimentosRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | '/fechar-pacote'
     | '/ficha'
     | '/financeiro'
+    | '/kiosk-ponto'
     | '/meu-ponto'
     | '/notificacoes'
     | '/procedimentos'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/fechar-pacote'
     | '/ficha'
     | '/financeiro'
+    | '/kiosk-ponto'
     | '/meu-ponto'
     | '/notificacoes'
     | '/procedimentos'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/_authenticated/fechar-pacote'
     | '/_authenticated/ficha'
     | '/_authenticated/financeiro'
+    | '/_authenticated/kiosk-ponto'
     | '/_authenticated/meu-ponto'
     | '/_authenticated/notificacoes'
     | '/_authenticated/procedimentos'
@@ -298,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/meu-ponto'
       fullPath: '/meu-ponto'
       preLoaderRoute: typeof AuthenticatedMeuPontoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/kiosk-ponto': {
+      id: '/_authenticated/kiosk-ponto'
+      path: '/kiosk-ponto'
+      fullPath: '/kiosk-ponto'
+      preLoaderRoute: typeof AuthenticatedKioskPontoRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/financeiro': {
@@ -380,6 +399,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFecharPacoteRoute: typeof AuthenticatedFecharPacoteRoute
   AuthenticatedFichaRoute: typeof AuthenticatedFichaRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
+  AuthenticatedKioskPontoRoute: typeof AuthenticatedKioskPontoRoute
   AuthenticatedMeuPontoRoute: typeof AuthenticatedMeuPontoRoute
   AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
   AuthenticatedProcedimentosRoute: typeof AuthenticatedProcedimentosRoute
@@ -397,6 +417,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFecharPacoteRoute: AuthenticatedFecharPacoteRoute,
   AuthenticatedFichaRoute: AuthenticatedFichaRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
+  AuthenticatedKioskPontoRoute: AuthenticatedKioskPontoRoute,
   AuthenticatedMeuPontoRoute: AuthenticatedMeuPontoRoute,
   AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
   AuthenticatedProcedimentosRoute: AuthenticatedProcedimentosRoute,
@@ -417,13 +438,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
