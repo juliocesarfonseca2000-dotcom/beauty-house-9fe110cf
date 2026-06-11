@@ -631,8 +631,30 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 }
 
 function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () => void; onChanged: () => void }) {
+  const { user: me } = useAuth();
   const [busy, setBusy] = useState(false);
   const dt = new Date(appt.datetime);
+  const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!appt.attendance_confirmed_by) { setConfirmedByName(null); return; }
+    supabase.from("app_users").select("name").eq("id", appt.attendance_confirmed_by).maybeSingle()
+      .then(({ data }) => setConfirmedByName((data as { name?: string } | null)?.name ?? null));
+  }, [appt.attendance_confirmed_by]);
+
+  const confirmAttendance = async () => {
+    setBusy(true);
+    const { error } = await supabase.from("appointments").update({
+      attendance_status: "confirmed",
+      attendance_confirmed_at: new Date().toISOString(),
+      attendance_confirmed_by: me?.id ?? null,
+      status: appt.status === "pending" ? "confirmed" : appt.status,
+    }).eq("id", appt.id);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Presença confirmada");
+    onChanged();
+  };
 
   const setStatus = async (status: string) => {
     setBusy(true);
