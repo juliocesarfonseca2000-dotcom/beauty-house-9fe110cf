@@ -19,19 +19,39 @@ export function ReportProblemFAB() {
       return;
     }
     setBusy(true);
+    const page = typeof window !== "undefined" ? window.location.pathname : null;
+    const user_agent = typeof navigator !== "undefined" ? navigator.userAgent : null;
+    const created_at = new Date().toISOString();
     const { error } = await supabase.from("support_tickets").insert({
       user_id: user.id,
       user_email: user.email,
       user_name: user.name,
-      page: typeof window !== "undefined" ? window.location.pathname : null,
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+      page,
+      user_agent,
       message: trimmed,
     });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       toast.error(error.message);
       return;
     }
+    // Dispara email — não bloqueia fluxo se falhar
+    try {
+      const { error: fnErr } = await supabase.functions.invoke("send-support-email", {
+        body: {
+          user_name: user.name,
+          user_email: user.email,
+          page,
+          message: trimmed,
+          user_agent,
+          created_at,
+        },
+      });
+      if (fnErr) console.error("send-support-email falhou:", fnErr);
+    } catch (e) {
+      console.error("send-support-email exception:", e);
+    }
+    setBusy(false);
     toast.success("Chamado enviado! Obrigado, vamos verificar");
     setMsg("");
     setOpen(false);
