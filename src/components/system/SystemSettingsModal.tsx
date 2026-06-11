@@ -27,6 +27,9 @@ type Ticket = {
   message: string;
   created_at: string;
   resolved_at: string | null;
+  email_status: string | null;
+  email_error: string | null;
+  email_sent_at: string | null;
 };
 
 export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
@@ -45,7 +48,7 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
     setTicketsLoading(true);
     const { data } = await supabase
       .from("support_tickets")
-      .select("id,user_name,user_email,page,message,created_at,resolved_at")
+      .select("id,user_name,user_email,page,message,created_at,resolved_at,email_status,email_error,email_sent_at")
       .order("created_at", { ascending: false })
       .limit(100);
     setTickets((data as Ticket[]) ?? []);
