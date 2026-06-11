@@ -307,9 +307,16 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                           setViewSig({ pkg, session: s });
                         }
                       } else if (isNext) {
-                        if (s.appointment_id && attendanceMap[s.appointment_id] !== "confirmed") {
-                          toast.error("Confirme a presença na Agenda antes de assinar esta sessão.");
-                          return;
+                        if (s.appointment_id) {
+                          const st = attendanceMap[s.appointment_id];
+                          if (st === "no_show") {
+                            toast.error("Cliente marcado como FALTA na agenda — não é possível assinar a sessão.");
+                            return;
+                          }
+                          if (st !== "confirmed") {
+                            toast.error("⏳ A presença precisa ser confirmada na Agenda antes de finalizar a sessão. Peça à recepção para confirmar a presença da cliente.");
+                            return;
+                          }
                         }
                         setChoosing({ pkg, session: s });
                       }
