@@ -97,7 +97,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       const ids = list.map((p) => p.id);
       const { data: sess, error: sessError } = await withTimeout(supabase
           .from("sessions")
-          .select("id,package_id,session_num,status,session_status,done_at,signature_url,signature_data,notes")
+          .select("id,package_id,session_num,status,session_status,done_at,signature_url,signature_data,notes,appointment_id")
           .in("package_id", ids)
           .order("session_num"), 10000, "Carregamento das sessões");
       if (sessError) throw sessError;
