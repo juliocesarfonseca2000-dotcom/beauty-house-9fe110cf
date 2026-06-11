@@ -60,6 +60,7 @@ type Session = {
   signature_url: string | null;
   signature_data: string | null;
   notes: string | null;
+  appointment_id: string | null;
 };
 type Professional = { id: string; name: string };
 
