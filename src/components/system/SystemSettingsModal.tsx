@@ -27,9 +27,9 @@ type Ticket = {
   message: string;
   created_at: string;
   resolved_at: string | null;
-  email_status: string | null;
-  email_error: string | null;
+  email_sent: boolean | null;
   email_sent_at: string | null;
+  email_error: string | null;
 };
 
 export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
