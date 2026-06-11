@@ -79,7 +79,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     queryFn: async () => {
       const { data: pkgs, error: pkgError } = await withTimeout(supabase
         .from("packages")
-        .select("*,procedures(name)")
+        .select("*,procedures(name,requires_term,term_text)")
         .eq("client_id", clientId)
         .eq("status", "active")
         .order("created_at"), 10000, "Carregamento dos pacotes");
