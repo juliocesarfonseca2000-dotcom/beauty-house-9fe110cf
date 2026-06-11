@@ -152,11 +152,34 @@ export function SessionsTab({ clientId }: { clientId: string }) {
 
 
   if (isLoading) return <TableSkeleton rows={4} cols={6} />;
+
+  const headerAddButton = (
+    <button
+      type="button"
+      onClick={() => setAddingExisting(true)}
+      className="px-3 py-1.5 rounded-lg border border-gold text-gold text-xs font-semibold hover:bg-gold hover:text-white"
+    >
+      + Adicionar procedimento já feito
+    </button>
+  );
+
   if (packages.length === 0)
-    return <div className="bh-card p-12 text-center"><div className="font-display text-xl text-navy mb-1">Nenhum pacote ativo</div><div className="text-text3 text-sm">Use "Fechar pacote" para começar.</div></div>;
+    return (
+      <>
+        <div className="bh-card p-12 text-center space-y-3">
+          <div className="font-display text-xl text-navy mb-1">Nenhum pacote ativo</div>
+          <div className="text-text3 text-sm">Use "Fechar pacote" para começar — ou registre fichas físicas já existentes.</div>
+          <div className="flex justify-center pt-2">{headerAddButton}</div>
+        </div>
+        {addingExisting && (
+          <AddExistingPackageModal clientId={clientId} onClose={() => setAddingExisting(false)} onSaved={() => { setAddingExisting(false); reload(); }} />
+        )}
+      </>
+    );
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">{headerAddButton}</div>
       {packages.map((pkg) => {
         const pkgSess = sessions.filter((s) => s.package_id === pkg.id).sort((a, b) => a.session_num - b.session_num);
         const done = pkgSess.filter((s) => s.status === "done").length;
