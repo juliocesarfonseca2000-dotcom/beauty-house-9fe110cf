@@ -18,6 +18,8 @@ type Proc = {
   price_10: number | null;
   price_20: number | null;
   active: boolean;
+  requires_term: boolean | null;
+  term_text: string | null;
 };
 
 function ProceduresPage() {
