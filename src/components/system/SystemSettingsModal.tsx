@@ -27,9 +27,9 @@ type Ticket = {
   message: string;
   created_at: string;
   resolved_at: string | null;
-  email_status: string | null;
-  email_error: string | null;
+  email_sent: boolean | null;
   email_sent_at: string | null;
+  email_error: string | null;
 };
 
 export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
@@ -48,10 +48,10 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
     setTicketsLoading(true);
     const { data } = await supabase
       .from("support_tickets")
-      .select("id,user_name,user_email,page,message,created_at,resolved_at,email_status,email_error,email_sent_at")
+      .select("id,user_name,user_email,page,message,created_at,resolved_at,email_sent,email_error,email_sent_at")
       .order("created_at", { ascending: false })
       .limit(100);
-    setTickets((data as Ticket[]) ?? []);
+    setTickets((data as unknown as Ticket[]) ?? []);
     setTicketsLoading(false);
   };
 
@@ -251,13 +251,13 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
                       </div>
                       <div className="mt-1.5 text-sm text-navy whitespace-pre-wrap">{t.message}</div>
                       <div className="mt-2 flex items-center gap-2">
-                        {t.email_status === "ok" ? (
+                        {t.email_sent === true ? (
                           <span className="text-[10px] px-2 py-0.5 rounded bg-green-100 text-green-800 font-medium" title={t.email_sent_at ? `Enviado em ${new Date(t.email_sent_at).toLocaleString("pt-BR")}` : ""}>
-                            ✉ Email enviado
+                            ✉ Email enviado{t.email_sent_at ? ` em ${new Date(t.email_sent_at).toLocaleString("pt-BR")}` : ""}
                           </span>
-                        ) : t.email_status === "error" ? (
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-800 font-medium" title={t.email_error ?? ""}>
-                            ✉ Email falhou{t.email_error ? `: ${t.email_error.slice(0, 80)}` : ""}
+                        ) : t.email_error ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-800 font-medium" title={t.email_error}>
+                            ✉ Email falhou: {t.email_error.slice(0, 120)}
                           </span>
                         ) : (
                           <span className="text-[10px] px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-medium">

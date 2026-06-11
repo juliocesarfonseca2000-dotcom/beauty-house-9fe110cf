@@ -1,8 +1,9 @@
 // Edge Function: send-support-email
-// Envia email para o admin quando um chamado é criado em support_tickets.
-// Secret necessário: RESEND_API_KEY (configurado em Edge Function secrets).
-// Deploy: automático via Lovable Cloud ao salvar este arquivo.
+// Envia email ao admin via Resend e atualiza email_sent / email_sent_at / email_error
+// no ticket correspondente em support_tickets.
+// Secrets: RESEND_API_KEY (obrigatório), SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (auto-injetados).
 import { Resend } from "npm:resend@4.0.0";
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,7 @@ const corsHeaders = {
 };
 
 interface Payload {
+  ticket_id?: string;
   user_name?: string;
   user_email?: string;
   page?: string;
@@ -22,27 +24,45 @@ interface Payload {
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+async function updateTicket(
+  ticketId: string | undefined,
+  fields: { email_sent: boolean; email_sent_at: string; email_error: string | null },
+) {
+  if (!ticketId) return;
+  const { error } = await admin.from("support_tickets").update(fields).eq("id", ticketId);
+  if (error) console.error("update support_tickets failed:", error);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const body = (await req.json().catch(() => ({}))) as Payload;
+  const ticket_id = body.ticket_id;
+  const nowIso = new Date().toISOString();
+
   try {
     const apiKey = Deno.env.get("RESEND_API_KEY");
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "RESEND_API_KEY not set" }), {
+      const msg = "RESEND_API_KEY not set";
+      await updateTicket(ticket_id, { email_sent: false, email_sent_at: nowIso, email_error: msg });
+      return new Response(JSON.stringify({ error: msg }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const body = (await req.json()) as Payload;
     const user_name = body.user_name ?? "—";
     const user_email = body.user_email ?? "—";
     const page = body.page ?? "—";
     const message = body.message ?? "";
     const user_agent = body.user_agent ?? "—";
-    const created_at = body.created_at ?? new Date().toISOString();
+    const created_at = body.created_at ?? nowIso;
 
     const dateBR = new Date(created_at).toLocaleString("pt-BR", {
       timeZone: "America/Sao_Paulo",
@@ -72,21 +92,26 @@ Deno.serve(async (req) => {
     });
 
     if (error) {
+      const msg = typeof error === "string" ? error : JSON.stringify(error);
       console.error("Resend error:", error);
-      return new Response(JSON.stringify({ error: String(error) }), {
+      await updateTicket(ticket_id, { email_sent: false, email_sent_at: nowIso, email_error: msg });
+      return new Response(JSON.stringify({ error: msg }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    await updateTicket(ticket_id, { email_sent: true, email_sent_at: nowIso, email_error: null });
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error("send-support-email error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    await updateTicket(ticket_id, { email_sent: false, email_sent_at: nowIso, email_error: msg });
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

@@ -29,19 +29,18 @@ export function ReportProblemFAB() {
       page,
       user_agent,
       message: trimmed,
-      email_status: "pending",
     }).select("id").single();
     if (error) {
       setBusy(false);
       toast.error(error.message);
       return;
     }
-    // Dispara email — não bloqueia fluxo se falhar
-    let emailStatus: "ok" | "error" = "ok";
-    let emailError: string | null = null;
+    // Dispara email — Edge Function atualiza email_sent / email_sent_at / email_error
+    let ok = true;
     try {
       const { error: fnErr } = await supabase.functions.invoke("send-support-email", {
         body: {
+          ticket_id: inserted?.id,
           user_name: user.name,
           user_email: user.email,
           page,
@@ -51,25 +50,16 @@ export function ReportProblemFAB() {
         },
       });
       if (fnErr) {
-        emailStatus = "error";
-        emailError = fnErr.message ?? String(fnErr);
+        ok = false;
         console.error("send-support-email falhou:", fnErr);
       }
     } catch (e) {
-      emailStatus = "error";
-      emailError = e instanceof Error ? e.message : String(e);
+      ok = false;
       console.error("send-support-email exception:", e);
-    }
-    if (inserted?.id) {
-      await supabase.from("support_tickets").update({
-        email_status: emailStatus,
-        email_error: emailError,
-        email_sent_at: new Date().toISOString(),
-      }).eq("id", inserted.id);
     }
     setBusy(false);
     toast.success(
-      emailStatus === "ok"
+      ok
         ? "Chamado enviado! Obrigado, vamos verificar"
         : "Chamado registrado (email para o admin falhou — verifique o painel Chamados)"
     );
