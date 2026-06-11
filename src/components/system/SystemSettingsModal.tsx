@@ -269,8 +269,6 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
                         {t.resolved_at ? (
                           <span className="text-[11px] text-text3">✓ Resolvido em {new Date(t.resolved_at).toLocaleString("pt-BR")}</span>
                         ) : (
-                          <span className="text-[11px] text-text3">✓ Resolvido em {new Date(t.resolved_at).toLocaleString("pt-BR")}</span>
-                        ) : (
                           <button type="button" onClick={() => markResolved(t.id)} className="text-xs px-3 py-1 rounded bg-navy text-white hover:bg-navy2">
                             Marcar como resolvido
                           </button>
