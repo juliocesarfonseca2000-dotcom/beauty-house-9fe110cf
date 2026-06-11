@@ -689,8 +689,20 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
           <Row label="Duração" value={`${appt.duration_min ?? 60} min`} />
           <Row label="Status" value={<span className="bh-badge bg-navy/10 text-navy">{appt.status}</span>} />
           {appt.notes && <Row label="Observações" value={appt.notes} />}
+          {appt.attendance_status === "confirmed" && (
+            <div className="bh-card p-2.5 bg-success/10 border border-success/30 text-success text-xs">
+              ✓ Presença confirmada{confirmedByName ? ` por ${confirmedByName}` : ""}
+              {appt.attendance_confirmed_at ? ` às ${new Date(appt.attendance_confirmed_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}` : ""}
+              {" — "}Agenda: {dt.toLocaleDateString("pt-BR")} às {dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2 pt-3 border-t">
+            {appt.attendance_status !== "confirmed" && (
+              <button onClick={confirmAttendance} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/15 text-success text-xs font-bold hover:bg-success/25 flex items-center gap-1">
+                ✓ Confirmar presença
+              </button>
+            )}
             <button onClick={() => setStatus("confirmed")} disabled={busy} className="px-3 py-1.5 rounded-md bg-blue-500/10 text-blue-600 text-xs font-semibold hover:bg-blue-500/20">Confirmar</button>
             <button onClick={() => setStatus("done")} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/10 text-success text-xs font-semibold hover:bg-success/20">Atendido</button>
             <button onClick={() => setStatus("cancelled")} disabled={busy} className="px-3 py-1.5 rounded-md bg-danger/10 text-danger text-xs font-semibold hover:bg-danger/20">Cancelar</button>
