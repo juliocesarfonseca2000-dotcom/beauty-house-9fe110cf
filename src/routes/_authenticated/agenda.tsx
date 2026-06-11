@@ -200,11 +200,19 @@ function AgendaPage() {
             <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
               {/* Hours column */}
               <div className="border-r bg-bg2/50">
-                {slots.map((s, i) => (
-                  <div key={i} className="text-[10px] text-text3 font-mono px-2 text-right" style={{ height: SLOT_PX }}>
-                    {s.m === 0 ? `${String(s.h).padStart(2,"0")}:00` : ""}
-                  </div>
-                ))}
+                {slots.map((s, i) => {
+                  const label = `${String(s.h).padStart(2, "0")}:${String(s.m).padStart(2, "0")}`;
+                  const isHour = s.m === 0;
+                  return (
+                    <div
+                      key={i}
+                      className={`text-[10px] font-mono px-2 text-right ${isHour ? "text-navy font-semibold" : "text-text3"}`}
+                      style={{ height: SLOT_PX, lineHeight: `${SLOT_PX}px` }}
+                    >
+                      {label}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Pro columns */}
