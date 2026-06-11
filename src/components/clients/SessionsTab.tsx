@@ -152,6 +152,32 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     })();
   }, [clientId, packages.length]);
 
+  // Carrega attendance_status dos appointments ligados às sessões pendentes
+  useEffect(() => {
+    const apptIds = Array.from(new Set(sessions.map((s) => s.appointment_id).filter((x): x is string => !!x)));
+    if (!apptIds.length) { setAttendanceMap({}); return; }
+    supabase.from("appointments").select("id,attendance_status").in("id", apptIds).then(({ data }) => {
+      const m: Record<string, string> = {};
+      ((data as Array<{ id: string; attendance_status: string | null }> | null) ?? []).forEach((a) => {
+        if (a.attendance_status) m[a.id] = a.attendance_status;
+      });
+      setAttendanceMap(m);
+    });
+  }, [sessions]);
+
+  const cancelSale = async (pkg: Package) => {
+    if (!window.confirm(`Cancelar a venda de ${pkg.procedures?.name ?? "este pacote"}? Esta ação remove o pacote, todas as sessões e o lançamento financeiro.`)) return;
+    try {
+      await supabase.from("income").delete().eq("package_id", pkg.id);
+      await supabase.from("sessions").delete().eq("package_id", pkg.id);
+      const { error } = await supabase.from("packages").delete().eq("id", pkg.id);
+      if (error) throw error;
+      toast.success("Venda cancelada");
+      reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao cancelar venda");
+    }
+  };
 
   if (isLoading) return <TableSkeleton rows={4} cols={6} />;
 
