@@ -403,11 +403,23 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (p?.duration_min) setDuration(String(p.duration_min));
   }, [procId, procs]);
 
+  useEffect(() => {
+    if (!looseProcId) return;
+    const p = allProcs.find((x) => x.id === looseProcId);
+    if (p?.duration_min) setDuration(String(p.duration_min));
+  }, [looseProcId, allProcs]);
+
+  useEffect(() => {
+    setRecTime(time);
+  }, [time]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!client) return toast.error("Selecione uma cliente");
     if (!proId) return toast.error("Selecione um profissional");
-    // procId opcional → agendamento avulso (será definido no fechamento)
+    const isLoose = !procId;
+    const effectiveProcId = procId || looseProcId;
+    if (isLoose && !looseProcId) return toast.error("Escolha qual procedimento será realizado (avulso)");
     setBusy(true);
     try {
       const dur = Number(duration) || 60;
