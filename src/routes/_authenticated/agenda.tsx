@@ -745,15 +745,17 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
           )}
 
           <div className="flex flex-wrap gap-2 pt-3 border-t">
-            {appt.attendance_status !== "confirmed" && (
-              <button onClick={confirmAttendance} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/15 text-success text-xs font-bold hover:bg-success/25 flex items-center gap-1">
+            {appt.attendance_status !== "confirmed" && appt.attendance_status !== "no_show" && (
+              <button type="button" onClick={confirmAttendance} disabled={busy} className="px-3 py-1.5 rounded-md bg-success text-white text-xs font-bold hover:bg-success/90 flex items-center gap-1">
                 ✓ Confirmar presença
               </button>
             )}
-            <button onClick={() => setStatus("confirmed")} disabled={busy} className="px-3 py-1.5 rounded-md bg-blue-500/10 text-blue-600 text-xs font-semibold hover:bg-blue-500/20">Confirmar</button>
-            <button onClick={() => setStatus("done")} disabled={busy} className="px-3 py-1.5 rounded-md bg-success/10 text-success text-xs font-semibold hover:bg-success/20">Atendido</button>
-            <button onClick={() => setStatus("cancelled")} disabled={busy} className="px-3 py-1.5 rounded-md bg-danger/10 text-danger text-xs font-semibold hover:bg-danger/20">Cancelar</button>
-            <button onClick={remove} disabled={busy} className="ml-auto px-3 py-1.5 rounded-md text-text2 hover:text-danger text-xs font-semibold flex items-center gap-1">
+            {appt.attendance_status !== "no_show" && (
+              <button type="button" onClick={markNoShow} disabled={busy} className="px-3 py-1.5 rounded-md bg-danger text-white text-xs font-bold hover:bg-danger/90">
+                ✗ Falta
+              </button>
+            )}
+            <button type="button" onClick={remove} disabled={busy} className="ml-auto px-3 py-1.5 rounded-md text-text2 hover:text-danger text-xs font-semibold flex items-center gap-1">
               <IconTrash size={14} /> Excluir
             </button>
           </div>
