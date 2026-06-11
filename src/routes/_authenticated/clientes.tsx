@@ -132,6 +132,32 @@ function ClientsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["clients"] });
 
+  const exportCsv = () => {
+    if (filtered.length === 0) return toast.error("Nenhuma cliente para exportar");
+    const esc = (v: string | number | null | undefined) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["Ficha", "Nome", "Telefone", "Status", "Cadastro"];
+    const lines = [header.join(";")].concat(
+      filtered.map((r) => [
+        r.record_num,
+        r.name,
+        r.phone ?? "",
+        r.active ? "Ativa" : "Inativa",
+        new Date(r.created_at).toLocaleDateString("pt-BR"),
+      ].map(esc).join(";"))
+    );
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filtered.length} cliente(s) exportada(s)`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
