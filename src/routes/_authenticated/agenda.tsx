@@ -393,7 +393,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     e.preventDefault();
     if (!client) return toast.error("Selecione uma cliente");
     if (!proId) return toast.error("Selecione um profissional");
-    if (!procId) return toast.error("Selecione um procedimento comprado por esta cliente.");
+    // procId opcional → agendamento avulso (será definido no fechamento)
     setBusy(true);
     try {
       const dur = Number(duration) || 60;

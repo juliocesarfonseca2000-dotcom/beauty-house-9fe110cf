@@ -33,6 +33,9 @@ export type AppUser = {
   role: "admin" | "receptionist" | "professional";
   cargo: string | null;
   is_evaluator: boolean;
+  is_kiosk?: boolean;
+  cpf?: string | null;
+  avatar_url?: string | null;
   permissions: Permissions;
   active: boolean;
 };
