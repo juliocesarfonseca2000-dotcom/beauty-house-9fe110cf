@@ -335,7 +335,9 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Client[]>([]);
   const [procs, setProcs] = useState<PurchasedProcedure[]>([]);
+  const [allProcs, setAllProcs] = useState<Procedure[]>([]);
   const [procId, setProcId] = useState("");
+  const [looseProcId, setLooseProcId] = useState("");
   const [proId, setProId] = useState(initialProId ?? pros[0]?.id ?? "");
   const [date, setDate] = useState(fmtDate(initialDate));
   const [time, setTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
@@ -343,7 +345,13 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [notes, setNotes] = useState("");
   const [recurring, setRecurring] = useState(false);
   const [recWeekday, setRecWeekday] = useState<number>(initialDate.getDay());
+  const [recTime, setRecTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    supabase.from("procedures").select("id,name,duration_min,resource_id").eq("active", true).order("name")
+      .then(({ data }) => setAllProcs((data as Procedure[]) ?? []));
+  }, []);
 
   useEffect(() => {
     let active = true;
