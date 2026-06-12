@@ -35,10 +35,13 @@ export function ReportProblemFAB() {
       toast.error(error.message);
       return;
     }
-    // Dispara email — Edge Function atualiza email_sent / email_sent_at / email_error
+    // Dispara email — Edge Function atualiza email_sent / email_sent_at / email_error.
+    // Fallback: se o invoke falhar (function não existe, network, etc.),
+    // escrevemos o erro direto no ticket para diagnóstico.
     let ok = true;
+    let invokeErrorMsg: string | null = null;
     try {
-      const { error: fnErr } = await supabase.functions.invoke("send-support-email", {
+      const { data: fnData, error: fnErr } = await supabase.functions.invoke("send-support-email", {
         body: {
           ticket_id: inserted?.id,
           user_name: user.name,
@@ -49,13 +52,31 @@ export function ReportProblemFAB() {
           created_at,
         },
       });
+      console.log("send-support-email response:", { fnData, fnErr });
       if (fnErr) {
         ok = false;
+        invokeErrorMsg = `invoke error: ${fnErr.message ?? JSON.stringify(fnErr)}`;
         console.error("send-support-email falhou:", fnErr);
+      } else if (fnData && typeof fnData === "object" && "error" in fnData && fnData.error) {
+        ok = false;
+        invokeErrorMsg = `function returned error: ${JSON.stringify(fnData.error)}`;
       }
     } catch (e) {
       ok = false;
+      invokeErrorMsg = `exception: ${e instanceof Error ? e.message : String(e)}`;
       console.error("send-support-email exception:", e);
+    }
+    if (!ok && inserted?.id) {
+      // Fallback: grava o erro do invoke diretamente no ticket
+      const { error: updErr } = await supabase
+        .from("support_tickets")
+        .update({
+          email_sent: false,
+          email_sent_at: new Date().toISOString(),
+          email_error: invokeErrorMsg ?? "unknown invoke failure",
+        })
+        .eq("id", inserted.id);
+      if (updErr) console.error("fallback update ticket falhou:", updErr);
     }
     setBusy(false);
     toast.success(
