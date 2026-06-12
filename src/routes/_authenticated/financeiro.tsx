@@ -54,11 +54,13 @@ const EXPENSE_CATEGORIES = [
   "Internet",
   "Folha",
   "Produtos",
+  "Estoque",
   "Marketing",
   "Manutenção",
   "Impostos",
   "Outros",
 ];
+
 
 function fmtMoney(n: number | null | undefined) {
   return (n ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
