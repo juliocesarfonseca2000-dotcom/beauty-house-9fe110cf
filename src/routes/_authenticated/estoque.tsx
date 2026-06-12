@@ -40,7 +40,10 @@ type Movement = {
   notes: string | null;
   taken_by: string | null;
   created_at: string;
+  expense_id: string | null;
+  cost_total: number | null;
 };
+
 
 function EstoquePage() {
   const [products, setProducts] = useState<Product[]>([]);
