@@ -347,10 +347,21 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [recWeekday, setRecWeekday] = useState<number>(initialDate.getDay());
   const [recTime, setRecTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
   const [busy, setBusy] = useState(false);
+  const [isPreference, setIsPreference] = useState(false);
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [procPros, setProcPros] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     supabase.from("procedures").select("id,name,duration_min,resource_id").eq("active", true).order("name")
       .then(({ data }) => setAllProcs((data as Procedure[]) ?? []));
+    supabase.from("procedure_professionals").select("procedure_id,professional_id")
+      .then(({ data }) => {
+        const map: Record<string, string[]> = {};
+        ((data as { procedure_id: string; professional_id: string }[]) ?? []).forEach((r) => {
+          (map[r.procedure_id] ??= []).push(r.professional_id);
+        });
+        setProcPros(map);
+      });
   }, []);
 
   useEffect(() => {
