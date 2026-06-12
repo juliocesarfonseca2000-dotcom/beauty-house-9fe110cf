@@ -224,6 +224,20 @@ export function ClientFormModal({
             </select>
           </Field>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Sexo">
+              <select value={gender} onChange={(e) => setGender(e.target.value)} className={input}>
+                <option value="">Selecionar...</option>
+                <option value="Feminino">Feminino</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </Field>
+            <Field label="Endereço">
+              <input value={address} onChange={(e) => setAddress(e.target.value)} className={input} placeholder="Rua, número, bairro, cidade" />
+            </Field>
+          </div>
+
           <Field label="Observações">
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={input} />
           </Field>
