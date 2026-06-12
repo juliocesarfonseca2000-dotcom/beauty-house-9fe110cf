@@ -35,55 +35,47 @@ export function ReportProblemFAB() {
       toast.error(error.message);
       return;
     }
-    // Dispara email — Edge Function atualiza email_sent / email_sent_at / email_error.
-    // Fallback: se o invoke falhar (function não existe, network, etc.),
-    // escrevemos o erro direto no ticket para diagnóstico.
-    let ok = true;
-    let invokeErrorMsg: string | null = null;
+    // Envia email diretamente via Web3Forms (sem Edge Function).
+    const ticketId = inserted?.id;
     try {
-      const { data: fnData, error: fnErr } = await supabase.functions.invoke("send-support-email", {
-        body: {
-          ticket_id: inserted?.id,
-          user_name: user.name,
-          user_email: user.email,
-          page,
-          message: trimmed,
-          user_agent,
-          created_at,
-        },
+      const res = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          access_key: "f9b6dcbb-1a34-4f9b-95a8-c9466f593c2f",
+          subject: `Beauty House - Chamado de ${user.name}`,
+          from_name: "Beauty House",
+          email: "juliocesar.fonseca2000@gmail.com",
+          message: `Usuário: ${user.name} (${user.email})\nPágina: ${page}\nData: ${created_at}\n\nMensagem:\n${trimmed}\n\nNavegador: ${user_agent}`,
+        }),
       });
-      console.log("send-support-email response:", { fnData, fnErr });
-      if (fnErr) {
-        ok = false;
-        invokeErrorMsg = `invoke error: ${fnErr.message ?? JSON.stringify(fnErr)}`;
-        console.error("send-support-email falhou:", fnErr);
-      } else if (fnData && typeof fnData === "object" && "error" in fnData && fnData.error) {
-        ok = false;
-        invokeErrorMsg = `function returned error: ${JSON.stringify(fnData.error)}`;
+      const data = await res.json();
+      console.log("web3forms response:", data);
+      if (ticketId) {
+        await supabase
+          .from("support_tickets")
+          .update({
+            email_sent: data.success === true,
+            email_sent_at: new Date().toISOString(),
+            email_error: data.success === true ? null : JSON.stringify(data),
+          })
+          .eq("id", ticketId);
       }
-    } catch (e) {
-      ok = false;
-      invokeErrorMsg = `exception: ${e instanceof Error ? e.message : String(e)}`;
-      console.error("send-support-email exception:", e);
-    }
-    if (!ok && inserted?.id) {
-      // Fallback: grava o erro do invoke diretamente no ticket
-      const { error: updErr } = await supabase
-        .from("support_tickets")
-        .update({
-          email_sent: false,
-          email_sent_at: new Date().toISOString(),
-          email_error: invokeErrorMsg ?? "unknown invoke failure",
-        })
-        .eq("id", inserted.id);
-      if (updErr) console.error("fallback update ticket falhou:", updErr);
+    } catch (err) {
+      console.error("web3forms exception:", err);
+      if (ticketId) {
+        await supabase
+          .from("support_tickets")
+          .update({
+            email_sent: false,
+            email_sent_at: new Date().toISOString(),
+            email_error: String(err),
+          })
+          .eq("id", ticketId);
+      }
     }
     setBusy(false);
-    toast.success(
-      ok
-        ? "Chamado enviado! Obrigado, vamos verificar"
-        : "Chamado registrado (email para o admin falhou — verifique o painel Chamados)"
-    );
+    toast.success("Chamado enviado! Obrigado, vamos verificar");
     setMsg("");
     setOpen(false);
   };
