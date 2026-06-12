@@ -34,6 +34,8 @@ type Client = {
   weight: number | null; waist: number | null; hip: number | null;
   abdomen: number | null; arm: number | null; thigh: number | null;
   evaluator_id: string | null;
+  gender: string | null;
+  address: string | null;
   created_at: string;
 };
 
