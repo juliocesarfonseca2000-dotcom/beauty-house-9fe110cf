@@ -660,9 +660,12 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             </Field>
             <Field label="Profissional*">
               <select value={proId} onChange={(e) => setProId(e.target.value)} className={inp} required>
-                <option value="">Selecionar...</option>
-                {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <option value="">{effectiveProcIdForFilter ? "Sem preferência / Selecionar..." : "Selecionar..."}</option>
+                {filteredPros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
+              {effectiveProcIdForFilter && filteredPros.length < pros.length && (
+                <div className="text-[11px] text-text3 mt-1">Mostrando apenas profissionais habilitadas para este procedimento.</div>
+              )}
             </Field>
             {client && !procId && (
               <div className="md:col-span-2">
