@@ -413,19 +413,21 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       targets.push(first);
 
       if (recurring && available > 1 && !isLoose) {
-        // Generate next (available - 1) weekly slots matching recWeekday at recTime
-        const [rh, rm] = recTime.split(":").map(Number);
         const dayMs = 86400000;
-        // First occurrence: 1–7 days after `first`, landing on recWeekday (never same day)
+        const [rh, rm] = recTime.split(":").map(Number);
+        // 1ª repetição: entre 1 e 7 dias após o original, no recWeekday escolhido
         let diff = (recWeekday - first.getDay() + 7) % 7;
         if (diff === 0) diff = 7;
-        const firstOccurrence = new Date(first.getTime() + diff * dayMs);
-        firstOccurrence.setHours(rh || 0, rm || 0, 0, 0);
-        for (let i = 0; targets.length < available; i++) {
-          const next = new Date(firstOccurrence.getTime() + i * 7 * dayMs);
+        const cursor = new Date(first.getTime() + diff * dayMs);
+        cursor.setHours(rh || 0, rm || 0, 0, 0);
+        targets.push(new Date(cursor));
+        // próximas: sempre +7 dias a partir da 1ª
+        for (let i = 1; targets.length < available; i++) {
+          const next = new Date(cursor.getTime() + 7 * i * dayMs);
           next.setHours(rh || 0, rm || 0, 0, 0);
           targets.push(next);
         }
+
 
 
 
@@ -679,9 +681,42 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
     }).eq("id", appt.id);
     setBusy(false);
     if (error) return toast.error(error.message);
+    // Vincular próxima sessão pendente do pacote a este agendamento
+    try {
+      if (appt.procedure_id) {
+        const { data: pkg } = await supabase
+          .from("packages")
+          .select("id")
+          .eq("client_id", appt.client_id)
+          .eq("procedure_id", appt.procedure_id)
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (pkg?.id) {
+          const { data: nextSession } = await supabase
+            .from("sessions")
+            .select("id")
+            .eq("package_id", pkg.id)
+            .eq("status", "pending")
+            .is("appointment_id", null)
+            .order("session_num", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (nextSession?.id) {
+            await supabase.from("sessions")
+              .update({ appointment_id: appt.id })
+              .eq("id", nextSession.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[agenda] vínculo sessão-agendamento falhou:", e);
+    }
     toast.success("Presença confirmada");
     onChanged();
   };
+
 
   const markNoShow = async () => {
     if (!window.confirm("Marcar cliente como FALTA?")) return;
