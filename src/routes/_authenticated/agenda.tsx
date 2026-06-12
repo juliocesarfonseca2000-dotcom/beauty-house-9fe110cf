@@ -683,6 +683,16 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           </div>
           <Field label="Observações"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inp} /></Field>
 
+          <div className="flex flex-wrap gap-4 px-1">
+            <label className="flex items-center gap-2 text-sm font-semibold text-navy cursor-pointer">
+              <input type="checkbox" checked={isPreference} onChange={(e) => setIsPreference(e.target.checked)} />
+              ⭐ Preferência da cliente por esta profissional
+            </label>
+            {isFirstVisit && (
+              <div className="text-sm text-blue-600 font-semibold">🆕 Primeira vez na clínica (detectado automaticamente)</div>
+            )}
+          </div>
+
           {procId && (() => {
             const sel = procs.find((x) => x.id === procId);
             const avail = sel?.available ?? 0;
