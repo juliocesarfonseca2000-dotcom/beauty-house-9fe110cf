@@ -587,7 +587,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
         : null;
 
-      const rows = targets.map((dt) => {
+      const rows = targets.map((dt, idx) => {
         const row: Record<string, unknown> = {
           client_id: client.id,
           procedure_id: effectiveProcId,
@@ -597,6 +597,9 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           status: "pending",
           notes: notes || null,
           is_loose: isLoose,
+          is_preference: isPreference,
+          // Apenas o 1º agendamento marca como "primeira vez"
+          is_first_visit: idx === 0 ? isFirstVisit : false,
         };
         if (recurrenceGroup) row.recurrence_group = recurrenceGroup;
         return row;
