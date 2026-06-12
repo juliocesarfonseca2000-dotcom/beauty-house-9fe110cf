@@ -265,10 +265,11 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
     }
     // Sync procedure_professionals
     if (procId) {
-      await supabase.from("procedure_professionals").delete().eq("procedure_id", procId);
+      const pid = procId;
+      await supabase.from("procedure_professionals").delete().eq("procedure_id", pid);
       if (selectedPros.size > 0) {
         await supabase.from("procedure_professionals").insert(
-          Array.from(selectedPros).map((pid) => ({ procedure_id: procId!, professional_id: pid })),
+          Array.from(selectedPros).map((proId) => ({ procedure_id: pid, professional_id: proId })),
         );
       }
     }
