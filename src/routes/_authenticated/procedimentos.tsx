@@ -307,6 +307,24 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
             </select>
           </Field>
 
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">
+              Profissionais habilitadas
+            </label>
+            <div className="text-xs text-text3 mb-2">Marque quem pode realizar este procedimento. Se nenhuma for marcada, todas podem realizar.</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto p-2 bg-bg2/40 rounded-lg border border-border">
+              {pros.length === 0 ? (
+                <div className="text-text3 text-xs">Nenhuma profissional cadastrada.</div>
+              ) : pros.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-bg2 px-2 py-1 rounded">
+                  <input type="checkbox" checked={selectedPros.has(p.id)} onChange={() => togglePro(p.id)} />
+                  {p.name}
+                </label>
+              ))}
+            </div>
+          </div>
+
+
           <div className="border-t pt-4 space-y-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-navy">
               <input type="checkbox" checked={requiresTerm} onChange={(e) => setRequiresTerm(e.target.checked)} />
