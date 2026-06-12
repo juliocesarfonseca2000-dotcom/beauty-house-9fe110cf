@@ -681,9 +681,42 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
     }).eq("id", appt.id);
     setBusy(false);
     if (error) return toast.error(error.message);
+    // Vincular próxima sessão pendente do pacote a este agendamento
+    try {
+      if (appt.procedure_id) {
+        const { data: pkg } = await supabase
+          .from("packages")
+          .select("id")
+          .eq("client_id", appt.client_id)
+          .eq("procedure_id", appt.procedure_id)
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (pkg?.id) {
+          const { data: nextSession } = await supabase
+            .from("sessions")
+            .select("id")
+            .eq("package_id", pkg.id)
+            .eq("status", "pending")
+            .is("appointment_id", null)
+            .order("session_num", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (nextSession?.id) {
+            await supabase.from("sessions")
+              .update({ appointment_id: appt.id })
+              .eq("id", nextSession.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[agenda] vínculo sessão-agendamento falhou:", e);
+    }
     toast.success("Presença confirmada");
     onChanged();
   };
+
 
   const markNoShow = async () => {
     if (!window.confirm("Marcar cliente como FALTA?")) return;
