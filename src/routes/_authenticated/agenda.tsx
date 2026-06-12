@@ -27,6 +27,8 @@ type Appt = {
   attendance_status: string | null;
   attendance_confirmed_at: string | null;
   attendance_confirmed_by: string | null;
+  is_preference: boolean | null;
+  is_first_visit: boolean | null;
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
