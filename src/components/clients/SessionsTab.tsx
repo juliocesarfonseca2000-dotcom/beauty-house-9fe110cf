@@ -470,7 +470,7 @@ function TermSignModal({ clientId, pkg, session, onClose, onSigned }: {
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div className="font-display text-2xl text-navy">Termo de consentimento — {pkg.procedures?.name}</div>
+          <div className="font-display text-2xl text-navy">Termo de consentimento — {pkg.procedures?.name} — Sessão {session.session_num}</div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
         </div>
         <div className="p-6 space-y-4 overflow-y-auto">
