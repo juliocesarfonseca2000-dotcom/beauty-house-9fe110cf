@@ -369,11 +369,12 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           onConfirm={() => {
             const c = choosing;
             setChoosing(null);
-            if (c.pkg.procedures?.requires_term && c.pkg.sess_done === 0) {
+            if (c.pkg.procedures?.requires_term) {
               setSigningTerm(c);
             } else {
               setSigning(c);
             }
+
           }}
           onMiss={() => { const c = choosing; setChoosing(null); setMissing(c); }}
         />
@@ -382,10 +383,12 @@ export function SessionsTab({ clientId }: { clientId: string }) {
         <TermSignModal
           clientId={clientId}
           pkg={signingTerm.pkg}
+          session={signingTerm.session}
           onClose={() => setSigningTerm(null)}
           onSigned={() => { const c = signingTerm; setSigningTerm(null); if (c) setSigning(c); }}
         />
       )}
+
       {signing && (
         <SignSessionModal
           clientId={clientId}
@@ -431,8 +434,8 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   );
 }
 
-function TermSignModal({ clientId, pkg, onClose, onSigned }: {
-  clientId: string; pkg: Package; onClose: () => void; onSigned: () => void;
+function TermSignModal({ clientId, pkg, session, onClose, onSigned }: {
+  clientId: string; pkg: Package; session: Session; onClose: () => void; onSigned: () => void;
 }) {
   const sigRef = useRef<SignatureCanvas | null>(null);
   const [hasInk, setHasInk] = useState(false);
@@ -448,6 +451,7 @@ function TermSignModal({ clientId, pkg, onClose, onSigned }: {
         package_id: pkg.id,
         client_id: clientId,
         procedure_id: pkg.procedure_id,
+        session_id: session.id,
         term_text: termText,
         signature_data: dataUrl,
       });
@@ -461,11 +465,12 @@ function TermSignModal({ clientId, pkg, onClose, onSigned }: {
     }
   };
 
+
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div className="font-display text-2xl text-navy">Termo de consentimento — {pkg.procedures?.name}</div>
+          <div className="font-display text-2xl text-navy">Termo de consentimento — {pkg.procedures?.name} — Sessão {session.session_num}</div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
         </div>
         <div className="p-6 space-y-4 overflow-y-auto">
