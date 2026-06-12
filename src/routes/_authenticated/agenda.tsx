@@ -424,6 +424,36 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     setRecTime(time);
   }, [time]);
 
+  // Auto-detect "primeira vez" when client is selected
+  useEffect(() => {
+    if (!client) { setIsFirstVisit(false); return; }
+    (async () => {
+      const { count } = await supabase
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", client.id)
+        .neq("status", "cancelled");
+      setIsFirstVisit((count ?? 0) === 0);
+    })();
+  }, [client]);
+
+  // Pros filtered by selected procedure
+  const effectiveProcIdForFilter = procId || looseProcId;
+  const filteredPros = useMemo(() => {
+    if (!effectiveProcIdForFilter) return pros;
+    const allowed = procPros[effectiveProcIdForFilter];
+    if (!allowed || allowed.length === 0) return pros;
+    return pros.filter((p) => allowed.includes(p.id));
+  }, [effectiveProcIdForFilter, procPros, pros]);
+
+  // If selected pro is no longer allowed, reset it
+  useEffect(() => {
+    if (proId && filteredPros.length > 0 && !filteredPros.find((p) => p.id === proId)) {
+      setProId("");
+    }
+  }, [filteredPros, proId]);
+
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!client) return toast.error("Selecione uma cliente");
