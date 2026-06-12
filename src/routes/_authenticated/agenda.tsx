@@ -97,28 +97,9 @@ function AgendaPage() {
     setLoading(false);
   };
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    Promise.all([
-      supabase.from("app_users").select("id,name").eq("active", true).eq("role", "professional").order("name"),
-      supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,clients(name),procedures(name)")
-        .gte("datetime", dayStart.toISOString())
-        .lt("datetime", dayEnd.toISOString())
-        .order("datetime"),
-      supabase.from("staff_absences")
-        .select("user_id,type,date_start,date_end")
-        .lte("date_start", dayYmd).gte("date_end", dayYmd),
-    ]).then(([pdata, adata, absData]) => {
-      if (!active) return;
-      setPros((pdata.data as Professional[]) ?? []);
-      setAppts((adata.data as unknown as Appt[]) ?? []);
-      setAbsences((absData.data as Absence[]) ?? []);
-      setLoading(false);
-    });
-
-    return () => { active = false; };
-  }, [dayStart.getTime(), dayEnd]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayStart.getTime(), dayEnd.getTime(), dayYmd]);
 
   const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 
