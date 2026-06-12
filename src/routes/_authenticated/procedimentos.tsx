@@ -212,6 +212,32 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
   const [termText, setTermText] = useState(initial?.term_text ?? "");
   const [resourceId, setResourceId] = useState(initial?.resource_id ?? "");
   const [busy, setBusy] = useState(false);
+  const [pros, setPros] = useState<{ id: string; name: string }[]>([]);
+  const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    (async () => {
+      const { data: prosData } = await supabase
+        .from("app_users").select("id,name")
+        .eq("active", true).eq("role", "professional").order("name");
+      setPros((prosData as { id: string; name: string }[]) ?? []);
+      if (initial) {
+        const { data: links } = await supabase
+          .from("procedure_professionals").select("professional_id")
+          .eq("procedure_id", initial.id);
+        setSelectedPros(new Set(((links as { professional_id: string }[]) ?? []).map((l) => l.professional_id)));
+      }
+    })();
+  }, [initial]);
+
+  const togglePro = (id: string) => {
+    setSelectedPros((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
