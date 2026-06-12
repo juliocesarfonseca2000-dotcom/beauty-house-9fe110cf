@@ -426,7 +426,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           next.setHours(rh || 0, rm || 0, 0, 0);
           targets.push(next);
         }
-      }
+
+
 
         // Check absences across the range
         const lastYmd = fmtDate(targets[targets.length - 1]);
