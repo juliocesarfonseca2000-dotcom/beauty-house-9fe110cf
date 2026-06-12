@@ -23,6 +23,8 @@ export function ClientFormModal({
   const [referralClientId, setReferralClientId] = useState<string | null>(null);
   const [evaluatorId, setEvaluatorId] = useState("");
   const [notes, setNotes] = useState("");
+  const [gender, setGender] = useState("");
+  const [address, setAddress] = useState("");
   const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
   const [refSearch, setRefSearch] = useState("");
   const [refResults, setRefResults] = useState<Evaluator[]>([]);
