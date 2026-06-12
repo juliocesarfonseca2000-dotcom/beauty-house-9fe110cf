@@ -383,10 +383,12 @@ export function SessionsTab({ clientId }: { clientId: string }) {
         <TermSignModal
           clientId={clientId}
           pkg={signingTerm.pkg}
+          session={signingTerm.session}
           onClose={() => setSigningTerm(null)}
           onSigned={() => { const c = signingTerm; setSigningTerm(null); if (c) setSigning(c); }}
         />
       )}
+
       {signing && (
         <SignSessionModal
           clientId={clientId}
