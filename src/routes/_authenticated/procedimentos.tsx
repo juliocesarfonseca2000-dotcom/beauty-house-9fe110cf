@@ -254,11 +254,25 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
       term_text: requiresTerm ? (termText.trim() || null) : null,
       resource_id: resourceId || null,
     };
-    const { error } = initial
-      ? await supabase.from("procedures").update(payload).eq("id", initial.id)
-      : await supabase.from("procedures").insert(payload);
+    let procId = initial?.id;
+    if (initial) {
+      const { error } = await supabase.from("procedures").update(payload).eq("id", initial.id);
+      if (error) { setBusy(false); return toast.error(error.message); }
+    } else {
+      const { data: created, error } = await supabase.from("procedures").insert(payload).select("id").single();
+      if (error) { setBusy(false); return toast.error(error.message); }
+      procId = (created as { id: string }).id;
+    }
+    // Sync procedure_professionals
+    if (procId) {
+      await supabase.from("procedure_professionals").delete().eq("procedure_id", procId);
+      if (selectedPros.size > 0) {
+        await supabase.from("procedure_professionals").insert(
+          Array.from(selectedPros).map((pid) => ({ procedure_id: procId!, professional_id: pid })),
+        );
+      }
+    }
     setBusy(false);
-    if (error) return toast.error(error.message);
     toast.success(initial ? "Atualizado!" : "Criado!");
     onSaved();
   };
