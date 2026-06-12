@@ -20,6 +20,8 @@ const TABLES = [
   "staff_absences",
   "notifications",
   "income",
+  "procedure_professionals",
+  "message_campaigns",
 ] as const;
 
 export function useRealtimeSync(enabled: boolean) {
