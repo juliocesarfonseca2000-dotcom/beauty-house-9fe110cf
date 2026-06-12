@@ -369,11 +369,12 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           onConfirm={() => {
             const c = choosing;
             setChoosing(null);
-            if (c.pkg.procedures?.requires_term && c.pkg.sess_done === 0) {
+            if (c.pkg.procedures?.requires_term) {
               setSigningTerm(c);
             } else {
               setSigning(c);
             }
+
           }}
           onMiss={() => { const c = choosing; setChoosing(null); setMissing(c); }}
         />
