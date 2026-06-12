@@ -27,6 +27,8 @@ type Appt = {
   attendance_status: string | null;
   attendance_confirmed_at: string | null;
   attendance_confirmed_by: string | null;
+  is_preference: boolean | null;
+  is_first_visit: boolean | null;
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
@@ -83,7 +85,7 @@ function AgendaPage() {
       supabase.from("app_users").select("id,name").eq("active", true)
         .eq("role", "professional").order("name"),
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,clients(name),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
@@ -241,11 +243,14 @@ function AgendaPage() {
                     const dur = a.duration_min ?? 60;
                     const top = (minFromStart / SLOT_MIN) * SLOT_PX;
                     const height = Math.max(SLOT_PX, (dur / SLOT_MIN) * SLOT_PX) - 2;
+                    const extra: string[] = [];
+                    if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
+                    if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
                     return (
                       <div
                         key={a.id}
                         onClick={() => canManage && setViewing(a)}
-                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending}`}
+                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending} ${extra.join(" ")}`}
                         style={{ top, height }}
                       >
                         {a.status === "blocked" ? (
@@ -256,6 +261,8 @@ function AgendaPage() {
                         ) : (
                           <>
                             <div className="font-semibold truncate text-[11px]">
+                              {a.is_preference && <span title="Preferência da cliente">⭐ </span>}
+                              {a.is_first_visit && <span title="Primeira vez">🆕 </span>}
                               {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
                             </div>
                             <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
@@ -272,6 +279,18 @@ function AgendaPage() {
           </div>
         )}
       </div>
+
+      {/* Legenda */}
+      <div className="bh-card p-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text2">
+        <span className="font-semibold text-navy uppercase tracking-wide text-[10px]">Legenda:</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 border-l-2 border-gold" /> Normal</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 ring-2 ring-gold" /> ⭐ Preferência da cliente</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 outline outline-2 outline-blue-400" /> 🆕 Primeira vez</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-success/30 border-l-2 border-success" /> Realizado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-text2/30" /> Bloqueado</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-danger/30" /> Férias / Folga / Falta / Licença</span>
+      </div>
+
 
       {creating && (
         <ApptModal
@@ -328,10 +347,21 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [recWeekday, setRecWeekday] = useState<number>(initialDate.getDay());
   const [recTime, setRecTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
   const [busy, setBusy] = useState(false);
+  const [isPreference, setIsPreference] = useState(false);
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [procPros, setProcPros] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     supabase.from("procedures").select("id,name,duration_min,resource_id").eq("active", true).order("name")
       .then(({ data }) => setAllProcs((data as Procedure[]) ?? []));
+    supabase.from("procedure_professionals").select("procedure_id,professional_id")
+      .then(({ data }) => {
+        const map: Record<string, string[]> = {};
+        ((data as { procedure_id: string; professional_id: string }[]) ?? []).forEach((r) => {
+          (map[r.procedure_id] ??= []).push(r.professional_id);
+        });
+        setProcPros(map);
+      });
   }, []);
 
   useEffect(() => {
@@ -393,6 +423,36 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   useEffect(() => {
     setRecTime(time);
   }, [time]);
+
+  // Auto-detect "primeira vez" when client is selected
+  useEffect(() => {
+    if (!client) { setIsFirstVisit(false); return; }
+    (async () => {
+      const { count } = await supabase
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", client.id)
+        .neq("status", "cancelled");
+      setIsFirstVisit((count ?? 0) === 0);
+    })();
+  }, [client]);
+
+  // Pros filtered by selected procedure
+  const effectiveProcIdForFilter = procId || looseProcId;
+  const filteredPros = useMemo(() => {
+    if (!effectiveProcIdForFilter) return pros;
+    const allowed = procPros[effectiveProcIdForFilter];
+    if (!allowed || allowed.length === 0) return pros;
+    return pros.filter((p) => allowed.includes(p.id));
+  }, [effectiveProcIdForFilter, procPros, pros]);
+
+  // If selected pro is no longer allowed, reset it
+  useEffect(() => {
+    if (proId && filteredPros.length > 0 && !filteredPros.find((p) => p.id === proId)) {
+      setProId("");
+    }
+  }, [filteredPros, proId]);
+
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -527,7 +587,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
         : null;
 
-      const rows = targets.map((dt) => {
+      const rows = targets.map((dt, idx) => {
         const row: Record<string, unknown> = {
           client_id: client.id,
           procedure_id: effectiveProcId,
@@ -537,6 +597,9 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           status: "pending",
           notes: notes || null,
           is_loose: isLoose,
+          is_preference: isPreference,
+          // Apenas o 1º agendamento marca como "primeira vez"
+          is_first_visit: idx === 0 ? isFirstVisit : false,
         };
         if (recurrenceGroup) row.recurrence_group = recurrenceGroup;
         return row;
@@ -597,9 +660,12 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             </Field>
             <Field label="Profissional*">
               <select value={proId} onChange={(e) => setProId(e.target.value)} className={inp} required>
-                <option value="">Selecionar...</option>
-                {pros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <option value="">{effectiveProcIdForFilter ? "Sem preferência / Selecionar..." : "Selecionar..."}</option>
+                {filteredPros.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
+              {effectiveProcIdForFilter && filteredPros.length < pros.length && (
+                <div className="text-[11px] text-text3 mt-1">Mostrando apenas profissionais habilitadas para este procedimento.</div>
+              )}
             </Field>
             {client && !procId && (
               <div className="md:col-span-2">
@@ -616,6 +682,16 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>
           </div>
           <Field label="Observações"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inp} /></Field>
+
+          <div className="flex flex-wrap gap-4 px-1">
+            <label className="flex items-center gap-2 text-sm font-semibold text-navy cursor-pointer">
+              <input type="checkbox" checked={isPreference} onChange={(e) => setIsPreference(e.target.checked)} />
+              ⭐ Preferência da cliente por esta profissional
+            </label>
+            {isFirstVisit && (
+              <div className="text-sm text-blue-600 font-semibold">🆕 Primeira vez na clínica (detectado automaticamente)</div>
+            )}
+          </div>
 
           {procId && (() => {
             const sel = procs.find((x) => x.id === procId);

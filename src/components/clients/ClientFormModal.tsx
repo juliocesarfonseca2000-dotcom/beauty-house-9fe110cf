@@ -23,6 +23,8 @@ export function ClientFormModal({
   const [referralClientId, setReferralClientId] = useState<string | null>(null);
   const [evaluatorId, setEvaluatorId] = useState("");
   const [notes, setNotes] = useState("");
+  const [gender, setGender] = useState("");
+  const [address, setAddress] = useState("");
   const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
   const [refSearch, setRefSearch] = useState("");
   const [refResults, setRefResults] = useState<Evaluator[]>([]);
@@ -82,6 +84,8 @@ export function ClientFormModal({
         referral_client_id: referral === "Indicação" ? referralClientId : null,
         evaluator_id: evaluatorId || null,
         notes: notes.trim() || null,
+        gender: gender || null,
+        address: address.trim() || null,
       };
       const { data: created, error } = await withTimeout<{ data: { id: string } | null; error: { message: string } | null }>(
         supabase.from("clients").insert(payload).select("id").single(),
@@ -219,6 +223,20 @@ export function ClientFormModal({
               {evaluators.map((e) => <option key={e.id} value={e.id}>{e.is_evaluator ? "★ " : ""}{e.name}</option>)}
             </select>
           </Field>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Sexo">
+              <select value={gender} onChange={(e) => setGender(e.target.value)} className={input}>
+                <option value="">Selecionar...</option>
+                <option value="Feminino">Feminino</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </Field>
+            <Field label="Endereço">
+              <input value={address} onChange={(e) => setAddress(e.target.value)} className={input} placeholder="Rua, número, bairro, cidade" />
+            </Field>
+          </div>
 
           <Field label="Observações">
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={input} />

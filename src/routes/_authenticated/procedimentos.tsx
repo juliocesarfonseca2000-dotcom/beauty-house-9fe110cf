@@ -212,6 +212,32 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
   const [termText, setTermText] = useState(initial?.term_text ?? "");
   const [resourceId, setResourceId] = useState(initial?.resource_id ?? "");
   const [busy, setBusy] = useState(false);
+  const [pros, setPros] = useState<{ id: string; name: string }[]>([]);
+  const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    (async () => {
+      const { data: prosData } = await supabase
+        .from("app_users").select("id,name")
+        .eq("active", true).eq("role", "professional").order("name");
+      setPros((prosData as { id: string; name: string }[]) ?? []);
+      if (initial) {
+        const { data: links } = await supabase
+          .from("procedure_professionals").select("professional_id")
+          .eq("procedure_id", initial.id);
+        setSelectedPros(new Set(((links as { professional_id: string }[]) ?? []).map((l) => l.professional_id)));
+      }
+    })();
+  }, [initial]);
+
+  const togglePro = (id: string) => {
+    setSelectedPros((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,11 +254,26 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
       term_text: requiresTerm ? (termText.trim() || null) : null,
       resource_id: resourceId || null,
     };
-    const { error } = initial
-      ? await supabase.from("procedures").update(payload).eq("id", initial.id)
-      : await supabase.from("procedures").insert(payload);
+    let procId = initial?.id;
+    if (initial) {
+      const { error } = await supabase.from("procedures").update(payload).eq("id", initial.id);
+      if (error) { setBusy(false); return toast.error(error.message); }
+    } else {
+      const { data: created, error } = await supabase.from("procedures").insert(payload).select("id").single();
+      if (error) { setBusy(false); return toast.error(error.message); }
+      procId = (created as { id: string }).id;
+    }
+    // Sync procedure_professionals
+    if (procId) {
+      const pid = procId;
+      await supabase.from("procedure_professionals").delete().eq("procedure_id", pid);
+      if (selectedPros.size > 0) {
+        await supabase.from("procedure_professionals").insert(
+          Array.from(selectedPros).map((proId) => ({ procedure_id: pid, professional_id: proId })),
+        );
+      }
+    }
     setBusy(false);
-    if (error) return toast.error(error.message);
     toast.success(initial ? "Atualizado!" : "Criado!");
     onSaved();
   };
@@ -266,6 +307,24 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
               ))}
             </select>
           </Field>
+
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">
+              Profissionais habilitadas
+            </label>
+            <div className="text-xs text-text3 mb-2">Marque quem pode realizar este procedimento. Se nenhuma for marcada, todas podem realizar.</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto p-2 bg-bg2/40 rounded-lg border border-border">
+              {pros.length === 0 ? (
+                <div className="text-text3 text-xs">Nenhuma profissional cadastrada.</div>
+              ) : pros.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-bg2 px-2 py-1 rounded">
+                  <input type="checkbox" checked={selectedPros.has(p.id)} onChange={() => togglePro(p.id)} />
+                  {p.name}
+                </label>
+              ))}
+            </div>
+          </div>
+
 
           <div className="border-t pt-4 space-y-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-navy">

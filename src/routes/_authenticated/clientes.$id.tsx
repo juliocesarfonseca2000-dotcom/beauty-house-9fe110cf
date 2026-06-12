@@ -34,6 +34,8 @@ type Client = {
   weight: number | null; waist: number | null; hip: number | null;
   abdomen: number | null; arm: number | null; thigh: number | null;
   evaluator_id: string | null;
+  gender: string | null;
+  address: string | null;
   created_at: string;
 };
 
@@ -162,6 +164,7 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
   const [f, setF] = useState({
     record_num: String(client.record_num ?? ""), name: client.name, phone: client.phone ?? "", email: client.email ?? "",
     birthdate: client.birthdate ?? "", cpf: client.cpf ?? "", referral: client.referral ?? "", evaluator_id: client.evaluator_id ?? "", notes: client.notes ?? "",
+    gender: client.gender ?? "", address: client.address ?? "",
   });
   useEffect(() => {
     let active = true;
@@ -205,6 +208,8 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
         <RO label="CPF" v={f.cpf} edit={edit} onChange={(v) => setF({ ...f, cpf: v })} />
         <SelectRO label="Como conheceu" value={f.referral} edit={edit} options={["Indicação", "Instagram", "Google", "Outro"]} onChange={(v) => setF({ ...f, referral: v })} />
         <SelectRO label="Avaliadora" value={f.evaluator_id} edit={edit} options={evaluators.map((e) => ({ value: e.id, label: `${e.is_evaluator ? "★ " : ""}${e.name}` }))} onChange={(v) => setF({ ...f, evaluator_id: v })} display={evaluators.find((e) => e.id === f.evaluator_id)?.name} />
+        <SelectRO label="Sexo" value={f.gender} edit={edit} options={["Feminino", "Masculino", "Outro"]} onChange={(v) => setF({ ...f, gender: v })} />
+        <RO label="Endereço" v={f.address} edit={edit} onChange={(v) => setF({ ...f, address: v })} />
       </Grid>
       <div>
         <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Observações</label>
