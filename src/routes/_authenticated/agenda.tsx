@@ -97,28 +97,9 @@ function AgendaPage() {
     setLoading(false);
   };
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    Promise.all([
-      supabase.from("app_users").select("id,name").eq("active", true).eq("role", "professional").order("name"),
-      supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,clients(name),procedures(name)")
-        .gte("datetime", dayStart.toISOString())
-        .lt("datetime", dayEnd.toISOString())
-        .order("datetime"),
-      supabase.from("staff_absences")
-        .select("user_id,type,date_start,date_end")
-        .lte("date_start", dayYmd).gte("date_end", dayYmd),
-    ]).then(([pdata, adata, absData]) => {
-      if (!active) return;
-      setPros((pdata.data as Professional[]) ?? []);
-      setAppts((adata.data as unknown as Appt[]) ?? []);
-      setAbsences((absData.data as Absence[]) ?? []);
-      setLoading(false);
-    });
-
-    return () => { active = false; };
-  }, [dayStart.getTime(), dayEnd]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayStart.getTime(), dayEnd.getTime(), dayYmd]);
 
   const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 
@@ -435,15 +416,18 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         // Generate next (available - 1) weekly slots matching recWeekday at recTime
         const [rh, rm] = recTime.split(":").map(Number);
         const dayMs = 86400000;
-        let cursor = new Date(first);
-        while (targets.length < available) {
-          cursor = new Date(cursor.getTime() + 7 * dayMs);
-          // align weekday
-          while (cursor.getDay() !== recWeekday) cursor = new Date(cursor.getTime() + dayMs);
-          const next = new Date(cursor);
+        // First occurrence: 1–7 days after `first`, landing on recWeekday (never same day)
+        let diff = (recWeekday - first.getDay() + 7) % 7;
+        if (diff === 0) diff = 7;
+        const firstOccurrence = new Date(first.getTime() + diff * dayMs);
+        firstOccurrence.setHours(rh || 0, rm || 0, 0, 0);
+        for (let i = 0; targets.length < available; i++) {
+          const next = new Date(firstOccurrence.getTime() + i * 7 * dayMs);
           next.setHours(rh || 0, rm || 0, 0, 0);
           targets.push(next);
         }
+
+
 
         // Check absences across the range
         const lastYmd = fmtDate(targets[targets.length - 1]);
