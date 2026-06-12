@@ -418,7 +418,27 @@ function MovementModal({
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
   const [takenBy, setTakenBy] = useState("");
+  const defaultCost = type === "in"
+    ? ((Number(product.cost_price ?? 0) || 0) * 0).toFixed(2)
+    : "";
+  const [costTotal, setCostTotal] = useState(defaultCost);
+  const [createExpense, setCreateExpense] = useState(type === "in");
   const [saving, setSaving] = useState(false);
+
+  // Atualiza custo total automaticamente conforme qty muda (mas o usuário pode editar)
+  useEffect(() => {
+    if (type !== "in") return;
+    const q = Number(qty);
+    const cp = Number(product.cost_price ?? 0);
+    if (q > 0 && cp > 0) {
+      setCostTotal((prev) => {
+        // Só sobrescreve se ainda estava em branco/zero ou foi alterado por este efeito
+        if (!prev || prev === "0.00" || prev === "0") return (q * cp).toFixed(2);
+        return prev;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qty]);
 
   const save = async () => {
     const q = Number(qty);
@@ -427,10 +447,32 @@ function MovementModal({
       return toast.error("Quantidade maior que o estoque atual");
     if (type === "out" && !takenBy.trim())
       return toast.error("Informe quem retirou o produto");
+    const ct = type === "in" ? Number(costTotal.replace(",", ".")) : 0;
+    if (type === "in" && createExpense && (!ct || ct <= 0))
+      return toast.error("Informe o custo total da compra");
     setSaving(true);
     const { data: u } = await supabase.auth.getUser();
     const delta = type === "in" ? q : -q;
     const newQty = Number(product.qty_current) + delta;
+
+    // 1) Se for entrada e o checkbox estiver marcado, cria a despesa primeiro
+    let expenseId: string | null = null;
+    if (type === "in" && createExpense) {
+      const today = new Date().toISOString().slice(0, 10);
+      const desc = `Compra de estoque: ${q} ${product.unit ?? ""} de ${product.name}`.trim();
+      const exp = await supabase.from("expenses").insert({
+        category: "Estoque",
+        description: desc,
+        amount: ct,
+        date: today,
+      }).select("id").single();
+      if (exp.error) {
+        setSaving(false);
+        return toast.error(`Erro ao lançar despesa: ${exp.error.message}`);
+      }
+      expenseId = exp.data?.id ?? null;
+    }
+
     const mv = await supabase.from("stock_movements").insert({
       product_id: product.id,
       type,
@@ -439,9 +481,13 @@ function MovementModal({
       notes: notes || null,
       taken_by: takenBy.trim() || null,
       created_by: u.user?.id ?? null,
+      cost_total: type === "in" && ct > 0 ? ct : null,
+      expense_id: expenseId,
     });
     if (mv.error) {
       setSaving(false);
+      // rollback da despesa se criada
+      if (expenseId) await supabase.from("expenses").delete().eq("id", expenseId);
       return toast.error(mv.error.message);
     }
     const up = await supabase
@@ -450,9 +496,14 @@ function MovementModal({
       .eq("id", product.id);
     setSaving(false);
     if (up.error) return toast.error(up.error.message);
-    toast.success(type === "in" ? "Entrada registrada" : "Saída registrada");
+    toast.success(
+      type === "in"
+        ? createExpense ? "Entrada registrada e despesa lançada" : "Entrada registrada"
+        : "Saída registrada"
+    );
     onSaved();
   };
+
 
   return (
     <Modal
