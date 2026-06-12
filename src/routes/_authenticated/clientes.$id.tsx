@@ -164,6 +164,7 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
   const [f, setF] = useState({
     record_num: String(client.record_num ?? ""), name: client.name, phone: client.phone ?? "", email: client.email ?? "",
     birthdate: client.birthdate ?? "", cpf: client.cpf ?? "", referral: client.referral ?? "", evaluator_id: client.evaluator_id ?? "", notes: client.notes ?? "",
+    gender: client.gender ?? "", address: client.address ?? "",
   });
   useEffect(() => {
     let active = true;
