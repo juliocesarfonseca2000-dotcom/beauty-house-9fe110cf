@@ -243,11 +243,14 @@ function AgendaPage() {
                     const dur = a.duration_min ?? 60;
                     const top = (minFromStart / SLOT_MIN) * SLOT_PX;
                     const height = Math.max(SLOT_PX, (dur / SLOT_MIN) * SLOT_PX) - 2;
+                    const extra: string[] = [];
+                    if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
+                    if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
                     return (
                       <div
                         key={a.id}
                         onClick={() => canManage && setViewing(a)}
-                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending}`}
+                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending} ${extra.join(" ")}`}
                         style={{ top, height }}
                       >
                         {a.status === "blocked" ? (
@@ -258,6 +261,8 @@ function AgendaPage() {
                         ) : (
                           <>
                             <div className="font-semibold truncate text-[11px]">
+                              {a.is_preference && <span title="Preferência da cliente">⭐ </span>}
+                              {a.is_first_visit && <span title="Primeira vez">🆕 </span>}
                               {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
                             </div>
                             <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
