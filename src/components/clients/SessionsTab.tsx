@@ -168,8 +168,20 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   }, [sessions]);
 
   const cancelSale = async (pkg: Package) => {
-    if (!window.confirm(`Cancelar a venda de ${pkg.procedures?.name ?? "este pacote"}? Esta ação remove o pacote, todas as sessões e o lançamento financeiro.`)) return;
+    if (!window.confirm(`Cancelar a venda de ${pkg.procedures?.name ?? "este pacote"}? Esta ação remove o pacote, todas as sessões, o lançamento financeiro e o contrato vinculado (se houver).`)) return;
     try {
+      // 1) Contratos vinculados (package_ids contém pkg.id) — remover arquivo do storage e registro
+      const { data: contracts } = await supabase
+        .from("contracts")
+        .select("id,pdf_path,package_ids")
+        .contains("package_ids", [pkg.id]);
+      for (const c of (contracts ?? []) as Array<{ id: string; pdf_path: string | null; package_ids: string[] | null }>) {
+        if (c.pdf_path) {
+          await supabase.storage.from("contracts").remove([c.pdf_path]);
+        }
+        await supabase.from("contracts").delete().eq("id", c.id);
+      }
+      // 2) Income, sessões, pacote
       await supabase.from("income").delete().eq("package_id", pkg.id);
       await supabase.from("sessions").delete().eq("package_id", pkg.id);
       const { error } = await supabase.from("packages").delete().eq("id", pkg.id);
