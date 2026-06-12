@@ -84,6 +84,8 @@ export function ClientFormModal({
         referral_client_id: referral === "Indicação" ? referralClientId : null,
         evaluator_id: evaluatorId || null,
         notes: notes.trim() || null,
+        gender: gender || null,
+        address: address.trim() || null,
       };
       const { data: created, error } = await withTimeout<{ data: { id: string } | null; error: { message: string } | null }>(
         supabase.from("clients").insert(payload).select("id").single(),
