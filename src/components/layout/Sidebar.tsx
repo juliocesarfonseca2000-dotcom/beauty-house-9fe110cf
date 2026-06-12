@@ -13,6 +13,7 @@ import {
   IconKey,
   IconLogout,
   IconClock,
+  IconMessageDots,
 } from "@tabler/icons-react";
 import { useAuth } from "@/lib/auth";
 import type { Permissions } from "@/integrations/supabase/client";
