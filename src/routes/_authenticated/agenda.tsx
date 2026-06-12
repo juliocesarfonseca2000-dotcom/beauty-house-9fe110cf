@@ -413,19 +413,21 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       targets.push(first);
 
       if (recurring && available > 1 && !isLoose) {
-        // Generate next (available - 1) weekly slots matching recWeekday at recTime
-        const [rh, rm] = recTime.split(":").map(Number);
         const dayMs = 86400000;
-        // First occurrence: 1–7 days after `first`, landing on recWeekday (never same day)
+        const [rh, rm] = recTime.split(":").map(Number);
+        // 1ª repetição: entre 1 e 7 dias após o original, no recWeekday escolhido
         let diff = (recWeekday - first.getDay() + 7) % 7;
         if (diff === 0) diff = 7;
-        const firstOccurrence = new Date(first.getTime() + diff * dayMs);
-        firstOccurrence.setHours(rh || 0, rm || 0, 0, 0);
-        for (let i = 0; targets.length < available; i++) {
-          const next = new Date(firstOccurrence.getTime() + i * 7 * dayMs);
+        const cursor = new Date(first.getTime() + diff * dayMs);
+        cursor.setHours(rh || 0, rm || 0, 0, 0);
+        targets.push(new Date(cursor));
+        // próximas: sempre +7 dias a partir da 1ª
+        for (let i = 1; targets.length < available; i++) {
+          const next = new Date(cursor.getTime() + 7 * i * dayMs);
           next.setHours(rh || 0, rm || 0, 0, 0);
           targets.push(next);
         }
+
 
 
 
