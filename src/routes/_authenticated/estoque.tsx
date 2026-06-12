@@ -640,12 +640,18 @@ function HistoryModal({ product, onClose }: { product: Product; onClose: () => v
                   {new Date(r.created_at).toLocaleString("pt-BR")}
                 </td>
                 <td className="px-3 py-2">
-                  <span
-                    className={`bh-badge ${r.type === "in" ? "bg-success/15 text-success" : "bg-danger/15 text-danger"}`}
-                  >
-                    {r.type === "in" ? "Entrada" : "Saída"}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span
+                      className={`bh-badge ${r.type === "in" ? "bg-success/15 text-success" : "bg-danger/15 text-danger"}`}
+                    >
+                      {r.type === "in" ? "Entrada" : "Saída"}
+                    </span>
+                    {r.expense_id && (
+                      <span className="bh-badge bg-gold/15 text-gold" title="Despesa lançada no Financeiro">💰</span>
+                    )}
+                  </div>
                 </td>
+
                 <td className="px-3 py-2 text-right font-semibold">
                   {r.type === "in" ? "+" : "−"}
                   {Number(r.quantity)}
