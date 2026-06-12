@@ -557,7 +557,33 @@ function MovementModal({
             className={inp}
           />
         </Field>
+        {type === "in" && (
+          <>
+            <Field label="Custo total da compra (R$)">
+              <input
+                type="number"
+                step="0.01"
+                value={costTotal}
+                onChange={(e) => setCostTotal(e.target.value)}
+                placeholder="0,00"
+                className={inp}
+              />
+              <div className="text-xs text-text3 mt-1">
+                Sugestão: {Number(qty || 0)} × {Number(product.cost_price ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} = {(Number(qty || 0) * Number(product.cost_price ?? 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </div>
+            </Field>
+            <label className="flex items-center gap-2 text-sm text-navy bg-bg2 rounded-lg px-3 py-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createExpense}
+                onChange={(e) => setCreateExpense(e.target.checked)}
+              />
+              <span>💰 Lançar como despesa no Financeiro (categoria <b>Estoque</b>)</span>
+            </label>
+          </>
+        )}
       </div>
+
       <div className="flex justify-end gap-2 pt-4">
         <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2">
           Cancelar
