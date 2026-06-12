@@ -102,6 +102,23 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             </div>
           );
         })}
+        {(user.role === "admin" || user.role === "receptionist") && (
+          <div className="mt-4">
+            <div className="px-5 pb-1.5 text-[10px] uppercase tracking-widest text-silver/50 font-semibold">Marketing</div>
+            <Link
+              to="/mensagens"
+              onClick={onNavigate}
+              className={`flex items-center gap-3 px-5 py-2.5 text-sm transition-colors border-l-2 ${
+                path.startsWith("/mensagens")
+                  ? "bg-navy2 text-white border-gold"
+                  : "border-transparent hover:bg-navy2 hover:text-white"
+              }`}
+            >
+              <IconMessageDots size={18} />
+              <span>Mensagens</span>
+            </Link>
+          </div>
+        )}
       </nav>
 
       <div className="px-5 py-4 border-t border-white/10 text-xs">
