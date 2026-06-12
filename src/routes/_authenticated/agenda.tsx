@@ -416,15 +416,17 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         // Generate next (available - 1) weekly slots matching recWeekday at recTime
         const [rh, rm] = recTime.split(":").map(Number);
         const dayMs = 86400000;
-        let cursor = new Date(first);
-        while (targets.length < available) {
-          cursor = new Date(cursor.getTime() + 7 * dayMs);
-          // align weekday
-          while (cursor.getDay() !== recWeekday) cursor = new Date(cursor.getTime() + dayMs);
-          const next = new Date(cursor);
+        // First occurrence: 1–7 days after `first`, landing on recWeekday (never same day)
+        let diff = (recWeekday - first.getDay() + 7) % 7;
+        if (diff === 0) diff = 7;
+        const firstOccurrence = new Date(first.getTime() + diff * dayMs);
+        firstOccurrence.setHours(rh || 0, rm || 0, 0, 0);
+        for (let i = 0; targets.length < available; i++) {
+          const next = new Date(firstOccurrence.getTime() + i * 7 * dayMs);
           next.setHours(rh || 0, rm || 0, 0, 0);
           targets.push(next);
         }
+      }
 
         // Check absences across the range
         const lastYmd = fmtDate(targets[targets.length - 1]);
