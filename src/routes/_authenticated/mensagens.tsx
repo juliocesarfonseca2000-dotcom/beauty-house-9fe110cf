@@ -81,15 +81,15 @@ function MensagensPage() {
         if (!cur || s.done_at > cur) lastByClient.set(s.client_id, s.done_at);
       });
       const inativos: ClientRow[] = ((clients ?? []) as { id: string; name: string; phone: string | null }[])
+        .filter((c) => {
+          const last = lastByClient.get(c.id);
+          return !last || last.slice(0, 10) < c60s;
+        })
         .map((c) => {
           const last = lastByClient.get(c.id);
-          if (last && last.slice(0, 10) >= c60s) return null;
-          const days = last
-            ? Math.floor((today.getTime() - new Date(last).getTime()) / 86400000)
-            : 999;
+          const days = last ? Math.floor((today.getTime() - new Date(last).getTime()) / 86400000) : 999;
           return { id: c.id, name: c.name, phone: c.phone, dias_sem_vir: days };
-        })
-        .filter((x): x is ClientRow => x !== null);
+        });
 
       setData({ aniversariantes: annivers, pacote_acabando: pacoteAcabando, inativos });
       setCounts({ aniversariantes: annivers.length, pacote_acabando: pacoteAcabando.length, inativos: inativos.length });

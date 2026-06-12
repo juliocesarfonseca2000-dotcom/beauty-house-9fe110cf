@@ -18,6 +18,7 @@ import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authentic
 import { Route as AuthenticatedProcedimentosRouteImport } from './routes/_authenticated/procedimentos'
 import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated/notificacoes'
 import { Route as AuthenticatedMeuPontoRouteImport } from './routes/_authenticated/meu-ponto'
+import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
 import { Route as AuthenticatedKioskPontoRouteImport } from './routes/_authenticated/kiosk-ponto'
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedFichaRouteImport } from './routes/_authenticated/ficha'
@@ -73,6 +74,11 @@ const AuthenticatedNotificacoesRoute =
 const AuthenticatedMeuPontoRoute = AuthenticatedMeuPontoRouteImport.update({
   id: '/meu-ponto',
   path: '/meu-ponto',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
+  id: '/mensagens',
+  path: '/mensagens',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedKioskPontoRoute = AuthenticatedKioskPontoRouteImport.update({
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/ficha': typeof AuthenticatedFichaRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
+  '/mensagens': typeof AuthenticatedMensagensRoute
   '/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/procedimentos': typeof AuthenticatedProcedimentosRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/ficha': typeof AuthenticatedFichaRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
+  '/mensagens': typeof AuthenticatedMensagensRoute
   '/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/procedimentos': typeof AuthenticatedProcedimentosRoute
@@ -172,6 +180,7 @@ export interface FileRoutesById {
   '/_authenticated/ficha': typeof AuthenticatedFichaRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
   '/_authenticated/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
+  '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/_authenticated/procedimentos': typeof AuthenticatedProcedimentosRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/ficha'
     | '/financeiro'
     | '/kiosk-ponto'
+    | '/mensagens'
     | '/meu-ponto'
     | '/notificacoes'
     | '/procedimentos'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/ficha'
     | '/financeiro'
     | '/kiosk-ponto'
+    | '/mensagens'
     | '/meu-ponto'
     | '/notificacoes'
     | '/procedimentos'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ficha'
     | '/_authenticated/financeiro'
     | '/_authenticated/kiosk-ponto'
+    | '/_authenticated/mensagens'
     | '/_authenticated/meu-ponto'
     | '/_authenticated/notificacoes'
     | '/_authenticated/procedimentos'
@@ -310,6 +322,13 @@ declare module '@tanstack/react-router' {
       path: '/meu-ponto'
       fullPath: '/meu-ponto'
       preLoaderRoute: typeof AuthenticatedMeuPontoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mensagens': {
+      id: '/_authenticated/mensagens'
+      path: '/mensagens'
+      fullPath: '/mensagens'
+      preLoaderRoute: typeof AuthenticatedMensagensRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/kiosk-ponto': {
@@ -400,6 +419,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFichaRoute: typeof AuthenticatedFichaRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
   AuthenticatedKioskPontoRoute: typeof AuthenticatedKioskPontoRoute
+  AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedMeuPontoRoute: typeof AuthenticatedMeuPontoRoute
   AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
   AuthenticatedProcedimentosRoute: typeof AuthenticatedProcedimentosRoute
@@ -418,6 +438,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFichaRoute: AuthenticatedFichaRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
   AuthenticatedKioskPontoRoute: AuthenticatedKioskPontoRoute,
+  AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedMeuPontoRoute: AuthenticatedMeuPontoRoute,
   AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
   AuthenticatedProcedimentosRoute: AuthenticatedProcedimentosRoute,
