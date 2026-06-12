@@ -434,8 +434,8 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   );
 }
 
-function TermSignModal({ clientId, pkg, onClose, onSigned }: {
-  clientId: string; pkg: Package; onClose: () => void; onSigned: () => void;
+function TermSignModal({ clientId, pkg, session, onClose, onSigned }: {
+  clientId: string; pkg: Package; session: Session; onClose: () => void; onSigned: () => void;
 }) {
   const sigRef = useRef<SignatureCanvas | null>(null);
   const [hasInk, setHasInk] = useState(false);
@@ -451,6 +451,7 @@ function TermSignModal({ clientId, pkg, onClose, onSigned }: {
         package_id: pkg.id,
         client_id: clientId,
         procedure_id: pkg.procedure_id,
+        session_id: session.id,
         term_text: termText,
         signature_data: dataUrl,
       });
@@ -463,6 +464,7 @@ function TermSignModal({ clientId, pkg, onClose, onSigned }: {
       setBusy(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
