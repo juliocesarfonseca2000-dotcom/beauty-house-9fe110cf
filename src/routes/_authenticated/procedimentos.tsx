@@ -9,6 +9,8 @@ export const Route = createFileRoute("/_authenticated/procedimentos")({
   component: ProceduresPage,
 });
 
+type SessionType = "sessoes" | "avulso" | "especial" | "por_disparo";
+
 type Proc = {
   id: string;
   name: string;
@@ -21,7 +23,9 @@ type Proc = {
   requires_term: boolean | null;
   term_text: string | null;
   resource_id: string | null;
+  session_type: SessionType | null;
 };
+
 
 type Resource = {
   id: string;
@@ -61,8 +65,10 @@ function ProceduresList() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"active" | "inactive" | "all">("active");
+  const [tableTab, setTableTab] = useState<"all" | "sessoes" | "avulso">("all");
   const [edit, setEdit] = useState<Proc | null>(null);
   const [creating, setCreating] = useState(false);
+
 
   const load = async () => {
     setLoading(true);
