@@ -38,11 +38,10 @@ type Absence = { user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; da
 
 const ABS_LABEL: Record<Absence["type"], string> = { vacation: "Férias", absent: "Falta", dayoff: "Folga", leave: "Licença" };
 
-
 const START_HOUR = 7;
 const END_HOUR = 21;
-const SLOT_MIN = 22; // grade de 22 em 22 minutos
-const SLOT_PX = 28;  // altura de cada slot
+const SLOT_MIN = 22;
+const SLOT_PX = 28;
 const TOTAL_SLOTS = Math.ceil(((END_HOUR - START_HOUR) * 60) / SLOT_MIN);
 
 const STATUS_COLORS: Record<string, string> = {
@@ -79,7 +78,6 @@ function AgendaPage() {
   const dayStart = useMemo(() => { const d = new Date(date); d.setHours(0,0,0,0); return d; }, [date]);
   const dayEnd = useMemo(() => addDays(dayStart, 1), [dayStart]);
   const dayYmd = useMemo(() => fmtDate(dayStart), [dayStart]);
-
 
   const load = async () => {
     setLoading(true);
@@ -177,7 +175,6 @@ function AgendaPage() {
           <div className="p-8 text-center text-text3">Nenhum profissional ativo.</div>
         ) : (
           <div className="min-w-[640px]">
-            {/* Header */}
             <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
               <div className="px-2 py-3 bg-bg2 border-r" />
               {visiblePros.map((p) => (
@@ -187,9 +184,7 @@ function AgendaPage() {
               ))}
             </div>
 
-            {/* Grid */}
             <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
-              {/* Hours column */}
               <div className="border-r bg-bg2/50">
                 {slots.map((s, i) => {
                   const label = `${String(s.h).padStart(2, "0")}:${String(s.m).padStart(2, "0")}`;
@@ -206,7 +201,6 @@ function AgendaPage() {
                 })}
               </div>
 
-              {/* Pro columns */}
               {visiblePros.map((p) => {
                 const absence = absences.find((a) => a.user_id === p.id);
                 return (
@@ -219,7 +213,6 @@ function AgendaPage() {
                     </div>
                   )}
 
-                  {/* Background slots */}
                   {slots.map((s, i) => {
                     const isHour = s.m === 0;
                     return (
@@ -237,7 +230,6 @@ function AgendaPage() {
                     );
                   })}
 
-                  {/* Appointment blocks */}
                   {(apptsByPro[p.id] ?? []).map((a) => {
                     const dt = new Date(a.datetime);
                     const minFromStart = (dt.getHours() - START_HOUR) * 60 + dt.getMinutes();
@@ -248,6 +240,7 @@ function AgendaPage() {
                     const extra: string[] = [];
                     if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
                     if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
+                    if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("ring-2 ring-blue-400");
                     return (
                       <div
                         key={a.id}
@@ -263,6 +256,7 @@ function AgendaPage() {
                         ) : (
                           <>
                             <div className="font-semibold truncate text-[11px]">
+                              {a.client_arrived_at && <span title="Cliente chegou">🏠 </span>}
                               {a.is_preference && <span title="Preferência da cliente">⭐ </span>}
                               {a.is_first_visit && <span title="Primeira vez">🆕 </span>}
                               {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
@@ -276,23 +270,21 @@ function AgendaPage() {
                 </div>
                 );
               })}
-
             </div>
           </div>
         )}
       </div>
 
-      {/* Legenda */}
       <div className="bh-card p-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text2">
         <span className="font-semibold text-navy uppercase tracking-wide text-[10px]">Legenda:</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 border-l-2 border-gold" /> Normal</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 ring-2 ring-gold" /> ⭐ Preferência da cliente</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 outline outline-2 outline-blue-400" /> 🆕 Primeira vez</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-200 ring-2 ring-blue-400" /> 🏠 Cliente chegou</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-success/30 border-l-2 border-success" /> Realizado</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-text2/30" /> Bloqueado</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-danger/30" /> Férias / Folga / Falta / Licença</span>
       </div>
-
 
       {creating && (
         <ApptModal
@@ -422,11 +414,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (p?.duration_min) setDuration(String(p.duration_min));
   }, [looseProcId, allProcs]);
 
-  useEffect(() => {
-    setRecTime(time);
-  }, [time]);
+  useEffect(() => { setRecTime(time); }, [time]);
 
-  // Auto-detect "primeira vez" when client is selected
   useEffect(() => {
     if (!client) { setIsFirstVisit(false); return; }
     (async () => {
@@ -439,7 +428,6 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     })();
   }, [client]);
 
-  // Pros filtered by selected procedure
   const effectiveProcIdForFilter = procId || looseProcId;
   const filteredPros = useMemo(() => {
     if (!effectiveProcIdForFilter) return pros;
@@ -448,13 +436,11 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     return pros.filter((p) => allowed.includes(p.id));
   }, [effectiveProcIdForFilter, procPros, pros]);
 
-  // If selected pro is no longer allowed, reset it
   useEffect(() => {
     if (proId && filteredPros.length > 0 && !filteredPros.find((p) => p.id === proId)) {
       setProId("");
     }
   }, [filteredPros, proId]);
-
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -468,8 +454,6 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       const dur = Number(duration) || 60;
       const selectedProc = procs.find((x) => x.id === procId);
       const available = selectedProc?.available ?? 1;
-
-      // Build list of dates to schedule
       const targets: Date[] = [];
       const first = new Date(`${date}T${time}:00`);
       targets.push(first);
@@ -477,23 +461,16 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       if (recurring && available > 1 && !isLoose) {
         const dayMs = 86400000;
         const [rh, rm] = recTime.split(":").map(Number);
-        // 1ª repetição: entre 1 e 7 dias após o original, no recWeekday escolhido
         let diff = (recWeekday - first.getDay() + 7) % 7;
         if (diff === 0) diff = 7;
         const cursor = new Date(first.getTime() + diff * dayMs);
         cursor.setHours(rh || 0, rm || 0, 0, 0);
         targets.push(new Date(cursor));
-        // próximas: sempre +7 dias a partir da 1ª
         for (let i = 1; targets.length < available; i++) {
           const next = new Date(cursor.getTime() + 7 * i * dayMs);
           next.setHours(rh || 0, rm || 0, 0, 0);
           targets.push(next);
         }
-
-
-
-
-        // Check absences across the range
         const lastYmd = fmtDate(targets[targets.length - 1]);
         const firstYmd = fmtDate(targets[0]);
         const { data: absData } = await supabase.from("staff_absences")
@@ -501,7 +478,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           .lte("date_start", lastYmd).gte("date_end", firstYmd);
         const skipped: string[] = [];
         const filtered = targets.filter((t, idx) => {
-          if (idx === 0) return true; // always keep primary
+          if (idx === 0) return true;
           const y = fmtDate(t);
           const blocked = (absData ?? []).some((a) => a.date_start <= y && a.date_end >= y);
           if (blocked) skipped.push(t.toLocaleDateString("pt-BR"));
@@ -512,12 +489,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         targets.push(...filtered);
       }
 
-      if (targets.length === 0) {
-        toast.error("Nenhuma data disponível para agendar.");
-        return;
-      }
+      if (targets.length === 0) { toast.error("Nenhuma data disponível para agendar."); return; }
 
-      // Conflict check: load all appointments for this professional across affected days
       const minD = new Date(Math.min(...targets.map((t) => t.getTime())));
       minD.setHours(0,0,0,0);
       const maxD = new Date(Math.max(...targets.map((t) => t.getTime())));
@@ -530,8 +503,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           .neq("status", "cancelled")
           .gte("datetime", minD.toISOString())
           .lt("datetime", maxD.toISOString()),
-        12000,
-        "Verificação de conflito",
+        12000, "Verificação de conflito",
       );
       if (conflictErr) throw conflictErr;
       type ExistingAppt = { datetime: string; duration_min: number | null; clients: { name: string } | { name: string }[] | null };
@@ -551,9 +523,6 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         }
       }
 
-      // Validação de recurso/aparelho: se o procedimento tem resource_id, conta
-      // quantos appointments simultâneos usam o mesmo recurso e bloqueia se
-      // exceder a capacity do recurso.
       const procForResource = selectedProc ?? allProcs.find((p) => p.id === effectiveProcId);
       const resourceId = procForResource?.resource_id ?? null;
       if (resourceId) {
@@ -584,7 +553,6 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         }
       }
 
-
       const recurrenceGroup = recurring && targets.length > 1 && !isLoose
         ? (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
         : null;
@@ -600,7 +568,6 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           notes: notes || null,
           is_loose: isLoose,
           is_preference: isPreference,
-          // Apenas o 1º agendamento marca como "primeira vez"
           is_first_visit: idx === 0 ? isFirstVisit : false,
         };
         if (recurrenceGroup) row.recurrence_group = recurrenceGroup;
@@ -618,7 +585,6 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       setBusy(false);
     }
   };
-
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
@@ -724,7 +690,6 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             );
           })()}
 
-
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
             <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
@@ -743,54 +708,40 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
 
-  const markClientArrived = async () => {
-    setBusy(true);
-    const now = new Date().toISOString();
-
-    const { error } = await supabase
-      .from('appointments')
-      .update({
-        client_arrived_at: now,
-        client_arrived_notified: true,
-      })
-      .eq('id', appt.id);
-
-    if (error) {
-      setBusy(false);
-      return toast.error(error.message);
-    }
-
-    const clientName = appt.clients?.name ?? 'Cliente';
-    const procName = appt.procedures?.name ?? 'procedimento';
-    const hora = new Date(appt.datetime).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    await supabase.from('notifications').insert({
-      type: 'client_arrived',
-      title: '🏠 Cliente chegou!',
-      body: `${clientName} chegou e aguarda na recepção. Agendamento às ${hora} — ${procName}.`,
-      user_id: appt.professional_id,
-      target_roles: ['professional', 'admin', 'receptionist'],
-      client_id: appt.client_id,
-      appointment_id: appt.id,
-      reference_id: appt.id,
-      reference_type: 'appointment',
-      action_url: '/agenda',
-      is_read: false,
-    });
-
-    toast.success(`✓ ${clientName} marcado como chegou! Profissional notificado.`);
-    setBusy(false);
-    onChanged();
-  };
-
   useEffect(() => {
     if (!appt.attendance_confirmed_by) { setConfirmedByName(null); return; }
     supabase.from("app_users").select("name").eq("id", appt.attendance_confirmed_by).maybeSingle()
       .then(({ data }) => setConfirmedByName((data as { name?: string } | null)?.name ?? null));
   }, [appt.attendance_confirmed_by]);
+
+  const markClientArrived = async () => {
+    setBusy(true);
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("appointments")
+      .update({ client_arrived_at: now, client_arrived_notified: true })
+      .eq("id", appt.id);
+    if (error) { setBusy(false); return toast.error(error.message); }
+    const clientName = appt.clients?.name ?? "Cliente";
+    const procName = appt.procedures?.name ?? "procedimento";
+    const hora = new Date(appt.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    await supabase.from("notifications").insert({
+      type: "client_arrived",
+      title: "🏠 Cliente chegou!",
+      body: `${clientName} chegou e aguarda na recepção. Agendamento às ${hora} — ${procName}.`,
+      user_id: appt.professional_id,
+      target_roles: ["professional", "admin", "receptionist"],
+      client_id: appt.client_id,
+      appointment_id: appt.id,
+      reference_id: appt.id,
+      reference_type: "appointment",
+      action_url: "/agenda",
+      is_read: false,
+    });
+    toast.success(`✓ ${clientName} marcado como chegou! Profissional notificado.`);
+    setBusy(false);
+    onChanged();
+  };
 
   const confirmAttendance = async () => {
     setBusy(true);
@@ -802,32 +753,25 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
     }).eq("id", appt.id);
     setBusy(false);
     if (error) return toast.error(error.message);
-    // Vincular próxima sessão pendente do pacote a este agendamento
     try {
       if (appt.procedure_id) {
         const { data: pkg } = await supabase
-          .from("packages")
-          .select("id")
+          .from("packages").select("id")
           .eq("client_id", appt.client_id)
           .eq("procedure_id", appt.procedure_id)
           .eq("status", "active")
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(1).maybeSingle();
         if (pkg?.id) {
           const { data: nextSession } = await supabase
-            .from("sessions")
-            .select("id")
+            .from("sessions").select("id")
             .eq("package_id", pkg.id)
             .eq("status", "pending")
             .is("appointment_id", null)
             .order("session_num", { ascending: true })
-            .limit(1)
-            .maybeSingle();
+            .limit(1).maybeSingle();
           if (nextSession?.id) {
-            await supabase.from("sessions")
-              .update({ appointment_id: appt.id })
-              .eq("id", nextSession.id);
+            await supabase.from("sessions").update({ appointment_id: appt.id }).eq("id", nextSession.id);
           }
         }
       }
@@ -837,7 +781,6 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
     toast.success("Presença confirmada");
     onChanged();
   };
-
 
   const markNoShow = async () => {
     if (!window.confirm("Marcar cliente como FALTA?")) return;
@@ -885,7 +828,7 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
           )}
 
           <div className="flex flex-wrap gap-2 pt-3 border-t">
-            {!appt.client_arrived_at && appt.status !== 'cancelled' && (
+            {!appt.client_arrived_at && appt.status !== "cancelled" && (
               <button
                 type="button"
                 onClick={markClientArrived}
@@ -897,7 +840,7 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
             )}
             {appt.client_arrived_at && (
               <div className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-1 border border-blue-200">
-                ✓ Chegou às {new Date(appt.client_arrived_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                ✓ Chegou às {new Date(appt.client_arrived_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </div>
             )}
             {appt.attendance_status !== "confirmed" && appt.attendance_status !== "no_show" && (
