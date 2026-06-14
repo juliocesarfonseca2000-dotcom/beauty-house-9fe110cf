@@ -346,6 +346,7 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
   const [requiresTerm, setRequiresTerm] = useState<boolean>(initial?.requires_term ?? false);
   const [termText, setTermText] = useState(initial?.term_text ?? "");
   const [resourceId, setResourceId] = useState(initial?.resource_id ?? "");
+  const [sessionType, setSessionType] = useState<SessionType>((initial?.session_type as SessionType) ?? "sessoes");
   const [busy, setBusy] = useState(false);
   const [pros, setPros] = useState<{ id: string; name: string }[]>([]);
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
@@ -388,6 +389,7 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
       requires_term: requiresTerm,
       term_text: requiresTerm ? (termText.trim() || null) : null,
       resource_id: resourceId || null,
+      session_type: sessionType,
     };
     let procId = initial?.id;
     if (initial) {
