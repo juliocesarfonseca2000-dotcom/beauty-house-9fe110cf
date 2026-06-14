@@ -41,25 +41,38 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
 
   const canSee = user?.role === "admin" || user?.role === "receptionist";
+  if (!user) return null;
 
   const { data: items = [] } = useQuery({
-    queryKey: ["notifications"],
-    enabled: !!canSee,
+    queryKey: ["notifications", user?.id],
+    enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("notifications")
         .select("*")
         .eq("is_read", false)
         .order("created_at", { ascending: false })
         .limit(50);
+
+      if (user?.role === "professional") {
+        query = query.eq("user_id", user.id);
+      } else {
+        query = query.or(`user_id.is.null,user_id.eq.${user?.id}`);
+      }
+
+      const { data } = await query;
       return (data as Notif[]) ?? [];
     },
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 
   const visible = useMemo(
-    () => items.filter((n) => !user?.role ? false : n.target_roles.includes(user.role)),
-    [items, user?.role],
+    () => items.filter((n) => {
+      if (!user?.role) return false;
+      if (user.role === 'professional') return n.user_id === user.id;
+      return n.target_roles.includes(user.role);
+    }),
+    [items, user?.role, user?.id],
   );
 
   // Geração automática de alertas (só admin/recepção)
@@ -74,7 +87,6 @@ export function NotificationBell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSee]);
 
-  if (!canSee) return null;
 
   const remove = async (id: string) => {
     await supabase.from("notifications").delete().eq("id", id);
