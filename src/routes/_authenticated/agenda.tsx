@@ -743,6 +743,49 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
 
+  const markClientArrived = async () => {
+    setBusy(true);
+    const now = new Date().toISOString();
+
+    const { error } = await supabase
+      .from('appointments')
+      .update({
+        client_arrived_at: now,
+        client_arrived_notified: true,
+      })
+      .eq('id', appt.id);
+
+    if (error) {
+      setBusy(false);
+      return toast.error(error.message);
+    }
+
+    const clientName = appt.clients?.name ?? 'Cliente';
+    const procName = appt.procedures?.name ?? 'procedimento';
+    const hora = new Date(appt.datetime).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    await supabase.from('notifications').insert({
+      type: 'client_arrived',
+      title: '🏠 Cliente chegou!',
+      body: `${clientName} chegou e aguarda na recepção. Agendamento às ${hora} — ${procName}.`,
+      user_id: appt.professional_id,
+      target_roles: ['professional', 'admin', 'receptionist'],
+      client_id: appt.client_id,
+      appointment_id: appt.id,
+      reference_id: appt.id,
+      reference_type: 'appointment',
+      action_url: '/agenda',
+      is_read: false,
+    });
+
+    toast.success(`✓ ${clientName} marcado como chegou! Profissional notificado.`);
+    setBusy(false);
+    onChanged();
+  };
+
   useEffect(() => {
     if (!appt.attendance_confirmed_by) { setConfirmedByName(null); return; }
     supabase.from("app_users").select("name").eq("id", appt.attendance_confirmed_by).maybeSingle()
