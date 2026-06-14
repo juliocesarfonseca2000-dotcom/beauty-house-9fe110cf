@@ -428,6 +428,17 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
             <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>
           </FieldRow>
           <FieldRow>
+            <Field label="Tipo de tabela / cobrança">
+              <select value={sessionType} onChange={(e) => setSessionType(e.target.value as SessionType)} className={inp}>
+                <option value="sessoes">Tabela 1 — Sessões (5/10/20)</option>
+                <option value="avulso">Tabela 2 — Avulso (valor único)</option>
+                <option value="especial">Especial — Compra 2, faz 3</option>
+                <option value="por_disparo">Por disparo (R$ 1,00)</option>
+              </select>
+            </Field>
+            <div />
+          </FieldRow>
+          <FieldRow>
             <Field label="Preço avulso (R$)"><input type="number" step="0.01" value={single} onChange={(e) => setSingle(e.target.value)} className={inp} /></Field>
             <Field label="Pacote 5x (R$)"><input type="number" step="0.01" value={p5} onChange={(e) => setP5(e.target.value)} className={inp} /></Field>
           </FieldRow>
