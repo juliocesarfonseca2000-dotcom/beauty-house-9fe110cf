@@ -17,6 +17,7 @@ import {
 } from "@tabler/icons-react";
 import { useAuth } from "@/lib/auth";
 import type { Permissions } from "@/integrations/supabase/client";
+import { useSidebarCounts } from "@/hooks/useSidebarCounts";
 
 type Item = { to: string; label: string; icon: React.ReactNode; key: keyof Permissions };
 type Section = { label: string | null; items: Item[] };
@@ -64,6 +65,14 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
 
   if (!user) return null;
 
+  const { data: counts } = useSidebarCounts();
+
+  const countMap: Record<string, number | undefined> = {
+    clientes: counts?.clients,
+    procedimentos: counts?.procedures,
+    estoque: counts?.products,
+  };
+
   return (
     <aside className="flex w-[220px] shrink-0 flex-col bg-navy text-silver h-screen sticky top-0">
       <div className="px-5 py-6 border-b border-white/10">
@@ -83,19 +92,27 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
               )}
               {visible.map((i) => {
                 const active = path === i.to || (i.to !== "/" && path.startsWith(i.to));
+                const count = countMap[i.key];
                 return (
                   <Link
                     key={i.to}
                     to={i.to}
                     onClick={onNavigate}
-                    className={`flex items-center gap-3 px-5 py-2.5 text-sm transition-colors border-l-2 ${
+                    className={`flex items-center justify-between gap-3 px-5 py-2.5 text-sm transition-colors border-l-2 ${
                       active
                         ? "bg-navy2 text-white border-gold"
                         : "border-transparent hover:bg-navy2 hover:text-white"
                     }`}
                   >
-                    {i.icon}
-                    <span>{i.label}</span>
+                    <span className="flex items-center gap-3">
+                      {i.icon}
+                      <span>{i.label}</span>
+                    </span>
+                    {typeof count === "number" && count > 0 && (
+                      <span className="rounded-full bg-pink-100 px-2 py-0.5 text-xs font-semibold text-pink-700 shrink-0">
+                        {count.toLocaleString("pt-BR")}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
