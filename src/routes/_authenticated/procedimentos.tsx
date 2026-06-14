@@ -106,28 +106,55 @@ function ProceduresList() {
     load();
   };
 
-  const visible = rows.filter((r) =>
-    filter === "all" ? true : filter === "active" ? r.active : !r.active,
-  );
+  const visible = rows.filter((r) => {
+    if (filter === "active" && !r.active) return false;
+    if (filter === "inactive" && r.active) return false;
+    const st = (r.session_type ?? "sessoes") as SessionType;
+    if (tableTab === "sessoes" && st !== "sessoes") return false;
+    if (tableTab === "avulso" && !(st === "avulso" || st === "especial" || st === "por_disparo")) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex bg-bg2 rounded-lg p-1 text-sm">
-          {(["active", "inactive", "all"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-md font-semibold transition ${
-                filter === f ? "bg-navy text-white" : "text-text2 hover:text-navy"
-              }`}
-            >
-              {f === "active" ? "Ativos" : f === "inactive" ? "Inativos" : "Todos"}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          <div className="flex bg-bg2 rounded-lg p-1 text-sm">
+            {(["active", "inactive", "all"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-md font-semibold transition ${
+                  filter === f ? "bg-navy text-white" : "text-text2 hover:text-navy"
+                }`}
+              >
+                {f === "active" ? "Ativos" : f === "inactive" ? "Inativos" : "Todos"}
+              </button>
+            ))}
+          </div>
+          <div className="flex bg-bg2 rounded-lg p-1 text-sm">
+            {([
+              { key: "all", label: "Todos" },
+              { key: "sessoes", label: "Tabela 1 (Sessões)" },
+              { key: "avulso", label: "Tabela 2 (Avulso)" },
+            ] as const).map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTableTab(t.key)}
+                className={`px-3 py-1.5 rounded-md font-semibold transition ${
+                  tableTab === t.key ? "bg-gold text-white" : "text-text2 hover:text-navy"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <button
+          type="button"
           onClick={() => setCreating(true)}
           className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
         >
@@ -140,7 +167,7 @@ function ProceduresList() {
           <TableSkeleton rows={5} cols={4} />
         ) : visible.length === 0 ? (
           <div className="p-12 text-center text-text3">Nenhum procedimento.</div>
-        ) : (
+        ) : tableTab === "sessoes" ? (
           <table className="w-full text-sm">
             <thead className="bg-bg2 text-text2">
               <tr>
@@ -172,23 +199,93 @@ function ProceduresList() {
                       {p.active ? "Ativo" : "Inativo"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => setEdit(p)} className="p-1.5 rounded-md hover:bg-bg2 text-navy" title="Editar">
-                      <IconEdit size={16} />
-                    </button>
-                    <button onClick={() => toggleActive(p)} className="p-1.5 rounded-md hover:bg-bg2 text-text2" title={p.active ? "Inativar" : "Reativar"}>
-                      {p.active ? <IconArchive size={16} /> : <IconArchiveOff size={16} />}
-                    </button>
-                    <button onClick={() => removeProc(p)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger" title="Excluir">
-                      <IconTrash size={16} />
-                    </button>
-                  </td>
+                  <RowActions p={p} onEdit={setEdit} onToggle={toggleActive} onRemove={removeProc} />
                 </tr>
               ))}
             </tbody>
           </table>
+        ) : tableTab === "avulso" ? (
+          <table className="w-full text-sm">
+            <thead className="bg-bg2 text-text2">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold">Nome</th>
+                <th className="text-left px-4 py-3 font-semibold">Tipo</th>
+                <th className="text-left px-4 py-3 font-semibold">Duração</th>
+                <th className="text-right px-4 py-3 font-semibold">Valor</th>
+                <th className="text-left px-4 py-3 font-semibold">Observação</th>
+                <th className="text-right px-4 py-3 font-semibold">Status</th>
+                <th className="text-right px-4 py-3 font-semibold">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((p, i) => {
+                const st = (p.session_type ?? "sessoes") as SessionType;
+                return (
+                  <tr key={p.id} className={i % 2 ? "bg-bg2/40" : ""}>
+                    <td className="px-4 py-3 font-semibold text-navy">{p.name}</td>
+                    <td className="px-4 py-3 text-text2 text-xs">{sessionTypeLabel(st)}</td>
+                    <td className="px-4 py-3 text-text2">{p.duration_min}min</td>
+                    <td className="px-4 py-3 text-right text-text2">
+                      {st === "por_disparo" ? "R$ 1,00 / disparo" : fmt(p.price_single)}
+                    </td>
+                    <td className="px-4 py-3 text-text2 text-xs">
+                      {st === "especial" ? "Compra 2, faz 3" : st === "por_disparo" ? "Valor por disparo" : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`bh-badge ${p.active ? "bg-success/10 text-success" : "bg-text3/15 text-text3"}`}>
+                        {p.active ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <RowActions p={p} onEdit={setEdit} onToggle={toggleActive} onRemove={removeProc} />
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-bg2 text-text2">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold">Nome</th>
+                <th className="text-left px-4 py-3 font-semibold">Tipo</th>
+                <th className="text-left px-4 py-3 font-semibold">Duração</th>
+                <th className="text-right px-4 py-3 font-semibold">Preços</th>
+                <th className="text-right px-4 py-3 font-semibold">Status</th>
+                <th className="text-right px-4 py-3 font-semibold">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((p, i) => {
+                const st = (p.session_type ?? "sessoes") as SessionType;
+                return (
+                  <tr key={p.id} className={i % 2 ? "bg-bg2/40" : ""}>
+                    <td className="px-4 py-3 font-semibold text-navy">{p.name}</td>
+                    <td className="px-4 py-3 text-text2 text-xs">{sessionTypeLabel(st)}</td>
+                    <td className="px-4 py-3 text-text2">{p.duration_min}min</td>
+                    <td className="px-4 py-3 text-right text-text2 text-xs">
+                      {st === "sessoes"
+                        ? `${fmt(p.price_single)} / 5: ${fmt(p.price_5)} / 10: ${fmt(p.price_10)} / 20: ${fmt(p.price_20)}`
+                        : st === "por_disparo"
+                          ? "R$ 1,00 por disparo"
+                          : st === "especial"
+                            ? `${fmt(p.price_single)} · Compra 2, faz 3`
+                            : fmt(p.price_single)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`bh-badge ${p.active ? "bg-success/10 text-success" : "bg-text3/15 text-text3"}`}>
+                        {p.active ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <RowActions p={p} onEdit={setEdit} onToggle={toggleActive} onRemove={removeProc} />
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
+
+
 
       {(creating || edit) && (
         <ProcModal
