@@ -18,6 +18,7 @@ type Row = {
   record_num: number;
   name: string;
   phone: string | null;
+  cpf: string | null;
   active: boolean;
   created_at: string;
 };
@@ -37,20 +38,32 @@ function ClientsPage() {
   const queryClient = useQueryClient();
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["clients", filter],
+    queryKey: ["clients", filter, q],
     queryFn: async () => {
-      let query = supabase.from("clients").select("id,record_num,name,phone,active,created_at").order("name");
+      const term = q.trim();
+      let query = supabase.from("clients").select("id,record_num,name,phone,cpf,active,created_at");
+      if (term) {
+        const hasCpfFormat = /[.\-/]/.test(term);
+        const isNumericOnly = /^\d+$/.test(term);
+        if (hasCpfFormat) {
+          query = query.ilike("cpf", `%${term}%`);
+        } else if (isNumericOnly) {
+          query = query.or(`record_num.eq.${parseInt(term, 10)},phone.ilike.%${term}%`);
+        } else {
+          query = query.ilike("name", `%${term}%`);
+        }
+      }
       if (filter === "active") query = query.eq("active", true);
       if (filter === "inactive") query = query.eq("active", false);
+      query = query.order("name").limit(50);
       const { data, error } = await withTimeout(query, 10000, "Carregamento de clientes");
       if (error) throw error;
       return (data as Row[]) ?? [];
     },
   });
 
-  const filtered = rows.filter(
-    (r) => !q || r.name.toLowerCase().includes(q.toLowerCase()) || (r.phone ?? "").includes(q)
-  );
+  const filtered = rows;
+
 
   const toggleMutation = useMutation({
     mutationFn: async (r: Row) => {
