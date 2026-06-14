@@ -1,6 +1,6 @@
 // Sino de notificações consolidado.
-// Tipos: package_low, client_inactive_30, client_inactive_60, appointment_unconfirmed
-// Só visível p/ admin e receptionist.
+// Tipos: package_low, client_inactive_30, client_inactive_60, appointment_unconfirmed, client_arrived
+// Visível para admin, receptionist e professional (client_arrived).
 import { useEffect, useMemo, useState } from "react";
 import { IconBell, IconX, IconTrash, IconChecks } from "@tabler/icons-react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -41,7 +41,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
 
   const canSee = user?.role === "admin" || user?.role === "receptionist";
-
+  if (!user) return null;
 
   const { data: items = [] } = useQuery({
     queryKey: ["notifications", user?.id],
@@ -53,13 +53,11 @@ export function NotificationBell() {
         .eq("is_read", false)
         .order("created_at", { ascending: false })
         .limit(50);
-
       if (user?.role === "professional") {
         query = query.eq("user_id", user.id);
       } else {
         query = query.or(`user_id.is.null,user_id.eq.${user?.id}`);
       }
-
       const { data } = await query;
       return (data as Notif[]) ?? [];
     },
@@ -69,7 +67,7 @@ export function NotificationBell() {
   const visible = useMemo(
     () => items.filter((n) => {
       if (!user?.role) return false;
-      if (user.role === 'professional') return n.user_id === user.id;
+      if (user.role === "professional") return n.user_id === user.id;
       return n.target_roles.includes(user.role);
     }),
     [items, user?.role, user?.id],
@@ -86,10 +84,6 @@ export function NotificationBell() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSee]);
-
-  if (!user) return null;
-
-
 
   const remove = async (id: string) => {
     await supabase.from("notifications").delete().eq("id", id);
@@ -167,8 +161,6 @@ export function NotificationBell() {
 
 // ===== Geradores =====
 
-// Anti-duplicata: usa (type + reference_id). Se já existe (lida ou não), não recria.
-// Para pacote: só recria se a quantidade restante mudou (compara via body).
 async function genLowPackages() {
   const { data: pkgs } = await supabase
     .from("packages")
@@ -205,7 +197,6 @@ async function genLowPackages() {
     const body = `⚠️ ${c.cliName ?? "Cliente"} — ${c.procName ?? "Procedimento"} com ${c.remaining} sessão(ões) restante(s)`;
     const ex = byRef.get(c.id);
     if (ex) {
-      // Recria apenas se mudou a contagem E a notificação anterior já foi lida.
       if (ex.body !== body && ex.is_read) {
         await supabase.from("notifications").delete().eq("id", ex.id);
       } else {
@@ -242,7 +233,6 @@ async function genInactiveClients() {
     if (!lastByClient.has(s.client_id)) lastByClient.set(s.client_id, s.done_at);
   }
 
-  // Já existentes: por reference_id+type (ignorar status read — não recriar lidas)
   const { data: existing } = await supabase
     .from("notifications")
     .select("reference_id,reference_type")
@@ -318,4 +308,3 @@ async function genUnconfirmedAppts() {
   });
   if (toInsert.length) await supabase.from("notifications").insert(toInsert);
 }
-
