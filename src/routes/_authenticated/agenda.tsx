@@ -885,6 +885,21 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
           )}
 
           <div className="flex flex-wrap gap-2 pt-3 border-t">
+            {!appt.client_arrived_at && appt.status !== 'cancelled' && (
+              <button
+                type="button"
+                onClick={markClientArrived}
+                disabled={busy}
+                className="px-3 py-1.5 rounded-md bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 disabled:opacity-50 flex items-center gap-1"
+              >
+                🏠 Cliente Chegou
+              </button>
+            )}
+            {appt.client_arrived_at && (
+              <div className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-1 border border-blue-200">
+                ✓ Chegou às {new Date(appt.client_arrived_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
             {appt.attendance_status !== "confirmed" && appt.attendance_status !== "no_show" && (
               <button type="button" onClick={confirmAttendance} disabled={busy} className="px-3 py-1.5 rounded-md bg-success text-white text-xs font-bold hover:bg-success/90 flex items-center gap-1">
                 ✓ Confirmar presença
