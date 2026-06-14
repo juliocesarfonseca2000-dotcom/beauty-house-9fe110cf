@@ -18,6 +18,7 @@ type Notif = {
   client_id: string | null;
   deep_tab: string | null;
   target_roles: string[];
+  user_id: string | null;
   is_read: boolean;
   created_at: string;
 };
