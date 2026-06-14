@@ -179,7 +179,7 @@ function ClientsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nome ou telefone..."
+            placeholder="Buscar por nome, nº ficha, telefone ou CPF..."
             className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-gold/40"
           />
         </div>
@@ -247,14 +247,21 @@ function ClientsPage() {
                 >
                   <td className="px-5 py-3 font-mono text-text2">#{r.record_num}</td>
                   <td className="px-5 py-3">
-                    <Link
-                      to="/ficha"
-                      search={{ cliente: r.id }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="font-semibold text-navy hover:text-gold"
-                    >
-                      {r.name}
-                    </Link>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        to="/ficha"
+                        search={{ cliente: r.id }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-semibold text-navy hover:text-gold"
+                      >
+                        {r.name}
+                      </Link>
+                      {r.record_num != null && (
+                        <span className="bh-badge bg-text3/15 text-text2 font-mono text-[11px]">
+                          #{r.record_num}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3 text-text2">{r.phone ?? "—"}</td>
                   <td className="px-5 py-3">
