@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconPlus,
   IconEdit,
@@ -46,8 +47,7 @@ type Movement = {
 
 
 function EstoquePage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "low">("all");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
@@ -55,21 +55,21 @@ function EstoquePage() {
   const [historyOf, setHistoryOf] = useState<Product | null>(null);
   const [globalHistory, setGlobalHistory] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("active", true)
-      .order("name");
-    if (error) toast.error(error.message);
-    setProducts((data as never) ?? []);
-    setLoading(false);
-  };
+  const { data: products = [], isLoading: loading } = useQuery<Product[]>({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id,name,category,brand,unit,qty_current,qty_min,cost_price,active")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return (data as Product[]) ?? [];
+    },
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    load();
-  }, []);
+  const load = () => qc.invalidateQueries({ queryKey: ["products"] });
 
   const filtered = useMemo(() => {
     let r = products;

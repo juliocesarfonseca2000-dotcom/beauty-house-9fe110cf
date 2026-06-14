@@ -60,6 +60,7 @@ function ClientsPage() {
       if (error) throw error;
       return (data as Row[]) ?? [];
     },
+    staleTime: 60_000,
   });
 
   const filtered = rows;
