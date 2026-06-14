@@ -74,7 +74,6 @@ export function ClientFormModal({
     setBusy(true);
     try {
       const payload = {
-        ...(recordNum.trim() ? { record_num: Number(recordNum) } : {}),
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim() || null,
