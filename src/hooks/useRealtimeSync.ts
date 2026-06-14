@@ -46,9 +46,10 @@ export function useRealtimeSync(enabled: boolean) {
           const derived: Record<string, string[]> = {
             sessions: ["client-sessions"],
             packages: ["client-sessions", "low-packages", "dashboard"],
-            clients: ["client", "clients-list", "dashboard"],
+            clients: ["client", "clients-list", "dashboard", "sidebar-counts"],
             appointments: ["appointments", "dashboard"],
-            products: ["dashboard", "stock"],
+            products: ["dashboard", "stock", "sidebar-counts"],
+            procedures: ["sidebar-counts"],
             staff_absences: ["absences", "agenda"],
             notifications: ["notifications", "notifications-all"],
           };
