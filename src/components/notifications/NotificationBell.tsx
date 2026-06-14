@@ -41,7 +41,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
 
   const canSee = user?.role === "admin" || user?.role === "receptionist";
-  if (!user) return null;
+
 
   const { data: items = [] } = useQuery({
     queryKey: ["notifications", user?.id],
