@@ -715,6 +715,10 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
   }, [appt.attendance_confirmed_by]);
 
   const markClientArrived = async () => {
+    if (appt.client_arrived_notified) {
+      toast.info("Cliente já foi notificado como chegou.");
+      return;
+    }
     setBusy(true);
     const now = new Date().toISOString();
     const { error } = await supabase
