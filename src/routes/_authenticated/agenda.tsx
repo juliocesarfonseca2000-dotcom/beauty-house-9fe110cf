@@ -29,6 +29,8 @@ type Appt = {
   attendance_confirmed_by: string | null;
   is_preference: boolean | null;
   is_first_visit: boolean | null;
+  client_arrived_at: string | null;
+  client_arrived_notified: boolean | null;
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
@@ -85,7 +87,7 @@ function AgendaPage() {
       supabase.from("app_users").select("id,name").eq("active", true)
         .eq("role", "professional").order("name"),
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,clients(name),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
@@ -741,6 +743,49 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
 
+  const markClientArrived = async () => {
+    setBusy(true);
+    const now = new Date().toISOString();
+
+    const { error } = await supabase
+      .from('appointments')
+      .update({
+        client_arrived_at: now,
+        client_arrived_notified: true,
+      })
+      .eq('id', appt.id);
+
+    if (error) {
+      setBusy(false);
+      return toast.error(error.message);
+    }
+
+    const clientName = appt.clients?.name ?? 'Cliente';
+    const procName = appt.procedures?.name ?? 'procedimento';
+    const hora = new Date(appt.datetime).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    await supabase.from('notifications').insert({
+      type: 'client_arrived',
+      title: '🏠 Cliente chegou!',
+      body: `${clientName} chegou e aguarda na recepção. Agendamento às ${hora} — ${procName}.`,
+      user_id: appt.professional_id,
+      target_roles: ['professional', 'admin', 'receptionist'],
+      client_id: appt.client_id,
+      appointment_id: appt.id,
+      reference_id: appt.id,
+      reference_type: 'appointment',
+      action_url: '/agenda',
+      is_read: false,
+    });
+
+    toast.success(`✓ ${clientName} marcado como chegou! Profissional notificado.`);
+    setBusy(false);
+    onChanged();
+  };
+
   useEffect(() => {
     if (!appt.attendance_confirmed_by) { setConfirmedByName(null); return; }
     supabase.from("app_users").select("name").eq("id", appt.attendance_confirmed_by).maybeSingle()
@@ -840,6 +885,21 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
           )}
 
           <div className="flex flex-wrap gap-2 pt-3 border-t">
+            {!appt.client_arrived_at && appt.status !== 'cancelled' && (
+              <button
+                type="button"
+                onClick={markClientArrived}
+                disabled={busy}
+                className="px-3 py-1.5 rounded-md bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 disabled:opacity-50 flex items-center gap-1"
+              >
+                🏠 Cliente Chegou
+              </button>
+            )}
+            {appt.client_arrived_at && (
+              <div className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-1 border border-blue-200">
+                ✓ Chegou às {new Date(appt.client_arrived_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
             {appt.attendance_status !== "confirmed" && appt.attendance_status !== "no_show" && (
               <button type="button" onClick={confirmAttendance} disabled={busy} className="px-3 py-1.5 rounded-md bg-success text-white text-xs font-bold hover:bg-success/90 flex items-center gap-1">
                 ✓ Confirmar presença
