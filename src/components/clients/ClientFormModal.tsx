@@ -171,7 +171,6 @@ export function ClientFormModal({
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Número da ficha"><input type="number" value={recordNum} onChange={(e) => setRecordNum(e.target.value)} className={input} placeholder="Automático" /></Field>
             <Field label="Nome*"><input value={name} onChange={(e) => setName(e.target.value)} className={input} required /></Field>
             <Field label="WhatsApp*"><input value={phone} onChange={(e) => setPhone(e.target.value)} className={input} required placeholder="11999999999" /></Field>
             <Field label="Email"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={input} /></Field>
