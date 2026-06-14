@@ -87,6 +87,9 @@ export function NotificationBell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSee]);
 
+  if (!user) return null;
+
+
 
   const remove = async (id: string) => {
     await supabase.from("notifications").delete().eq("id", id);
