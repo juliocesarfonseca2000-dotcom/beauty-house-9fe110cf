@@ -304,6 +304,38 @@ function fmt(v: number | null) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
 }
 
+function sessionTypeLabel(st: SessionType): string {
+  if (st === "sessoes") return "Sessões";
+  if (st === "avulso") return "Avulso";
+  if (st === "especial") return "Especial";
+  if (st === "por_disparo") return "Por disparo";
+  return st;
+}
+
+function RowActions({
+  p, onEdit, onToggle, onRemove,
+}: {
+  p: Proc;
+  onEdit: (p: Proc) => void;
+  onToggle: (p: Proc) => void;
+  onRemove: (p: Proc) => void;
+}) {
+  return (
+    <td className="px-4 py-3 text-right">
+      <button type="button" onClick={() => onEdit(p)} className="p-1.5 rounded-md hover:bg-bg2 text-navy" title="Editar">
+        <IconEdit size={16} />
+      </button>
+      <button type="button" onClick={() => onToggle(p)} className="p-1.5 rounded-md hover:bg-bg2 text-text2" title={p.active ? "Inativar" : "Reativar"}>
+        {p.active ? <IconArchive size={16} /> : <IconArchiveOff size={16} />}
+      </button>
+      <button type="button" onClick={() => onRemove(p)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger" title="Excluir">
+        <IconTrash size={16} />
+      </button>
+    </td>
+  );
+}
+
+
 function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | null; resources: Resource[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [duration, setDuration] = useState(initial?.duration_min?.toString() ?? "60");
