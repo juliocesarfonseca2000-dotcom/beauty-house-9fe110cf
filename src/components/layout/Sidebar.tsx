@@ -17,6 +17,7 @@ import {
 } from "@tabler/icons-react";
 import { useAuth } from "@/lib/auth";
 import type { Permissions } from "@/integrations/supabase/client";
+import { useSidebarCounts } from "@/hooks/useSidebarCounts";
 
 type Item = { to: string; label: string; icon: React.ReactNode; key: keyof Permissions };
 type Section = { label: string | null; items: Item[] };
