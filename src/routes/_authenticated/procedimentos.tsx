@@ -26,7 +26,6 @@ type Proc = {
   session_type: SessionType | null;
 };
 
-
 type Resource = {
   id: string;
   name: string;
@@ -68,7 +67,6 @@ function ProceduresList() {
   const [tableTab, setTableTab] = useState<"all" | "sessoes" | "avulso">("all");
   const [edit, setEdit] = useState<Proc | null>(null);
   const [creating, setCreating] = useState(false);
-
 
   const load = async () => {
     setLoading(true);
@@ -152,7 +150,6 @@ function ProceduresList() {
             ))}
           </div>
         </div>
-
         <button
           type="button"
           onClick={() => setCreating(true)}
@@ -285,8 +282,6 @@ function ProceduresList() {
         )}
       </div>
 
-
-
       {(creating || edit) && (
         <ProcModal
           initial={edit}
@@ -335,7 +330,6 @@ function RowActions({
   );
 }
 
-
 function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | null; resources: Resource[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [duration, setDuration] = useState(initial?.duration_min?.toString() ?? "60");
@@ -374,10 +368,14 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
     });
   };
 
-
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Nome obrigatório");
+    const pwd = window.prompt("Digite a senha para salvar o procedimento:");
+    if (pwd !== "@BeautyLu2026") {
+      toast.error("Senha incorreta. Acesso negado.");
+      return;
+    }
     setBusy(true);
     const payload = {
       name: name.trim(),
@@ -400,7 +398,6 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
       if (error) { setBusy(false); return toast.error(error.message); }
       procId = (created as { id: string }).id;
     }
-    // Sync procedure_professionals
     if (procId) {
       const pid = procId;
       await supabase.from("procedure_professionals").delete().eq("procedure_id", pid);
@@ -446,7 +443,6 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
             <Field label="Pacote 10x (R$)"><input type="number" step="0.01" value={p10} onChange={(e) => setP10(e.target.value)} className={inp} /></Field>
             <Field label="Pacote 20x (R$)"><input type="number" step="0.01" value={p20} onChange={(e) => setP20(e.target.value)} className={inp} /></Field>
           </FieldRow>
-
           <Field label="Recurso / Aparelho vinculado (opcional)">
             <select value={resourceId} onChange={(e) => setResourceId(e.target.value)} className={inp}>
               <option value="">— Nenhum —</option>
@@ -455,7 +451,6 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
               ))}
             </select>
           </Field>
-
           <div>
             <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">
               Profissionais habilitadas
@@ -472,8 +467,6 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
               ))}
             </div>
           </div>
-
-
           <div className="border-t pt-4 space-y-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-navy">
               <input type="checkbox" checked={requiresTerm} onChange={(e) => setRequiresTerm(e.target.checked)} />
@@ -491,7 +484,6 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
               </Field>
             )}
           </div>
-
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
             <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
