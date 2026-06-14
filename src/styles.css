@@ -126,3 +126,16 @@
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
+
+/* Remove badge Lovable em produção */
+[data-lovable-badge],
+[id="lovable-badge"],
+[class*="lovable-badge"],
+[class*="lovable-tagger"],
+iframe[src*="lovable.dev"],
+div[data-component-path*="componentTagger"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

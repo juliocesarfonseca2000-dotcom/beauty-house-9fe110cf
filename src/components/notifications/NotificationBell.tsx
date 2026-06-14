@@ -49,7 +49,7 @@ export function NotificationBell() {
     queryFn: async () => {
       let query = supabase
         .from("notifications")
-        .select("*")
+        .select("id,type,title,body,action_url,appointment_id,client_id,deep_tab,target_roles,user_id,is_read,created_at")
         .eq("is_read", false)
         .order("created_at", { ascending: false })
         .limit(50);

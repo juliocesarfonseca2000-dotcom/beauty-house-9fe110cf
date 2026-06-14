@@ -137,7 +137,8 @@ function AniversariantesReport() {
       const { data, error } = await supabase
         .from("clients")
         .select("id,name,phone,birthdate")
-        .not("birthdate", "is", null);
+        .not("birthdate", "is", null)
+        .limit(500);
       if (error) toast.error(error.message);
       const filtered = (data ?? [])
         .filter((c: { birthdate: string }) => Number(c.birthdate.slice(5, 7)) === month)
@@ -223,12 +224,13 @@ function InativosReport() {
       const c60s = c60.toISOString().slice(0, 10);
 
       const [{ data: clients }, { data: sessions }] = await Promise.all([
-        supabase.from("clients").select("id,name,phone").eq("active", true),
+        supabase.from("clients").select("id,name,phone").eq("active", true).limit(500),
         supabase
           .from("sessions")
           .select("client_id,done_at,packages(procedures(name))")
           .not("done_at", "is", null)
-          .eq("status", "done"),
+          .eq("status", "done")
+          .limit(500),
       ]);
 
       type SessRow = {
@@ -334,7 +336,8 @@ function PacotesReport() {
       const { data, error } = await supabase
         .from("packages")
         .select("id,client_id,sess_total,sess_done,procedures(name),clients(name,phone)")
-        .eq("status", "active");
+        .eq("status", "active")
+        .limit(500);
       if (error) toast.error(error.message);
       type Row = {
         id: string; client_id: string; sess_total: number; sess_done: number;
@@ -443,7 +446,7 @@ function EstoqueReport() {
       setLoading(true);
       const { data, error } = await supabase
         .from("products").select("id,name,category,qty_current,qty_min,active")
-        .eq("active", true).order("name");
+        .eq("active", true).order("name").limit(500);
       if (error) toast.error(error.message);
       const critical = ((data ?? []) as typeof rows).filter((r) => Number(r.qty_current) <= Number(r.qty_min));
       setRows(critical);
@@ -519,11 +522,11 @@ function ProdutividadeReport() {
       const fromTs = `${from}T00:00:00`;
       const toTs = `${to}T23:59:59`;
       const [{ data: users }, { data: sessions }, { data: appts }] = await Promise.all([
-        supabase.from("app_users").select("id,name,active").eq("active", true),
+        supabase.from("app_users").select("id,name,active").eq("active", true).limit(500),
         supabase.from("sessions").select("professional_id,done_at,status")
-          .eq("status", "done").gte("done_at", fromTs).lte("done_at", toTs),
+          .eq("status", "done").gte("done_at", fromTs).lte("done_at", toTs).limit(500),
         supabase.from("appointments").select("professional_id,datetime")
-          .gte("datetime", fromTs).lte("datetime", toTs),
+          .gte("datetime", fromTs).lte("datetime", toTs).limit(500),
       ]);
       const sessByProf = new Map<string, number>();
       (sessions ?? []).forEach((s: { professional_id: string | null }) => {
@@ -603,8 +606,8 @@ function TopClientesReport() {
     (async () => {
       setLoading(true);
       const [{ data: sessions }, { data: income }] = await Promise.all([
-        supabase.from("sessions").select("client_id").eq("status", "done"),
-        supabase.from("income").select("client_id,amount"),
+        supabase.from("sessions").select("client_id").eq("status", "done").limit(500),
+        supabase.from("income").select("client_id,amount").limit(500),
       ]);
       const sessByClient = new Map<string, number>();
       (sessions ?? []).forEach((s: { client_id: string | null }) => {
