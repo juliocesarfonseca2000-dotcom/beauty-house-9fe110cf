@@ -18,6 +18,7 @@ type Row = {
   record_num: number;
   name: string;
   phone: string | null;
+  cpf: string | null;
   active: boolean;
   created_at: string;
 };
@@ -37,20 +38,32 @@ function ClientsPage() {
   const queryClient = useQueryClient();
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["clients", filter],
+    queryKey: ["clients", filter, q],
     queryFn: async () => {
-      let query = supabase.from("clients").select("id,record_num,name,phone,active,created_at").order("name");
+      const term = q.trim();
+      let query = supabase.from("clients").select("id,record_num,name,phone,cpf,active,created_at");
+      if (term) {
+        const hasCpfFormat = /[.\-/]/.test(term);
+        const isNumericOnly = /^\d+$/.test(term);
+        if (hasCpfFormat) {
+          query = query.ilike("cpf", `%${term}%`);
+        } else if (isNumericOnly) {
+          query = query.or(`record_num.eq.${parseInt(term, 10)},phone.ilike.%${term}%`);
+        } else {
+          query = query.ilike("name", `%${term}%`);
+        }
+      }
       if (filter === "active") query = query.eq("active", true);
       if (filter === "inactive") query = query.eq("active", false);
+      query = query.order("name").limit(50);
       const { data, error } = await withTimeout(query, 10000, "Carregamento de clientes");
       if (error) throw error;
       return (data as Row[]) ?? [];
     },
   });
 
-  const filtered = rows.filter(
-    (r) => !q || r.name.toLowerCase().includes(q.toLowerCase()) || (r.phone ?? "").includes(q)
-  );
+  const filtered = rows;
+
 
   const toggleMutation = useMutation({
     mutationFn: async (r: Row) => {
@@ -166,7 +179,7 @@ function ClientsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nome ou telefone..."
+            placeholder="Buscar por nome, nº ficha, telefone ou CPF..."
             className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-gold/40"
           />
         </div>
@@ -234,14 +247,21 @@ function ClientsPage() {
                 >
                   <td className="px-5 py-3 font-mono text-text2">#{r.record_num}</td>
                   <td className="px-5 py-3">
-                    <Link
-                      to="/ficha"
-                      search={{ cliente: r.id }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="font-semibold text-navy hover:text-gold"
-                    >
-                      {r.name}
-                    </Link>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        to="/ficha"
+                        search={{ cliente: r.id }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-semibold text-navy hover:text-gold"
+                      >
+                        {r.name}
+                      </Link>
+                      {r.record_num != null && (
+                        <span className="bh-badge bg-text3/15 text-text2 font-mono text-[11px]">
+                          #{r.record_num}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3 text-text2">{r.phone ?? "—"}</td>
                   <td className="px-5 py-3">

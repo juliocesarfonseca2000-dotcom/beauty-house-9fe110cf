@@ -9,6 +9,8 @@ export const Route = createFileRoute("/_authenticated/procedimentos")({
   component: ProceduresPage,
 });
 
+type SessionType = "sessoes" | "avulso" | "especial" | "por_disparo";
+
 type Proc = {
   id: string;
   name: string;
@@ -21,7 +23,9 @@ type Proc = {
   requires_term: boolean | null;
   term_text: string | null;
   resource_id: string | null;
+  session_type: SessionType | null;
 };
+
 
 type Resource = {
   id: string;
@@ -61,8 +65,10 @@ function ProceduresList() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"active" | "inactive" | "all">("active");
+  const [tableTab, setTableTab] = useState<"all" | "sessoes" | "avulso">("all");
   const [edit, setEdit] = useState<Proc | null>(null);
   const [creating, setCreating] = useState(false);
+
 
   const load = async () => {
     setLoading(true);
@@ -100,28 +106,55 @@ function ProceduresList() {
     load();
   };
 
-  const visible = rows.filter((r) =>
-    filter === "all" ? true : filter === "active" ? r.active : !r.active,
-  );
+  const visible = rows.filter((r) => {
+    if (filter === "active" && !r.active) return false;
+    if (filter === "inactive" && r.active) return false;
+    const st = (r.session_type ?? "sessoes") as SessionType;
+    if (tableTab === "sessoes" && st !== "sessoes") return false;
+    if (tableTab === "avulso" && !(st === "avulso" || st === "especial" || st === "por_disparo")) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex bg-bg2 rounded-lg p-1 text-sm">
-          {(["active", "inactive", "all"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-md font-semibold transition ${
-                filter === f ? "bg-navy text-white" : "text-text2 hover:text-navy"
-              }`}
-            >
-              {f === "active" ? "Ativos" : f === "inactive" ? "Inativos" : "Todos"}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          <div className="flex bg-bg2 rounded-lg p-1 text-sm">
+            {(["active", "inactive", "all"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-md font-semibold transition ${
+                  filter === f ? "bg-navy text-white" : "text-text2 hover:text-navy"
+                }`}
+              >
+                {f === "active" ? "Ativos" : f === "inactive" ? "Inativos" : "Todos"}
+              </button>
+            ))}
+          </div>
+          <div className="flex bg-bg2 rounded-lg p-1 text-sm">
+            {([
+              { key: "all", label: "Todos" },
+              { key: "sessoes", label: "Tabela 1 (Sessões)" },
+              { key: "avulso", label: "Tabela 2 (Avulso)" },
+            ] as const).map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTableTab(t.key)}
+                className={`px-3 py-1.5 rounded-md font-semibold transition ${
+                  tableTab === t.key ? "bg-gold text-white" : "text-text2 hover:text-navy"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <button
+          type="button"
           onClick={() => setCreating(true)}
           className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
         >
@@ -134,7 +167,7 @@ function ProceduresList() {
           <TableSkeleton rows={5} cols={4} />
         ) : visible.length === 0 ? (
           <div className="p-12 text-center text-text3">Nenhum procedimento.</div>
-        ) : (
+        ) : tableTab === "sessoes" ? (
           <table className="w-full text-sm">
             <thead className="bg-bg2 text-text2">
               <tr>
@@ -166,23 +199,93 @@ function ProceduresList() {
                       {p.active ? "Ativo" : "Inativo"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => setEdit(p)} className="p-1.5 rounded-md hover:bg-bg2 text-navy" title="Editar">
-                      <IconEdit size={16} />
-                    </button>
-                    <button onClick={() => toggleActive(p)} className="p-1.5 rounded-md hover:bg-bg2 text-text2" title={p.active ? "Inativar" : "Reativar"}>
-                      {p.active ? <IconArchive size={16} /> : <IconArchiveOff size={16} />}
-                    </button>
-                    <button onClick={() => removeProc(p)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger" title="Excluir">
-                      <IconTrash size={16} />
-                    </button>
-                  </td>
+                  <RowActions p={p} onEdit={setEdit} onToggle={toggleActive} onRemove={removeProc} />
                 </tr>
               ))}
             </tbody>
           </table>
+        ) : tableTab === "avulso" ? (
+          <table className="w-full text-sm">
+            <thead className="bg-bg2 text-text2">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold">Nome</th>
+                <th className="text-left px-4 py-3 font-semibold">Tipo</th>
+                <th className="text-left px-4 py-3 font-semibold">Duração</th>
+                <th className="text-right px-4 py-3 font-semibold">Valor</th>
+                <th className="text-left px-4 py-3 font-semibold">Observação</th>
+                <th className="text-right px-4 py-3 font-semibold">Status</th>
+                <th className="text-right px-4 py-3 font-semibold">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((p, i) => {
+                const st = (p.session_type ?? "sessoes") as SessionType;
+                return (
+                  <tr key={p.id} className={i % 2 ? "bg-bg2/40" : ""}>
+                    <td className="px-4 py-3 font-semibold text-navy">{p.name}</td>
+                    <td className="px-4 py-3 text-text2 text-xs">{sessionTypeLabel(st)}</td>
+                    <td className="px-4 py-3 text-text2">{p.duration_min}min</td>
+                    <td className="px-4 py-3 text-right text-text2">
+                      {st === "por_disparo" ? "R$ 1,00 / disparo" : fmt(p.price_single)}
+                    </td>
+                    <td className="px-4 py-3 text-text2 text-xs">
+                      {st === "especial" ? "Compra 2, faz 3" : st === "por_disparo" ? "Valor por disparo" : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`bh-badge ${p.active ? "bg-success/10 text-success" : "bg-text3/15 text-text3"}`}>
+                        {p.active ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <RowActions p={p} onEdit={setEdit} onToggle={toggleActive} onRemove={removeProc} />
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-bg2 text-text2">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold">Nome</th>
+                <th className="text-left px-4 py-3 font-semibold">Tipo</th>
+                <th className="text-left px-4 py-3 font-semibold">Duração</th>
+                <th className="text-right px-4 py-3 font-semibold">Preços</th>
+                <th className="text-right px-4 py-3 font-semibold">Status</th>
+                <th className="text-right px-4 py-3 font-semibold">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((p, i) => {
+                const st = (p.session_type ?? "sessoes") as SessionType;
+                return (
+                  <tr key={p.id} className={i % 2 ? "bg-bg2/40" : ""}>
+                    <td className="px-4 py-3 font-semibold text-navy">{p.name}</td>
+                    <td className="px-4 py-3 text-text2 text-xs">{sessionTypeLabel(st)}</td>
+                    <td className="px-4 py-3 text-text2">{p.duration_min}min</td>
+                    <td className="px-4 py-3 text-right text-text2 text-xs">
+                      {st === "sessoes"
+                        ? `${fmt(p.price_single)} / 5: ${fmt(p.price_5)} / 10: ${fmt(p.price_10)} / 20: ${fmt(p.price_20)}`
+                        : st === "por_disparo"
+                          ? "R$ 1,00 por disparo"
+                          : st === "especial"
+                            ? `${fmt(p.price_single)} · Compra 2, faz 3`
+                            : fmt(p.price_single)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`bh-badge ${p.active ? "bg-success/10 text-success" : "bg-text3/15 text-text3"}`}>
+                        {p.active ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <RowActions p={p} onEdit={setEdit} onToggle={toggleActive} onRemove={removeProc} />
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
+
+
 
       {(creating || edit) && (
         <ProcModal
@@ -201,6 +304,38 @@ function fmt(v: number | null) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
 }
 
+function sessionTypeLabel(st: SessionType): string {
+  if (st === "sessoes") return "Sessões";
+  if (st === "avulso") return "Avulso";
+  if (st === "especial") return "Especial";
+  if (st === "por_disparo") return "Por disparo";
+  return st;
+}
+
+function RowActions({
+  p, onEdit, onToggle, onRemove,
+}: {
+  p: Proc;
+  onEdit: (p: Proc) => void;
+  onToggle: (p: Proc) => void;
+  onRemove: (p: Proc) => void;
+}) {
+  return (
+    <td className="px-4 py-3 text-right">
+      <button type="button" onClick={() => onEdit(p)} className="p-1.5 rounded-md hover:bg-bg2 text-navy" title="Editar">
+        <IconEdit size={16} />
+      </button>
+      <button type="button" onClick={() => onToggle(p)} className="p-1.5 rounded-md hover:bg-bg2 text-text2" title={p.active ? "Inativar" : "Reativar"}>
+        {p.active ? <IconArchive size={16} /> : <IconArchiveOff size={16} />}
+      </button>
+      <button type="button" onClick={() => onRemove(p)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger" title="Excluir">
+        <IconTrash size={16} />
+      </button>
+    </td>
+  );
+}
+
+
 function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | null; resources: Resource[]; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [duration, setDuration] = useState(initial?.duration_min?.toString() ?? "60");
@@ -211,6 +346,7 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
   const [requiresTerm, setRequiresTerm] = useState<boolean>(initial?.requires_term ?? false);
   const [termText, setTermText] = useState(initial?.term_text ?? "");
   const [resourceId, setResourceId] = useState(initial?.resource_id ?? "");
+  const [sessionType, setSessionType] = useState<SessionType>((initial?.session_type as SessionType) ?? "sessoes");
   const [busy, setBusy] = useState(false);
   const [pros, setPros] = useState<{ id: string; name: string }[]>([]);
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
@@ -253,6 +389,7 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
       requires_term: requiresTerm,
       term_text: requiresTerm ? (termText.trim() || null) : null,
       resource_id: resourceId || null,
+      session_type: sessionType,
     };
     let procId = initial?.id;
     if (initial) {
@@ -289,6 +426,17 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
           <FieldRow>
             <Field label="Nome*"><input value={name} onChange={(e) => setName(e.target.value)} className={inp} required /></Field>
             <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>
+          </FieldRow>
+          <FieldRow>
+            <Field label="Tipo de tabela / cobrança">
+              <select value={sessionType} onChange={(e) => setSessionType(e.target.value as SessionType)} className={inp}>
+                <option value="sessoes">Tabela 1 — Sessões (5/10/20)</option>
+                <option value="avulso">Tabela 2 — Avulso (valor único)</option>
+                <option value="especial">Especial — Compra 2, faz 3</option>
+                <option value="por_disparo">Por disparo (R$ 1,00)</option>
+              </select>
+            </Field>
+            <div />
           </FieldRow>
           <FieldRow>
             <Field label="Preço avulso (R$)"><input type="number" step="0.01" value={single} onChange={(e) => setSingle(e.target.value)} className={inp} /></Field>
