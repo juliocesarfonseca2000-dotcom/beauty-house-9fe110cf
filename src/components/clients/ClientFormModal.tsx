@@ -14,7 +14,7 @@ export function ClientFormModal({
   onCreated: (id: string) => void;
 }) {
   const [name, setName] = useState("");
-  const [recordNum, setRecordNum] = useState("");
+
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [birthdate, setBirthdate] = useState("");
