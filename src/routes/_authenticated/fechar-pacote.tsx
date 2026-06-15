@@ -287,29 +287,40 @@ function ClosePackagePage() {
             {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
 
-          <div className="grid grid-cols-3 gap-3 mb-3">
-            {([5, 10, 20] as const).map((n) => {
-              const price = currentProc ? (n === 5 ? currentProc.price_5 : n === 10 ? currentProc.price_10 : currentProc.price_20) : null;
-              const disabled = price == null;
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => setSessions(n)}
-                  className={`p-3 rounded-lg border-2 transition ${
-                    sessions === n && !disabled ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
-                  } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                >
-                  <div className="font-display text-xl text-navy">{n}</div>
-                  <div className="text-[10px] text-text2 uppercase">sessões</div>
-                  <div className="text-xs font-semibold text-gold mt-1">
-                    {price ? price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          {isAvulso ? (
+            <div className="mb-3 p-3 rounded-lg border-2 border-gold bg-gold/10 text-center">
+              <div className="font-display text-xl text-navy">1 sessão</div>
+              <div className="text-sm font-semibold text-gold mt-1">
+                {currentPrice ? currentPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+              </div>
+              <div className="text-[10px] text-text3 uppercase mt-1">Procedimento avulso</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              {([5, 10, 20] as const).map((n) => {
+                const price = currentProc ? (n === 5 ? currentProc.price_5 : n === 10 ? currentProc.price_10 : currentProc.price_20) : null;
+                const disabled = price == null;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setSessions(n)}
+                    className={`p-3 rounded-lg border-2 transition ${
+                      sessions === n && !disabled ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
+                    } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  >
+                    <div className="font-display text-xl text-navy">{n}</div>
+                    <div className="text-[10px] text-text2 uppercase">sessões</div>
+                    <div className="text-xs font-semibold text-gold mt-1">
+                      {price ? price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
 
           <button
             type="button"
