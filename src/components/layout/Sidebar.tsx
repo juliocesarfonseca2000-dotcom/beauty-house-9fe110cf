@@ -76,10 +76,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   return (
     <aside className="flex w-[220px] shrink-0 flex-col bg-navy text-silver h-screen sticky top-0">
       <div className="px-5 py-6 border-b border-white/10">
-        <div className="font-display text-2xl text-white leading-tight">Beauty House</div>
+        <Link to="/" onClick={onNavigate} className="font-display text-2xl text-white leading-tight block hover:text-gold transition-colors">
+          Beauty House
+        </Link>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">
+
         {SECTIONS.map((sec, si) => {
           const visible = sec.items.filter((i) => user.permissions[i.key]);
           if (visible.length === 0) return null;
