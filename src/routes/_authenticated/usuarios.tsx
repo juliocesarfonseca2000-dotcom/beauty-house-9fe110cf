@@ -156,8 +156,10 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
   const [cargo, setCargo] = useState(initial?.cargo ?? "");
   const [isEval, setIsEval] = useState(initial?.is_evaluator ?? false);
   const [active, setActive] = useState(initial?.active ?? true);
+  const [showInAgenda, setShowInAgenda] = useState<boolean>(initial?.show_in_agenda ?? true);
   const [perms, setPerms] = useState<Permissions>(initial?.permissions ?? DEFAULT_PERMS_BY_ROLE.professional);
   const [busy, setBusy] = useState(false);
+
   const createFn = useServerFn(createAppUser);
   const updateFn = useServerFn(updateAppUser);
   const deleteFn = useServerFn(deleteAppUser);
