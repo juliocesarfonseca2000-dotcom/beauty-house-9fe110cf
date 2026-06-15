@@ -134,21 +134,23 @@ function AniversariantesReport() {
   useEffect(() => {
     (async () => {
       setLoading(true);
+      const pad = String(month).padStart(2, "0");
       const { data, error } = await supabase
         .from("clients")
-        .select("id,name,phone,birthdate")
+        .select("id,name,phone,birthdate,record_num")
+        .eq("active", true)
         .not("birthdate", "is", null)
-        .limit(500);
+        .gte("birthdate", `1900-${pad}-01`)
+        .lte("birthdate", `2099-${pad}-31`)
+        .order("birthdate");
       if (error) toast.error(error.message);
-      const filtered = (data ?? [])
-        .filter((c: { birthdate: string }) => Number(c.birthdate.slice(5, 7)) === month)
-        .sort((a: { birthdate: string }, b: { birthdate: string }) =>
-          a.birthdate.slice(8, 10).localeCompare(b.birthdate.slice(8, 10)),
-        );
-      setRows(filtered as typeof rows);
+      const sorted = ((data ?? []) as { id: string; name: string; phone: string | null; birthdate: string }[])
+        .sort((a, b) => a.birthdate.slice(8, 10).localeCompare(b.birthdate.slice(8, 10)));
+      setRows(sorted as typeof rows);
       setLoading(false);
     })();
   }, [month]);
+
 
   const monthName = new Date(2000, month - 1, 1).toLocaleDateString("pt-BR", { month: "long" });
 
