@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
-import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock, IconCalendarOff } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -71,6 +71,7 @@ function AgendaPage() {
   const [slotChoice, setSlotChoice] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
   const [blocking, setBlocking] = useState<{ proId: string; hour: number; min: number } | null>(null);
+  const [blockingDay, setBlockingDay] = useState<{ proId: string; proName: string } | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
   const [loading, setLoading] = useState(true);
   const [absences, setAbsences] = useState<Absence[]>([]);
@@ -180,6 +181,20 @@ function AgendaPage() {
               {visiblePros.map((p) => (
                 <div key={p.id} className="px-3 py-3 text-center border-r last:border-r-0 bg-bg2">
                   <div className="font-display text-navy truncate">{p.name}</div>
+                  {canManage && !absences.some((a) => a.user_id === p.id) && (
+                    <button
+                      type="button"
+                      onClick={() => setBlockingDay({ proId: p.id, proName: p.name })}
+                      className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-text3 hover:bg-danger/10 hover:text-danger transition"
+                    >
+                      <IconCalendarOff size={10} /> Bloquear dia
+                    </button>
+                  )}
+                  {absences.some((a) => a.user_id === p.id) && (
+                    <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-danger/10 text-danger">
+                      Dia bloqueado
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -316,6 +331,15 @@ function AgendaPage() {
           proName={pros.find((p) => p.id === blocking.proId)?.name ?? ""}
           onClose={() => setBlocking(null)}
           onSaved={() => { setBlocking(null); load(); }}
+        />
+      )}
+      {blockingDay && (
+        <BlockDayModal
+          date={date}
+          proId={blockingDay.proId}
+          proName={blockingDay.proName}
+          onClose={() => setBlockingDay(null)}
+          onSaved={() => { setBlockingDay(null); load(); }}
         />
       )}
     </div>
@@ -862,6 +886,102 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function BlockDayModal({ date, proId, proName, onClose, onSaved }: {
+  date: Date; proId: string; proName: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [absType, setAbsType] = useState<"vacation"|"absent"|"dayoff"|"leave">("dayoff");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const dayYmd = fmtDate(date);
+  const dayLabel = date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+
+  const ABS_OPTIONS = [
+    { value: "dayoff"   as const, label: "Folga",   color: "bg-blue-100 text-blue-700" },
+    { value: "vacation" as const, label: "Férias",  color: "bg-purple-100 text-purple-700" },
+    { value: "absent"   as const, label: "Falta",   color: "bg-danger/10 text-danger" },
+    { value: "leave"    as const, label: "Licença", color: "bg-orange-100 text-orange-700" },
+  ];
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const { error: absErr } = await supabase.from("staff_absences").insert({
+        user_id: proId,
+        type: absType,
+        date_start: dayYmd,
+        date_end: dayYmd,
+        notes: reason || null,
+      });
+      if (absErr) throw absErr;
+
+      const dt = new Date(date);
+      dt.setHours(7, 0, 0, 0);
+      const { error: apptErr } = await supabase.from("appointments").insert({
+        professional_id: proId,
+        datetime: dt.toISOString(),
+        duration_min: 840,
+        status: "blocked",
+        notes: reason || ABS_OPTIONS.find(o => o.value === absType)?.label || "Dia bloqueado",
+        client_id: null,
+        procedure_id: null,
+      });
+      if (apptErr) throw apptErr;
+
+      toast.success(`✓ Dia bloqueado para ${proName} — ${ABS_OPTIONS.find(o => o.value === absType)?.label}`);
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao bloquear dia");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-xl text-navy flex items-center gap-2">
+            <IconCalendarOff size={20} /> Bloquear dia
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
+        </div>
+        <form onSubmit={save} className="p-6 space-y-4">
+          <div className="text-sm text-text2">
+            <b className="text-navy">{proName}</b>
+            <br />
+            <span className="capitalize">{dayLabel}</span>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Tipo de bloqueio</label>
+            <div className="flex flex-wrap gap-2">
+              {ABS_OPTIONS.map((opt) => (
+                <label key={opt.value} className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs font-semibold border ${absType === opt.value ? opt.color + " border-current" : "bg-bg2 text-text2 border-border"}`}>
+                  <input type="radio" name="absType" value={opt.value} checked={absType === opt.value} onChange={() => setAbsType(opt.value)} className="hidden" />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Motivo (opcional)</label>
+            <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex: consulta médica, viagem..." className="w-full px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-gold/40" />
+          </div>
+          <div className="text-[11px] text-text2 leading-relaxed bg-bg2 p-2.5 rounded-lg border border-border">
+            ⚠️ Registra ausência na Escala e bloqueia 07:00–21:00 na Agenda. Agendamentos já existentes não serão cancelados automaticamente.
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
+              {busy ? "Bloqueando..." : "Bloquear dia"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
