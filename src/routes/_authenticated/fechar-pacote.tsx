@@ -22,9 +22,10 @@ type Procedure = {
 type CartItem = {
   uid: string;
   procedure: Procedure;
-  sessions: 5 | 10 | 20;
+  sessions: number;
   price: number;
 };
+
 
 const PAY_METHODS = ["Pix", "Cartão Crédito", "Cartão Débito", "Dinheiro", "Transferência", "Cheque"];
 const INSTALLMENT_METHODS = ["Cartão Crédito", "Cheque"];
