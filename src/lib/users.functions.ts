@@ -34,7 +34,9 @@ type CreateInput = {
   cargo: string | null;
   is_evaluator: boolean;
   permissions: Record<string, boolean>;
+  show_in_agenda?: boolean;
 };
+
 
 export const createAppUser = createServerFn({ method: "POST" })
   .inputValidator((data: CreateInput) => data)
