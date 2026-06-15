@@ -439,23 +439,30 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   useEffect(() => {
     if (search.length < 2 || client) { setResults([]); return; }
     const t = setTimeout(async () => {
-      const { data } = await supabase.from("clients")
-        .select("id,name,record_num").ilike("name", `%${search}%`).eq("active", true).limit(6);
+      const isNumeric = /^\d+$/.test(search.trim());
+      let query = supabase
+        .from("clients")
+        .select("id,name,record_num")
+        .eq("active", true)
+        .limit(6);
+      if (isNumeric) {
+        query = query.or(`record_num.eq.${parseInt(search)},phone.ilike.%${search}%`);
+      } else {
+        query = query.ilike("name", `%${search}%`);
+      }
+      const { data } = await query;
       setResults((data as Client[]) ?? []);
     }, 250);
     return () => clearTimeout(t);
   }, [search, client]);
 
   useEffect(() => {
-    const p = procs.find((x) => x.id === procId);
-    if (p?.duration_min) setDuration(String(p.duration_min));
-  }, [procId, procs]);
+    const proc = procId
+      ? procs.find((x) => x.id === procId)
+      : allProcs.find((x) => x.id === looseProcId);
+    if (proc?.duration_min) setDuration(String(proc.duration_min));
+  }, [procId, looseProcId, procs, allProcs]);
 
-  useEffect(() => {
-    if (!looseProcId) return;
-    const p = allProcs.find((x) => x.id === looseProcId);
-    if (p?.duration_min) setDuration(String(p.duration_min));
-  }, [looseProcId, allProcs]);
 
   useEffect(() => { setRecTime(time); }, [time]);
 
