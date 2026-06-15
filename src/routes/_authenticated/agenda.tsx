@@ -852,7 +852,12 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
   const remove = async () => {
     if (!window.confirm("Excluir agendamento?")) return;
     setBusy(true);
+    await supabase
+      .from("sessions")
+      .update({ appointment_id: null })
+      .eq("appointment_id", appt.id);
     const { error } = await supabase.from("appointments").delete().eq("id", appt.id);
+
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Excluído");
