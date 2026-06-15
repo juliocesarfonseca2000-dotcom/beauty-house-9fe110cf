@@ -62,8 +62,25 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 
 function AgendaPage() {
   const { user: me } = useAuth();
+  const navigate = useNavigate();
   const canManage = me?.role === "admin" || me?.role === "receptionist";
   const isProfessional = me?.role === "professional";
+
+  useEffect(() => {
+    if (me?.role !== "professional" || !me?.id) return;
+    const today = new Date().toISOString().split("T")[0];
+    supabase
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("professional_id", me.id)
+      .gte("datetime", `${today}T00:00:00`)
+      .lt("datetime", `${today}T23:59:59`)
+      .then(({ count }) => {
+        if ((count ?? 0) === 0) navigate({ to: "/escala" });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.id, me?.role]);
+
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
   const [proFilter, setProFilter] = useState<string>(isProfessional && me?.id ? me.id : "all");
