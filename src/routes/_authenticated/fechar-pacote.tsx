@@ -37,7 +37,7 @@ function ClosePackagePage() {
   const [results, setResults] = useState<Client[]>([]);
   const [procs, setProcs] = useState<Procedure[]>([]);
   const [procId, setProcId] = useState("");
-  const [sessions, setSessions] = useState<5 | 10 | 20>(10);
+  const [sessions, setSessions] = useState<number>(10);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [payMethod, setPayMethod] = useState(PAY_METHODS[0]);
   const [installments, setInstallments] = useState(1);
