@@ -16,7 +16,9 @@ type Client = { id: string; name: string; record_num: number; phone: string | nu
 type Procedure = {
   id: string; name: string; duration_min: number | null;
   price_single: number | null; price_5: number | null; price_10: number | null; price_20: number | null;
+  session_type: string | null;
 };
+
 type CartItem = {
   uid: string;
   procedure: Procedure;
