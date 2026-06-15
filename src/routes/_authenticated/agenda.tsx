@@ -654,7 +654,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             ) : (
               <div className="relative">
                 <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text3" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome ou nº ficha..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm" />
                 {results.length > 0 && (
                   <div className="mt-1 bh-card max-h-48 overflow-y-auto absolute z-10 w-full bg-card">
                     {results.map((c) => (
