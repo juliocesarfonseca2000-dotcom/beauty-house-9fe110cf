@@ -273,6 +273,22 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
             </div>
           </div>
 
+          {role === "professional" && (
+            <label className="flex items-center gap-3 text-sm cursor-pointer p-3 bg-bg2 rounded-lg border border-border">
+              <input
+                type="checkbox"
+                checked={showInAgenda}
+                onChange={(e) => setShowInAgenda(e.target.checked)}
+                className="w-4 h-4 accent-gold"
+              />
+              <div>
+                <div className="font-semibold text-navy">📅 Aparece na grade da Agenda</div>
+                <div className="text-xs text-text3">Desmarque para colaboradoras que não fazem atendimento (limpeza, suporte)</div>
+              </div>
+            </label>
+          )}
+
+
           <div className="flex justify-between gap-2 pt-2">
             {isEdit ? (
               <button type="button" onClick={remove} disabled={busy} className="px-4 py-2 rounded-lg border border-danger text-danger text-sm font-semibold hover:bg-danger/10 flex items-center gap-1.5">
