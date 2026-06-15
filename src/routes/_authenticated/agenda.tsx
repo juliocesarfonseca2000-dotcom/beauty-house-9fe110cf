@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
-import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock, IconCalendarOff } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -71,6 +71,7 @@ function AgendaPage() {
   const [slotChoice, setSlotChoice] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
   const [blocking, setBlocking] = useState<{ proId: string; hour: number; min: number } | null>(null);
+  const [blockingDay, setBlockingDay] = useState<{ proId: string; proName: string } | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
   const [loading, setLoading] = useState(true);
   const [absences, setAbsences] = useState<Absence[]>([]);
@@ -180,6 +181,20 @@ function AgendaPage() {
               {visiblePros.map((p) => (
                 <div key={p.id} className="px-3 py-3 text-center border-r last:border-r-0 bg-bg2">
                   <div className="font-display text-navy truncate">{p.name}</div>
+                  {canManage && !absences.some((a) => a.user_id === p.id) && (
+                    <button
+                      type="button"
+                      onClick={() => setBlockingDay({ proId: p.id, proName: p.name })}
+                      className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-text3 hover:bg-danger/10 hover:text-danger transition"
+                    >
+                      <IconCalendarOff size={10} /> Bloquear dia
+                    </button>
+                  )}
+                  {absences.some((a) => a.user_id === p.id) && (
+                    <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-danger/10 text-danger">
+                      Dia bloqueado
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -316,6 +331,15 @@ function AgendaPage() {
           proName={pros.find((p) => p.id === blocking.proId)?.name ?? ""}
           onClose={() => setBlocking(null)}
           onSaved={() => { setBlocking(null); load(); }}
+        />
+      )}
+      {blockingDay && (
+        <BlockDayModal
+          date={date}
+          proId={blockingDay.proId}
+          proName={blockingDay.proName}
+          onClose={() => setBlockingDay(null)}
+          onSaved={() => { setBlockingDay(null); load(); }}
         />
       )}
     </div>
