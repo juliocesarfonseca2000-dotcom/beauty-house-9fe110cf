@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
-import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock, IconCalendarOff } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock, IconCalendarOff, IconAlertTriangle } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -338,6 +338,7 @@ function AgendaPage() {
           date={date}
           proId={blockingDay.proId}
           proName={blockingDay.proName}
+          existingAppts={appts.filter((a) => a.professional_id === blockingDay.proId && a.status !== "blocked" && a.status !== "cancelled")}
           onClose={() => setBlockingDay(null)}
           onSaved={() => { setBlockingDay(null); load(); }}
         />
@@ -891,8 +892,8 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
   );
 }
 
-function BlockDayModal({ date, proId, proName, onClose, onSaved }: {
-  date: Date; proId: string; proName: string; onClose: () => void; onSaved: () => void;
+function BlockDayModal({ date, proId, proName, existingAppts, onClose, onSaved }: {
+  date: Date; proId: string; proName: string; existingAppts: Appt[]; onClose: () => void; onSaved: () => void;
 }) {
   const [absType, setAbsType] = useState<"vacation"|"absent"|"dayoff"|"leave">("dayoff");
   const [reason, setReason] = useState("");
@@ -957,6 +958,30 @@ function BlockDayModal({ date, proId, proName, onClose, onSaved }: {
             <br />
             <span className="capitalize">{dayLabel}</span>
           </div>
+          {existingAppts.length > 0 && (
+            <div className="rounded-lg border border-gold/40 bg-gold/10 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-navy">
+                <IconAlertTriangle size={16} className="text-gold" />
+                {existingAppts.length} agendamento{existingAppts.length > 1 ? "s" : ""} existente{existingAppts.length > 1 ? "s" : ""} neste dia
+              </div>
+              <ul className="space-y-1">
+                {existingAppts.map((a) => {
+                  const dt = new Date(a.datetime);
+                  const time = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                  return (
+                    <li key={a.id} className="text-xs text-text2 flex items-center gap-2">
+                      <span className="font-mono font-medium text-navy">{time}</span>
+                      <span className="truncate">{a.clients?.name ?? "—"}</span>
+                      <span className="text-text3">· {a.procedures?.name ?? "—"}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="text-[11px] text-text2">
+                Esses agendamentos não serão cancelados automaticamente ao bloquear o dia.
+              </div>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Tipo de bloqueio</label>
             <div className="flex flex-wrap gap-2">
