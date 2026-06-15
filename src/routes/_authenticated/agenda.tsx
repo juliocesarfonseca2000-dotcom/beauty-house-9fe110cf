@@ -101,7 +101,8 @@ function AgendaPage() {
     setLoading(true);
     const [{ data: pdata }, { data: adata }, { data: absData }] = await Promise.all([
       supabase.from("app_users").select("id,name").eq("active", true)
-        .eq("role", "professional").order("name"),
+        .eq("role", "professional").eq("show_in_agenda", true).order("name"),
+
       supabase.from("appointments")
         .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
