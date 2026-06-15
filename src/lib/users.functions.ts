@@ -91,9 +91,11 @@ type UpdateInput = {
     is_evaluator?: boolean;
     permissions?: Record<string, boolean>;
     active?: boolean;
+    show_in_agenda?: boolean;
   };
   password?: string;
 };
+
 
 export const updateAppUser = createServerFn({ method: "POST" })
   .inputValidator((data: UpdateInput) => data)
