@@ -59,8 +59,9 @@ function ClosePackagePage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("procedures").select("id,name,duration_min,price_single,price_5,price_10,price_20").eq("active", true).order("name");
+      const { data } = await supabase.from("procedures").select("id,name,duration_min,price_single,price_5,price_10,price_20,session_type").eq("active", true).order("name");
       setProcs((data as Procedure[]) ?? []);
+
     })();
   }, []);
 
