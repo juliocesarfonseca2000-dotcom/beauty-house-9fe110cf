@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
-import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock, IconCalendarOff } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock, IconCalendarOff, IconAlertTriangle } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
