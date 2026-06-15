@@ -84,8 +84,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
       <nav className="flex-1 overflow-y-auto py-3">
 
         {SECTIONS.map((sec, si) => {
-          const visible = sec.items.filter((i) => user.permissions[i.key]);
+          const visible = sec.items.filter((i) => {
+            if (!user.permissions[i.key]) return false;
+            if (i.key === "estoque" && user.role === "professional") return false;
+            return true;
+          });
           if (visible.length === 0) return null;
+
           return (
             <div key={si} className={si > 0 ? "mt-4" : ""}>
               {sec.label && (
