@@ -77,7 +77,16 @@ function ClosePackagePage() {
   }, [search, client]);
 
   const currentProc = procs.find((p) => p.id === procId) ?? null;
-  const currentPrice = currentProc ? (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20) : null;
+  const isAvulso = ["avulso", "especial", "por_disparo"].includes(currentProc?.session_type ?? "");
+  const currentPrice = currentProc
+    ? (isAvulso ? currentProc.price_single : (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20))
+    : null;
+
+  useEffect(() => {
+    if (isAvulso) setSessions(1);
+    else if (sessions === 1) setSessions(10);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAvulso]);
 
   const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price, 0), [cart]);
   const discountVal = (subtotal * discountPct) / 100;
@@ -90,11 +99,12 @@ function ClosePackagePage() {
     setCart((c) => [...c, {
       uid: crypto.randomUUID(),
       procedure: currentProc,
-      sessions,
+      sessions: isAvulso ? 1 : sessions,
       price: currentPrice,
     }]);
     setProcId("");
   };
+
 
   const removeItem = (uid: string) => setCart((c) => c.filter((i) => i.uid !== uid));
 
