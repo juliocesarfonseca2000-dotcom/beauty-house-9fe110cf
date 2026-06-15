@@ -16,13 +16,16 @@ type Client = { id: string; name: string; record_num: number; phone: string | nu
 type Procedure = {
   id: string; name: string; duration_min: number | null;
   price_single: number | null; price_5: number | null; price_10: number | null; price_20: number | null;
+  session_type: string | null;
 };
+
 type CartItem = {
   uid: string;
   procedure: Procedure;
-  sessions: 5 | 10 | 20;
+  sessions: number;
   price: number;
 };
+
 
 const PAY_METHODS = ["Pix", "Cartão Crédito", "Cartão Débito", "Dinheiro", "Transferência", "Cheque"];
 const INSTALLMENT_METHODS = ["Cartão Crédito", "Cheque"];
@@ -34,7 +37,7 @@ function ClosePackagePage() {
   const [results, setResults] = useState<Client[]>([]);
   const [procs, setProcs] = useState<Procedure[]>([]);
   const [procId, setProcId] = useState("");
-  const [sessions, setSessions] = useState<5 | 10 | 20>(10);
+  const [sessions, setSessions] = useState<number>(10);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [payMethod, setPayMethod] = useState(PAY_METHODS[0]);
   const [installments, setInstallments] = useState(1);
@@ -56,8 +59,9 @@ function ClosePackagePage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("procedures").select("id,name,duration_min,price_single,price_5,price_10,price_20").eq("active", true).order("name");
+      const { data } = await supabase.from("procedures").select("id,name,duration_min,price_single,price_5,price_10,price_20,session_type").eq("active", true).order("name");
       setProcs((data as Procedure[]) ?? []);
+
     })();
   }, []);
 
@@ -73,7 +77,16 @@ function ClosePackagePage() {
   }, [search, client]);
 
   const currentProc = procs.find((p) => p.id === procId) ?? null;
-  const currentPrice = currentProc ? (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20) : null;
+  const isAvulso = ["avulso", "especial", "por_disparo"].includes(currentProc?.session_type ?? "");
+  const currentPrice = currentProc
+    ? (isAvulso ? currentProc.price_single : (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20))
+    : null;
+
+  useEffect(() => {
+    if (isAvulso) setSessions(1);
+    else if (sessions === 1) setSessions(10);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAvulso]);
 
   const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price, 0), [cart]);
   const discountVal = (subtotal * discountPct) / 100;
@@ -86,11 +99,12 @@ function ClosePackagePage() {
     setCart((c) => [...c, {
       uid: crypto.randomUUID(),
       procedure: currentProc,
-      sessions,
+      sessions: isAvulso ? 1 : sessions,
       price: currentPrice,
     }]);
     setProcId("");
   };
+
 
   const removeItem = (uid: string) => setCart((c) => c.filter((i) => i.uid !== uid));
 
@@ -273,29 +287,40 @@ function ClosePackagePage() {
             {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
 
-          <div className="grid grid-cols-3 gap-3 mb-3">
-            {([5, 10, 20] as const).map((n) => {
-              const price = currentProc ? (n === 5 ? currentProc.price_5 : n === 10 ? currentProc.price_10 : currentProc.price_20) : null;
-              const disabled = price == null;
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => setSessions(n)}
-                  className={`p-3 rounded-lg border-2 transition ${
-                    sessions === n && !disabled ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
-                  } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                >
-                  <div className="font-display text-xl text-navy">{n}</div>
-                  <div className="text-[10px] text-text2 uppercase">sessões</div>
-                  <div className="text-xs font-semibold text-gold mt-1">
-                    {price ? price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          {isAvulso ? (
+            <div className="mb-3 p-3 rounded-lg border-2 border-gold bg-gold/10 text-center">
+              <div className="font-display text-xl text-navy">1 sessão</div>
+              <div className="text-sm font-semibold text-gold mt-1">
+                {currentPrice ? currentPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+              </div>
+              <div className="text-[10px] text-text3 uppercase mt-1">Procedimento avulso</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              {([5, 10, 20] as const).map((n) => {
+                const price = currentProc ? (n === 5 ? currentProc.price_5 : n === 10 ? currentProc.price_10 : currentProc.price_20) : null;
+                const disabled = price == null;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setSessions(n)}
+                    className={`p-3 rounded-lg border-2 transition ${
+                      sessions === n && !disabled ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
+                    } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  >
+                    <div className="font-display text-xl text-navy">{n}</div>
+                    <div className="text-[10px] text-text2 uppercase">sessões</div>
+                    <div className="text-xs font-semibold text-gold mt-1">
+                      {price ? price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
 
           <button
             type="button"

@@ -38,4 +38,6 @@ export type AppUser = {
   avatar_url?: string | null;
   permissions: Permissions;
   active: boolean;
+  show_in_agenda?: boolean;
 };
+

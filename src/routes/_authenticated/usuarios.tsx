@@ -156,8 +156,10 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
   const [cargo, setCargo] = useState(initial?.cargo ?? "");
   const [isEval, setIsEval] = useState(initial?.is_evaluator ?? false);
   const [active, setActive] = useState(initial?.active ?? true);
+  const [showInAgenda, setShowInAgenda] = useState<boolean>(initial?.show_in_agenda ?? true);
   const [perms, setPerms] = useState<Permissions>(initial?.permissions ?? DEFAULT_PERMS_BY_ROLE.professional);
   const [busy, setBusy] = useState(false);
+
   const createFn = useServerFn(createAppUser);
   const updateFn = useServerFn(updateAppUser);
   const deleteFn = useServerFn(deleteAppUser);
@@ -183,7 +185,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token,
             id: initial.id,
-            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active },
+            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda },
             password: password || undefined,
           },
         });
@@ -192,10 +194,12 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token, email, password, name,
             role, cargo: cargo || null, is_evaluator: isEval, permissions: perms,
+            show_in_agenda: showInAgenda,
           },
         });
       }
       toast.success(isEdit ? "Atualizado!" : "Criado!");
+
       onSaved();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro");
@@ -268,6 +272,22 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
               ))}
             </div>
           </div>
+
+          {role === "professional" && (
+            <label className="flex items-center gap-3 text-sm cursor-pointer p-3 bg-bg2 rounded-lg border border-border">
+              <input
+                type="checkbox"
+                checked={showInAgenda}
+                onChange={(e) => setShowInAgenda(e.target.checked)}
+                className="w-4 h-4 accent-gold"
+              />
+              <div>
+                <div className="font-semibold text-navy">📅 Aparece na grade da Agenda</div>
+                <div className="text-xs text-text3">Desmarque para colaboradoras que não fazem atendimento (limpeza, suporte)</div>
+              </div>
+            </label>
+          )}
+
 
           <div className="flex justify-between gap-2 pt-2">
             {isEdit ? (

@@ -34,7 +34,9 @@ type CreateInput = {
   cargo: string | null;
   is_evaluator: boolean;
   permissions: Record<string, boolean>;
+  show_in_agenda?: boolean;
 };
+
 
 export const createAppUser = createServerFn({ method: "POST" })
   .inputValidator((data: CreateInput) => data)
@@ -71,7 +73,9 @@ export const createAppUser = createServerFn({ method: "POST" })
         is_evaluator: data.is_evaluator,
         permissions: data.permissions,
         active: true,
+        show_in_agenda: data.show_in_agenda ?? true,
       }),
+
     });
     if (!ins.ok) throw new Error((await ins.text()) || "Falha ao gravar perfil.");
     return { ok: true, id: created.id };
@@ -87,9 +91,11 @@ type UpdateInput = {
     is_evaluator?: boolean;
     permissions?: Record<string, boolean>;
     active?: boolean;
+    show_in_agenda?: boolean;
   };
   password?: string;
 };
+
 
 export const updateAppUser = createServerFn({ method: "POST" })
   .inputValidator((data: UpdateInput) => data)

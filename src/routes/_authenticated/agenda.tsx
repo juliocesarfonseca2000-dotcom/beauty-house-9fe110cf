@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock, IconCalendarOff, IconAlertTriangle } from "@tabler/icons-react";
@@ -62,8 +62,25 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 
 function AgendaPage() {
   const { user: me } = useAuth();
+  const navigate = useNavigate();
   const canManage = me?.role === "admin" || me?.role === "receptionist";
   const isProfessional = me?.role === "professional";
+
+  useEffect(() => {
+    if (me?.role !== "professional" || !me?.id) return;
+    const today = new Date().toISOString().split("T")[0];
+    supabase
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("professional_id", me.id)
+      .gte("datetime", `${today}T00:00:00`)
+      .lt("datetime", `${today}T23:59:59`)
+      .then(({ count }) => {
+        if ((count ?? 0) === 0) navigate({ to: "/escala" });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.id, me?.role]);
+
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
   const [proFilter, setProFilter] = useState<string>(isProfessional && me?.id ? me.id : "all");
@@ -84,7 +101,8 @@ function AgendaPage() {
     setLoading(true);
     const [{ data: pdata }, { data: adata }, { data: absData }] = await Promise.all([
       supabase.from("app_users").select("id,name").eq("active", true)
-        .eq("role", "professional").order("name"),
+        .eq("role", "professional").eq("show_in_agenda", true).order("name"),
+
       supabase.from("appointments")
         .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,clients(name),procedures(name)")
         .gte("datetime", dayStart.toISOString())
@@ -421,23 +439,30 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   useEffect(() => {
     if (search.length < 2 || client) { setResults([]); return; }
     const t = setTimeout(async () => {
-      const { data } = await supabase.from("clients")
-        .select("id,name,record_num").ilike("name", `%${search}%`).eq("active", true).limit(6);
+      const isNumeric = /^\d+$/.test(search.trim());
+      let query = supabase
+        .from("clients")
+        .select("id,name,record_num")
+        .eq("active", true)
+        .limit(6);
+      if (isNumeric) {
+        query = query.or(`record_num.eq.${parseInt(search)},phone.ilike.%${search}%`);
+      } else {
+        query = query.ilike("name", `%${search}%`);
+      }
+      const { data } = await query;
       setResults((data as Client[]) ?? []);
     }, 250);
     return () => clearTimeout(t);
   }, [search, client]);
 
   useEffect(() => {
-    const p = procs.find((x) => x.id === procId);
-    if (p?.duration_min) setDuration(String(p.duration_min));
-  }, [procId, procs]);
+    const proc = procId
+      ? procs.find((x) => x.id === procId)
+      : allProcs.find((x) => x.id === looseProcId);
+    if (proc?.duration_min) setDuration(String(proc.duration_min));
+  }, [procId, looseProcId, procs, allProcs]);
 
-  useEffect(() => {
-    if (!looseProcId) return;
-    const p = allProcs.find((x) => x.id === looseProcId);
-    if (p?.duration_min) setDuration(String(p.duration_min));
-  }, [looseProcId, allProcs]);
 
   useEffect(() => { setRecTime(time); }, [time]);
 
@@ -629,7 +654,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             ) : (
               <div className="relative">
                 <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text3" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome ou nº ficha..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm" />
                 {results.length > 0 && (
                   <div className="mt-1 bh-card max-h-48 overflow-y-auto absolute z-10 w-full bg-card">
                     {results.map((c) => (
@@ -827,7 +852,12 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
   const remove = async () => {
     if (!window.confirm("Excluir agendamento?")) return;
     setBusy(true);
+    await supabase
+      .from("sessions")
+      .update({ appointment_id: null })
+      .eq("appointment_id", appt.id);
     const { error } = await supabase.from("appointments").delete().eq("id", appt.id);
+
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Excluído");

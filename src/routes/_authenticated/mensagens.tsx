@@ -35,17 +35,28 @@ function MensagensPage() {
     if (!canAccess) return;
     (async () => {
       const month = new Date().getMonth() + 1;
+      const pad = String(month).padStart(2, "0");
       const today = new Date();
       const c60 = new Date(today); c60.setDate(c60.getDate() - 60);
       const c60s = c60.toISOString().slice(0, 10);
 
-      // 1. Aniversariantes do mês
+      // 1. Aniversariantes do mês (query padronizada com relatórios)
+      const { data: birthdayRows } = await supabase
+        .from("clients")
+        .select("id,name,phone,birthdate,record_num")
+        .eq("active", true)
+        .not("birthdate", "is", null)
+        .gte("birthdate", `1900-${pad}-01`)
+        .lte("birthdate", `2099-${pad}-31`)
+        .order("birthdate");
+      const annivers = (birthdayRows ?? []).map((c: { id: string; name: string; phone: string | null }) => ({
+        id: c.id, name: c.name, phone: c.phone,
+      }));
+
       const { data: clients } = await supabase
         .from("clients").select("id,name,phone,birthdate")
         .eq("active", true);
-      const annivers = (clients ?? [])
-        .filter((c: { birthdate: string | null }) => c.birthdate && Number(c.birthdate.slice(5, 7)) === month)
-        .map((c) => ({ id: c.id, name: c.name, phone: c.phone }));
+
 
       // 2. Pacote acabando
       const { data: pkgs } = await supabase
