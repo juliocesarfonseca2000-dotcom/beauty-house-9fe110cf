@@ -892,8 +892,8 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
   );
 }
 
-function BlockDayModal({ date, proId, proName, onClose, onSaved }: {
-  date: Date; proId: string; proName: string; onClose: () => void; onSaved: () => void;
+function BlockDayModal({ date, proId, proName, existingAppts, onClose, onSaved }: {
+  date: Date; proId: string; proName: string; existingAppts: Appt[]; onClose: () => void; onSaved: () => void;
 }) {
   const [absType, setAbsType] = useState<"vacation"|"absent"|"dayoff"|"leave">("dayoff");
   const [reason, setReason] = useState("");
