@@ -185,7 +185,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token,
             id: initial.id,
-            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active },
+            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda },
             password: password || undefined,
           },
         });
@@ -194,10 +194,12 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token, email, password, name,
             role, cargo: cargo || null, is_evaluator: isEval, permissions: perms,
+            show_in_agenda: showInAgenda,
           },
         });
       }
       toast.success(isEdit ? "Atualizado!" : "Criado!");
+
       onSaved();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro");
