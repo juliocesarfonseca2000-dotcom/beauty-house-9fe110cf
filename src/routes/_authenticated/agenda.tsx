@@ -337,7 +337,7 @@ function AgendaPage() {
         <BlockDayModal
           date={date}
           proId={blockingDay.proId}
-          proName={blockingDay.proseu nome}
+          proName={blockingDay.proName}
           existingAppts={appts.filter((a) => a.professional_id === blockingDay.proId && a.status !== "blocked" && a.status !== "cancelled")}
           onClose={() => setBlockingDay(null)}
           onSaved={() => { setBlockingDay(null); load(); }}
