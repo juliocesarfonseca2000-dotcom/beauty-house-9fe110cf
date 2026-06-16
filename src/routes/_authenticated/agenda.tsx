@@ -914,6 +914,14 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
                 ✗ Falta
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              disabled={busy}
+              className="px-3 py-1.5 rounded-md bg-gold/10 text-gold border border-gold/30 text-xs font-bold hover:bg-gold/20 flex items-center gap-1"
+            >
+              ✏️ Editar
+            </button>
             <button type="button" onClick={remove} disabled={busy} className="ml-auto px-3 py-1.5 rounded-md text-text2 hover:text-danger text-xs font-semibold flex items-center gap-1">
               <IconTrash size={14} /> Excluir
             </button>
