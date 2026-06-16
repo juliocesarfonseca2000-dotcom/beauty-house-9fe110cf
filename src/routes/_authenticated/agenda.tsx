@@ -388,6 +388,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [isPreference, setIsPreference] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
   const [procPros, setProcPros] = useState<Record<string, string[]>>({});
+  const isEditing = !!editingApptId;
 
   useEffect(() => {
     supabase.from("procedures").select("id,name,duration_min,resource_id").eq("active", true).order("name")
