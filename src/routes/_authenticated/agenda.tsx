@@ -365,8 +365,9 @@ function AgendaPage() {
   );
 }
 
-function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, onClose, onSaved }: {
+function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, onClose, onSaved, editingApptId, editingClientId, editingProcId, editingNotes }: {
   initialDate: Date; initialHour: number; initialMin: number; initialProId?: string; pros: Professional[]; onClose: () => void; onSaved: () => void;
+  editingApptId?: string; editingClientId?: string; editingProcId?: string; editingNotes?: string;
 }) {
   const [client, setClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
