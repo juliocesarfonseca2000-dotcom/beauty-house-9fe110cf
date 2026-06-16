@@ -523,6 +523,27 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (isLoose && !looseProcId) return toast.error("Escolha qual procedimento será realizado (avulso)");
     setBusy(true);
     try {
+      if (isEditing && editingApptId) {
+        const dur = Number(duration) || 60;
+        const first = new Date(`${date}T${time}:00`);
+        const effectiveProcId = procId || looseProcId;
+        const { error } = await supabase
+          .from("appointments")
+          .update({
+            client_id: client.id,
+            procedure_id: effectiveProcId || null,
+            professional_id: proId,
+            datetime: first.toISOString(),
+            duration_min: dur,
+            notes: notes || null,
+            is_preference: isPreference,
+          })
+          .eq("id", editingApptId);
+        if (error) throw error;
+        toast.success("Agendamento atualizado!");
+        onSaved();
+        return;
+      }
       const dur = Number(duration) || 60;
       const selectedProc = procs.find((x) => x.id === procId);
       const available = selectedProc?.available ?? 1;
