@@ -36,6 +36,8 @@ function MensagensPage() {
     (async () => {
       const month = new Date().getMonth() + 1;
       const pad = String(month).padStart(2, "0");
+      const lastDay = new Date(2000, Number(pad), 0).getDate();
+      const lastDayPad = String(lastDay).padStart(2, "0");
       const today = new Date();
       const c60 = new Date(today); c60.setDate(c60.getDate() - 60);
       const c60s = c60.toISOString().slice(0, 10);
@@ -47,7 +49,7 @@ function MensagensPage() {
         .eq("active", true)
         .not("birthdate", "is", null)
         .gte("birthdate", `1900-${pad}-01`)
-        .lte("birthdate", `2099-${pad}-31`)
+        .lte("birthdate", `2099-${pad}-${lastDayPad}`)
         .order("birthdate");
       const annivers = (birthdayRows ?? []).map((c: { id: string; name: string; phone: string | null }) => ({
         id: c.id, name: c.name, phone: c.phone,

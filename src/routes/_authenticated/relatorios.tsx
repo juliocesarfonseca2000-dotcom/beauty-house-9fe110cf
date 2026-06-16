@@ -135,13 +135,15 @@ function AniversariantesReport() {
     (async () => {
       setLoading(true);
       const pad = String(month).padStart(2, "0");
+      const lastDay = new Date(2000, Number(pad), 0).getDate();
+      const lastDayPad = String(lastDay).padStart(2, "0");
       const { data, error } = await supabase
         .from("clients")
         .select("id,name,phone,birthdate,record_num")
         .eq("active", true)
         .not("birthdate", "is", null)
         .gte("birthdate", `1900-${pad}-01`)
-        .lte("birthdate", `2099-${pad}-31`)
+        .lte("birthdate", `2099-${pad}-${lastDayPad}`)
         .order("birthdate");
       if (error) toast.error(error.message);
       const sorted = ((data ?? []) as { id: string; name: string; phone: string | null; birthdate: string }[])

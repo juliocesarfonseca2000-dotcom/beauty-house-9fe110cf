@@ -177,8 +177,9 @@ async function genLowPackages() {
       procName: Array.isArray(p.procedures) ? p.procedures[0]?.name : p.procedures?.name,
       cliName: Array.isArray(p.clients) ? p.clients[0]?.name : p.clients?.name,
       remaining: Number(p.sess_total ?? 0) - Number(p.sess_done ?? 0),
+      sess_total: Number(p.sess_total ?? 0),
     }))
-    .filter((p) => p.remaining > 0 && p.remaining <= 2);
+    .filter((p) => p.remaining > 0 && p.remaining <= 2 && p.sess_total > 1);
   if (!candidates.length) return;
 
   const refIds = candidates.map((c) => c.id);
