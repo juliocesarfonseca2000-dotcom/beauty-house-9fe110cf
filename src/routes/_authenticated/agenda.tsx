@@ -1044,6 +1044,23 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
           onSaved={() => { setEditing(false); onChanged(); }}
         />
       )}
+      {termModal && (
+        <TermConsentModal
+          data={termModal}
+          onCancel={() => { setTermModal(null); setBusy(false); }}
+          onSigned={async (signatureData) => {
+            await supabase.from("signed_terms").insert({
+              client_id: termModal.clientId,
+              procedure_id: termModal.procedureId,
+              package_id: termModal.packageId,
+              term_text: termModal.termText,
+              signature_data: signatureData,
+              signed_at: new Date().toISOString(),
+            });
+            await finishMarkArrived();
+          }}
+        />
+      )}
     </div>
       </div>
     </div>
