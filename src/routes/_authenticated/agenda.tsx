@@ -795,10 +795,21 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   );
 }
 
+type TermModalData = {
+  clientName: string;
+  clientId: string;
+  procedureId: string;
+  procedureName: string;
+  termText: string;
+  appointmentId: string;
+  packageId: string | null;
+};
+
 function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: Professional[]; onClose: () => void; onChanged: () => void }) {
   const { user: me } = useAuth();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [termModal, setTermModal] = useState<TermModalData | null>(null);
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
 
@@ -808,11 +819,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
       .then(({ data }) => setConfirmedByName((data as { name?: string } | null)?.name ?? null));
   }, [appt.attendance_confirmed_by]);
 
-  const markClientArrived = async () => {
-    if (appt.client_arrived_notified) {
-      toast.info("Cliente já foi notificado como chegou.");
-      return;
-    }
+  const finishMarkArrived = async () => {
     setBusy(true);
     const now = new Date().toISOString();
     const { error } = await supabase
@@ -838,7 +845,61 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     });
     toast.success(`✓ ${clientName} marcado como chegou! Profissional notificado.`);
     setBusy(false);
+    setTermModal(null);
     onChanged();
+  };
+
+  const markClientArrived = async () => {
+    if (appt.client_arrived_notified) {
+      toast.info("Cliente já foi notificado como chegou.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (appt.procedure_id) {
+        const { data: proc } = await supabase
+          .from("procedures")
+          .select("requires_term, term_text, name")
+          .eq("id", appt.procedure_id)
+          .maybeSingle();
+
+        if (proc?.requires_term && proc.term_text) {
+          const { count } = await supabase
+            .from("signed_terms")
+            .select("id", { count: "exact", head: true })
+            .eq("client_id", appt.client_id)
+            .eq("procedure_id", appt.procedure_id);
+
+          if ((count ?? 0) === 0) {
+            const { data: pkg } = await supabase
+              .from("packages")
+              .select("id")
+              .eq("client_id", appt.client_id)
+              .eq("procedure_id", appt.procedure_id)
+              .eq("status", "active")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            setTermModal({
+              clientName: appt.clients?.name ?? "Cliente",
+              clientId: appt.client_id,
+              procedureId: appt.procedure_id,
+              procedureName: proc.name,
+              termText: proc.term_text,
+              appointmentId: appt.id,
+              packageId: pkg?.id ?? null,
+            });
+            setBusy(false);
+            return;
+          }
+        }
+      }
+      await finishMarkArrived();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao marcar chegada");
+      setBusy(false);
+    }
   };
 
   const confirmAttendance = async () => {
