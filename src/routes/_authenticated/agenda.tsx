@@ -967,8 +967,23 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
             <button type="button" onClick={remove} disabled={busy} className="ml-auto px-3 py-1.5 rounded-md text-text2 hover:text-danger text-xs font-semibold flex items-center gap-1">
               <IconTrash size={14} /> Excluir
             </button>
-          </div>
-        </div>
+      </div>
+      {editing && (
+        <ApptModal
+          initialDate={new Date(appt.datetime)}
+          initialHour={new Date(appt.datetime).getHours()}
+          initialMin={new Date(appt.datetime).getMinutes()}
+          initialProId={appt.professional_id}
+          editingApptId={appt.id}
+          editingClientId={appt.client_id}
+          editingProcId={appt.procedure_id ?? undefined}
+          editingNotes={appt.notes ?? undefined}
+          pros={pros}
+          onClose={() => setEditing(false)}
+          onSaved={() => { setEditing(false); onChanged(); }}
+        />
+      )}
+    </div>
       </div>
     </div>
   );
