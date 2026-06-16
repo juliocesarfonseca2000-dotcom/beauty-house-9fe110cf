@@ -641,7 +641,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-xl my-8">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div className="font-display text-2xl text-navy">Novo agendamento</div>
+          <div className="font-display text-2xl text-navy">{isEditing ? "Editar agendamento" : "Novo agendamento"}</div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
