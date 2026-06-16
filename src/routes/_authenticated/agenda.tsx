@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { IconChevronLeft, IconChevronRight, IconPlus, IconX, IconSearch, IconCalendarEvent, IconTrash, IconLock, IconCalendarOff, IconAlertTriangle } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -795,10 +795,21 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   );
 }
 
+type TermModalData = {
+  clientName: string;
+  clientId: string;
+  procedureId: string;
+  procedureName: string;
+  termText: string;
+  appointmentId: string;
+  packageId: string | null;
+};
+
 function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: Professional[]; onClose: () => void; onChanged: () => void }) {
   const { user: me } = useAuth();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [termModal, setTermModal] = useState<TermModalData | null>(null);
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
 
@@ -808,11 +819,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
       .then(({ data }) => setConfirmedByName((data as { name?: string } | null)?.name ?? null));
   }, [appt.attendance_confirmed_by]);
 
-  const markClientArrived = async () => {
-    if (appt.client_arrived_notified) {
-      toast.info("Cliente já foi notificado como chegou.");
-      return;
-    }
+  const finishMarkArrived = async () => {
     setBusy(true);
     const now = new Date().toISOString();
     const { error } = await supabase
@@ -838,7 +845,61 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     });
     toast.success(`✓ ${clientName} marcado como chegou! Profissional notificado.`);
     setBusy(false);
+    setTermModal(null);
     onChanged();
+  };
+
+  const markClientArrived = async () => {
+    if (appt.client_arrived_notified) {
+      toast.info("Cliente já foi notificado como chegou.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (appt.procedure_id) {
+        const { data: proc } = await supabase
+          .from("procedures")
+          .select("requires_term, term_text, name")
+          .eq("id", appt.procedure_id)
+          .maybeSingle();
+
+        if (proc?.requires_term && proc.term_text) {
+          const { count } = await supabase
+            .from("signed_terms")
+            .select("id", { count: "exact", head: true })
+            .eq("client_id", appt.client_id)
+            .eq("procedure_id", appt.procedure_id);
+
+          if ((count ?? 0) === 0) {
+            const { data: pkg } = await supabase
+              .from("packages")
+              .select("id")
+              .eq("client_id", appt.client_id)
+              .eq("procedure_id", appt.procedure_id)
+              .eq("status", "active")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            setTermModal({
+              clientName: appt.clients?.name ?? "Cliente",
+              clientId: appt.client_id,
+              procedureId: appt.procedure_id,
+              procedureName: proc.name,
+              termText: proc.term_text,
+              appointmentId: appt.id,
+              packageId: pkg?.id ?? null,
+            });
+            setBusy(false);
+            return;
+          }
+        }
+      }
+      await finishMarkArrived();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao marcar chegada");
+      setBusy(false);
+    }
   };
 
   const confirmAttendance = async () => {
@@ -983,6 +1044,23 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
           onSaved={() => { setEditing(false); onChanged(); }}
         />
       )}
+      {termModal && (
+        <TermConsentModal
+          data={termModal}
+          onCancel={() => { setTermModal(null); setBusy(false); }}
+          onSigned={async (signatureData) => {
+            await supabase.from("signed_terms").insert({
+              client_id: termModal.clientId,
+              procedure_id: termModal.procedureId,
+              package_id: termModal.packageId,
+              term_text: termModal.termText,
+              signature_data: signatureData,
+              signed_at: new Date().toISOString(),
+            });
+            await finishMarkArrived();
+          }}
+        />
+      )}
     </div>
       </div>
     </div>
@@ -1110,6 +1188,180 @@ function BlockDayModal({ date, proId, proName, existingAppts, onClose, onSaved }
 }
 
 const inp = "w-full px-3 py-2 rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-gold/40 text-sm";
+function TermConsentModal({
+  data,
+  onCancel,
+  onSigned,
+}: {
+  data: TermModalData;
+  onCancel: () => void;
+  onSigned: (signatureData: string) => Promise<void>;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [drawing, setDrawing] = useState(false);
+  const [hasSigned, setHasSigned] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const startDraw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setDrawing(true);
+    setHasSigned(true);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!drawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#1a1a2e";
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const startDrawTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setDrawing(true);
+    setHasSigned(true);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    ctx.beginPath();
+    ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+  };
+
+  const drawTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!drawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#1a1a2e";
+    ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSigned(false);
+  };
+
+  const handleSign = async () => {
+    if (!hasSigned) return toast.error("Por favor, colete a assinatura da cliente antes de continuar.");
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const signatureData = canvas.toDataURL("image/png");
+    setBusy(true);
+    await onSigned(signatureData);
+    setBusy(false);
+  };
+
+  const today = new Date().toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "long", year: "numeric"
+  });
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-navy/70 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg my-8">
+        <div className="px-6 py-4 border-b bg-rose-50 rounded-t-xl">
+          <div className="font-display text-xl text-navy">📋 Termo de Consentimento</div>
+          <div className="text-xs text-text2 mt-1">
+            Este procedimento exige assinatura antes de ser realizado
+          </div>
+        </div>
+        <div className="px-6 py-3 bg-rose-50/50 border-b flex items-center justify-between">
+          <div>
+            <div className="text-sm font-bold text-navy">{data.clientName}</div>
+            <div className="text-xs text-text2">{data.procedureName}</div>
+          </div>
+          <div className="text-xs text-text3">{today}</div>
+        </div>
+        <div className="px-6 py-4 max-h-48 overflow-y-auto border-b">
+          <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+            {data.termText}
+          </div>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-text2 uppercase tracking-wide">
+              Assinatura de <span className="text-navy">{data.clientName}</span>
+            </div>
+            <button
+              type="button"
+              onClick={clearCanvas}
+              className="text-xs text-text3 hover:text-danger underline"
+            >
+              Limpar
+            </button>
+          </div>
+          <canvas
+            ref={canvasRef}
+            width={420}
+            height={120}
+            onMouseDown={startDraw}
+            onMouseMove={draw}
+            onMouseUp={() => setDrawing(false)}
+            onMouseLeave={() => setDrawing(false)}
+            onTouchStart={startDrawTouch}
+            onTouchMove={drawTouch}
+            onTouchEnd={() => setDrawing(false)}
+            className="w-full border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair touch-none"
+            style={{ height: "120px" }}
+          />
+          {!hasSigned && (
+            <div className="text-xs text-text3 text-center">
+              ✍️ Peça para a cliente assinar acima com o dedo ou mouse
+            </div>
+          )}
+        </div>
+        <div className="mx-6 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="text-xs text-amber-800">
+            ⚠️ <b>Atenção:</b> A cliente não poderá realizar o procedimento sem assinar este termo. A assinatura ficará salva na ficha da cliente.
+          </div>
+        </div>
+        <div className="px-6 pb-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-lg border border-border text-text2 hover:bg-bg2 text-sm font-semibold"
+          >
+            Cancelar — não confirmar chegada
+          </button>
+          <button
+            type="button"
+            onClick={handleSign}
+            disabled={!hasSigned || busy}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-rose-500 text-white text-sm font-bold hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {busy ? "Salvando..." : "✅ Assinar e Confirmar Chegada"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">{label}</label>{children}</div>;
 }
