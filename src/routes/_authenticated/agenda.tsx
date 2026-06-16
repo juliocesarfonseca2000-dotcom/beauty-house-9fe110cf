@@ -331,7 +331,7 @@ function AgendaPage() {
         />
       )}
       {viewing && (
-        <ApptViewModal appt={viewing} onClose={() => setViewing(null)} onChanged={() => { setViewing(null); load(); }} />
+        <ApptViewModal appt={viewing} pros={pros} onClose={() => setViewing(null)} onChanged={() => { setViewing(null); load(); }} />
       )}
       {slotChoice && (
         <SlotChoiceModal
