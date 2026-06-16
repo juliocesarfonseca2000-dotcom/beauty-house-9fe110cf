@@ -331,7 +331,7 @@ function AgendaPage() {
         />
       )}
       {viewing && (
-        <ApptViewModal appt={viewing} onClose={() => setViewing(null)} onChanged={() => { setViewing(null); load(); }} />
+        <ApptViewModal appt={viewing} pros={pros} onClose={() => setViewing(null)} onChanged={() => { setViewing(null); load(); }} />
       )}
       {slotChoice && (
         <SlotChoiceModal
@@ -365,8 +365,9 @@ function AgendaPage() {
   );
 }
 
-function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, onClose, onSaved }: {
+function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, onClose, onSaved, editingApptId, editingClientId, editingProcId, editingNotes }: {
   initialDate: Date; initialHour: number; initialMin: number; initialProId?: string; pros: Professional[]; onClose: () => void; onSaved: () => void;
+  editingApptId?: string; editingClientId?: string; editingProcId?: string; editingNotes?: string;
 }) {
   const [client, setClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
@@ -387,6 +388,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [isPreference, setIsPreference] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
   const [procPros, setProcPros] = useState<Record<string, string[]>>({});
+  const isEditing = !!editingApptId;
 
   useEffect(() => {
     supabase.from("procedures").select("id,name,duration_min,resource_id").eq("active", true).order("name")
@@ -467,6 +469,26 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   useEffect(() => { setRecTime(time); }, [time]);
 
   useEffect(() => {
+    if (!editingClientId) return;
+    supabase
+      .from("clients")
+      .select("id,name,record_num")
+      .eq("id", editingClientId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setClient(data as Client);
+      });
+  }, [editingClientId]);
+
+  useEffect(() => {
+    if (editingProcId) setProcId(editingProcId);
+  }, [editingProcId]);
+
+  useEffect(() => {
+    if (editingNotes) setNotes(editingNotes);
+  }, [editingNotes]);
+
+  useEffect(() => {
     if (!client) { setIsFirstVisit(false); return; }
     (async () => {
       const { count } = await supabase
@@ -501,6 +523,27 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     if (isLoose && !looseProcId) return toast.error("Escolha qual procedimento será realizado (avulso)");
     setBusy(true);
     try {
+      if (isEditing && editingApptId) {
+        const dur = Number(duration) || 60;
+        const first = new Date(`${date}T${time}:00`);
+        const effectiveProcId = procId || looseProcId;
+        const { error } = await supabase
+          .from("appointments")
+          .update({
+            client_id: client.id,
+            procedure_id: effectiveProcId || null,
+            professional_id: proId,
+            datetime: first.toISOString(),
+            duration_min: dur,
+            notes: notes || null,
+            is_preference: isPreference,
+          })
+          .eq("id", editingApptId);
+        if (error) throw error;
+        toast.success("Agendamento atualizado!");
+        onSaved();
+        return;
+      }
       const dur = Number(duration) || 60;
       const selectedProc = procs.find((x) => x.id === procId);
       const available = selectedProc?.available ?? 1;
@@ -640,7 +683,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-xl my-8">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div className="font-display text-2xl text-navy">Novo agendamento</div>
+          <div className="font-display text-2xl text-navy">{isEditing ? "Editar agendamento" : "Novo agendamento"}</div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
@@ -752,9 +795,10 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   );
 }
 
-function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () => void; onChanged: () => void }) {
+function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: Professional[]; onClose: () => void; onChanged: () => void }) {
   const { user: me } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
 
@@ -912,11 +956,34 @@ function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () =
                 ✗ Falta
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              disabled={busy}
+              className="px-3 py-1.5 rounded-md bg-gold/10 text-gold border border-gold/30 text-xs font-bold hover:bg-gold/20 flex items-center gap-1"
+            >
+              ✏️ Editar
+            </button>
             <button type="button" onClick={remove} disabled={busy} className="ml-auto px-3 py-1.5 rounded-md text-text2 hover:text-danger text-xs font-semibold flex items-center gap-1">
               <IconTrash size={14} /> Excluir
             </button>
-          </div>
-        </div>
+      </div>
+      {editing && (
+        <ApptModal
+          initialDate={new Date(appt.datetime)}
+          initialHour={new Date(appt.datetime).getHours()}
+          initialMin={new Date(appt.datetime).getMinutes()}
+          initialProId={appt.professional_id}
+          editingApptId={appt.id}
+          editingClientId={appt.client_id}
+          editingProcId={appt.procedure_id ?? undefined}
+          editingNotes={appt.notes ?? undefined}
+          pros={pros}
+          onClose={() => setEditing(false)}
+          onSaved={() => { setEditing(false); onChanged(); }}
+        />
+      )}
+    </div>
       </div>
     </div>
   );
