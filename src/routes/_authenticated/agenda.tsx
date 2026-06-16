@@ -756,6 +756,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 function ApptViewModal({ appt, onClose, onChanged }: { appt: Appt; onClose: () => void; onChanged: () => void }) {
   const { user: me } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
 
