@@ -469,6 +469,26 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   useEffect(() => { setRecTime(time); }, [time]);
 
   useEffect(() => {
+    if (!editingClientId) return;
+    supabase
+      .from("clients")
+      .select("id,name,record_num")
+      .eq("id", editingClientId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setClient(data as Client);
+      });
+  }, [editingClientId]);
+
+  useEffect(() => {
+    if (editingProcId) setProcId(editingProcId);
+  }, [editingProcId]);
+
+  useEffect(() => {
+    if (editingNotes) setNotes(editingNotes);
+  }, [editingNotes]);
+
+  useEffect(() => {
     if (!client) { setIsFirstVisit(false); return; }
     (async () => {
       const { count } = await supabase
