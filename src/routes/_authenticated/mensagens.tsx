@@ -34,7 +34,11 @@ function MensagensPage() {
   useEffect(() => {
     if (!canAccess) return;
     (async () => {
-      const currentMonth = new Date().getMonth() + 1;
+      // Mês corrente no fuso horário do usuário (evita "pular" mês por UTC)
+      const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const currentMonth = Number(
+        new Intl.DateTimeFormat("en-US", { timeZone: userTz, month: "numeric" }).format(new Date())
+      );
       const today = new Date();
       const c60 = new Date(today); c60.setDate(c60.getDate() - 60);
       const c60s = c60.toISOString().slice(0, 10);
