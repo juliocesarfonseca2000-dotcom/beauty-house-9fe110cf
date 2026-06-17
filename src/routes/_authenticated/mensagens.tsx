@@ -34,28 +34,17 @@ function MensagensPage() {
   useEffect(() => {
     if (!canAccess) return;
     (async () => {
-      const month = new Date().getMonth() + 1;
-      const pad = String(month).padStart(2, "0");
-      const lastDay = new Date(2000, Number(pad), 0).getDate();
-      const lastDayPad = String(lastDay).padStart(2, "0");
+      const currentMonth = new Date().getMonth() + 1;
       const today = new Date();
       const c60 = new Date(today); c60.setDate(c60.getDate() - 60);
       const c60s = c60.toISOString().slice(0, 10);
 
-      // 1. Aniversariantes do mês (query padronizada com relatórios)
-      const fromDate = `1900-${pad}-01`;
-      const toDate = `2099-${pad}-${lastDayPad}`;
+      // 1. Aniversariantes do mês via RPC
       const { data: birthdayRows, error: birthdayErr } = await supabase
-        .from("clients")
-        .select("id,name,phone,birthdate,record_num")
-        .eq("active", true)
-        .not("birthdate", "is", null)
-        .gte("birthdate", fromDate)
-        .lte("birthdate", toDate)
-        .order("birthdate");
+        .rpc('get_birthday_clients', { p_month: currentMonth });
       if (birthdayErr) {
-        console.error("[mensagens] Falha no filtro de birthdate", { month, pad, lastDay, lastDayPad, fromDate, toDate, error: birthdayErr });
-        toast.error(`Falha no filtro de aniversariantes (${fromDate} → ${toDate}): ${birthdayErr.message}`);
+        console.error("[mensagens] Falha na RPC get_birthday_clients", { month: currentMonth, error: birthdayErr });
+        toast.error(`Falha ao buscar aniversariantes: ${birthdayErr.message}`);
       }
       const annivers = (birthdayRows ?? []).map((c: { id: string; name: string; phone: string | null }) => ({
         id: c.id, name: c.name, phone: c.phone,

@@ -134,22 +134,11 @@ function AniversariantesReport() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const pad = String(month).padStart(2, "0");
-      const lastDay = new Date(2000, Number(pad), 0).getDate();
-      const lastDayPad = String(lastDay).padStart(2, "0");
-      const fromDate = `1900-${pad}-01`;
-      const toDate = `2099-${pad}-${lastDayPad}`;
       const { data, error } = await supabase
-        .from("clients")
-        .select("id,name,phone,birthdate,record_num")
-        .eq("active", true)
-        .not("birthdate", "is", null)
-        .gte("birthdate", fromDate)
-        .lte("birthdate", toDate)
-        .order("birthdate");
+        .rpc('get_birthday_clients', { p_month: month });
       if (error) {
-        console.error("[relatorios] Falha no filtro de birthdate", { month, pad, lastDay, lastDayPad, fromDate, toDate, error });
-        toast.error(`Falha no filtro de aniversariantes (${fromDate} → ${toDate}): ${error.message}`);
+        console.error("[relatorios] Falha na RPC get_birthday_clients", { month, error });
+        toast.error(`Falha ao buscar aniversariantes: ${error.message}`);
       }
       const sorted = ((data ?? []) as { id: string; name: string; phone: string | null; birthdate: string }[])
         .sort((a, b) => a.birthdate.slice(8, 10).localeCompare(b.birthdate.slice(8, 10)));

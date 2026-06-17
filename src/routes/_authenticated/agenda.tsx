@@ -864,35 +864,27 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
           .maybeSingle();
 
         if (proc?.requires_term && proc.term_text) {
-          const { count } = await supabase
-            .from("signed_terms")
-            .select("id", { count: "exact", head: true })
+          const { data: pkg } = await supabase
+            .from("packages")
+            .select("id")
             .eq("client_id", appt.client_id)
-            .eq("procedure_id", appt.procedure_id);
+            .eq("procedure_id", appt.procedure_id)
+            .eq("status", "active")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-          if ((count ?? 0) === 0) {
-            const { data: pkg } = await supabase
-              .from("packages")
-              .select("id")
-              .eq("client_id", appt.client_id)
-              .eq("procedure_id", appt.procedure_id)
-              .eq("status", "active")
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-            setTermModal({
-              clientName: appt.clients?.name ?? "Cliente",
-              clientId: appt.client_id,
-              procedureId: appt.procedure_id,
-              procedureName: proc.name,
-              termText: proc.term_text,
-              appointmentId: appt.id,
-              packageId: pkg?.id ?? null,
-            });
-            setBusy(false);
-            return;
-          }
+          setTermModal({
+            clientName: appt.clients?.name ?? "Cliente",
+            clientId: appt.client_id,
+            procedureId: appt.procedure_id,
+            procedureName: proc.name,
+            termText: proc.term_text,
+            appointmentId: appt.id,
+            packageId: pkg?.id ?? null,
+          });
+          setBusy(false);
+          return;
         }
       }
       await finishMarkArrived();
