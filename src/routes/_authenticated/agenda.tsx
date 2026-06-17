@@ -273,7 +273,7 @@ function AgendaPage() {
                     const extra: string[] = [];
                     if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
                     if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
-                    if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("ring-2 ring-blue-400");
+                    if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("!bg-blue-500/15 !border-l-blue-500 ring-2 ring-blue-300");
                     return (
                       <div
                         key={a.id}
