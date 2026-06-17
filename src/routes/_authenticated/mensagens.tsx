@@ -43,14 +43,20 @@ function MensagensPage() {
       const c60s = c60.toISOString().slice(0, 10);
 
       // 1. Aniversariantes do mês (query padronizada com relatórios)
-      const { data: birthdayRows } = await supabase
+      const fromDate = `1900-${pad}-01`;
+      const toDate = `2099-${pad}-${lastDayPad}`;
+      const { data: birthdayRows, error: birthdayErr } = await supabase
         .from("clients")
         .select("id,name,phone,birthdate,record_num")
         .eq("active", true)
         .not("birthdate", "is", null)
-        .gte("birthdate", `1900-${pad}-01`)
-        .lte("birthdate", `2099-${pad}-${lastDayPad}`)
+        .gte("birthdate", fromDate)
+        .lte("birthdate", toDate)
         .order("birthdate");
+      if (birthdayErr) {
+        console.error("[mensagens] Falha no filtro de birthdate", { month, pad, lastDay, lastDayPad, fromDate, toDate, error: birthdayErr });
+        toast.error(`Falha no filtro de aniversariantes (${fromDate} → ${toDate}): ${birthdayErr.message}`);
+      }
       const annivers = (birthdayRows ?? []).map((c: { id: string; name: string; phone: string | null }) => ({
         id: c.id, name: c.name, phone: c.phone,
       }));
