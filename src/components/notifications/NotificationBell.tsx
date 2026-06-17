@@ -39,6 +39,7 @@ export function NotificationBell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [avulsoSkipped, setAvulsoSkipped] = useState<{ count: number; names: string[] }>({ count: 0, names: [] });
 
   const canSee = user?.role === "admin" || user?.role === "receptionist";
   if (!user) return null;
@@ -78,8 +79,10 @@ export function NotificationBell() {
     if (!canSee) return;
     let cancelled = false;
     (async () => {
-      await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmedAppts()]);
-      if (!cancelled) qc.invalidateQueries({ queryKey: ["notifications"] });
+      const [low] = await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmedAppts()]);
+      if (cancelled) return;
+      setAvulsoSkipped(low);
+      qc.invalidateQueries({ queryKey: ["notifications"] });
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
