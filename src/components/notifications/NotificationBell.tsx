@@ -150,6 +150,15 @@ export function NotificationBell() {
                 </div>
               ))
             )}
+            {canSee && avulsoSkipped.count > 0 && (
+              <div
+                className="px-3 py-2 border-t border-border bg-bg2/30 text-[11px] text-text2"
+                title={avulsoSkipped.names.join("\n") + (avulsoSkipped.count > avulsoSkipped.names.length ? `\n+${avulsoSkipped.count - avulsoSkipped.names.length} outros` : "")}
+              >
+                <span className="inline-block px-1.5 py-0.5 rounded bg-bg2 text-text2 font-semibold mr-1">avulso</span>
+                {avulsoSkipped.count} procedimento(s) avulso(s) sem alerta de "pacote acabando" (sessão única).
+              </div>
+            )}
             <div className="px-3 py-2 border-t bg-card sticky bottom-0">
               <Link to="/notificacoes" onClick={() => setOpen(false)} className="block text-center text-xs font-semibold text-navy hover:text-gold">
                 Ver todas as notificações →
