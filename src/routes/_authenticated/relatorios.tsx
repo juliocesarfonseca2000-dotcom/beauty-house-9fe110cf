@@ -127,7 +127,10 @@ function ReportHeader({ title, count, children }: { title: string; count?: numbe
 
 // ============= 1. ANIVERSARIANTES DO MÊS =============
 function AniversariantesReport() {
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [month, setMonth] = useState(() => {
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return Number(new Intl.DateTimeFormat("en-US", { timeZone: userTz, month: "numeric" }).format(new Date()));
+  });
   const [rows, setRows] = useState<{ id: string; name: string; phone: string | null; birthdate: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
