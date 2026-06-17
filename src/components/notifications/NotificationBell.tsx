@@ -39,6 +39,7 @@ export function NotificationBell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [avulsoSkipped, setAvulsoSkipped] = useState<{ count: number; names: string[] }>({ count: 0, names: [] });
 
   const canSee = user?.role === "admin" || user?.role === "receptionist";
   if (!user) return null;
@@ -78,8 +79,10 @@ export function NotificationBell() {
     if (!canSee) return;
     let cancelled = false;
     (async () => {
-      await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmedAppts()]);
-      if (!cancelled) qc.invalidateQueries({ queryKey: ["notifications"] });
+      const [low] = await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmedAppts()]);
+      if (cancelled) return;
+      setAvulsoSkipped(low);
+      qc.invalidateQueries({ queryKey: ["notifications"] });
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,6 +150,15 @@ export function NotificationBell() {
                 </div>
               ))
             )}
+            {canSee && avulsoSkipped.count > 0 && (
+              <div
+                className="px-3 py-2 border-t border-border bg-bg2/30 text-[11px] text-text2"
+                title={avulsoSkipped.names.join("\n") + (avulsoSkipped.count > avulsoSkipped.names.length ? `\n+${avulsoSkipped.count - avulsoSkipped.names.length} outros` : "")}
+              >
+                <span className="inline-block px-1.5 py-0.5 rounded bg-bg2 text-text2 font-semibold mr-1">avulso</span>
+                {avulsoSkipped.count} procedimento(s) avulso(s) sem alerta de "pacote acabando" (sessão única).
+              </div>
+            )}
             <div className="px-3 py-2 border-t bg-card sticky bottom-0">
               <Link to="/notificacoes" onClick={() => setOpen(false)} className="block text-center text-xs font-semibold text-navy hover:text-gold">
                 Ver todas as notificações →
@@ -161,7 +173,7 @@ export function NotificationBell() {
 
 // ===== Geradores =====
 
-async function genLowPackages() {
+async function genLowPackages(): Promise<{ count: number; names: string[] }> {
   const { data: pkgs } = await supabase
     .from("packages")
     .select("id,client_id,sess_total,sess_done,procedures(name),clients(name)")
@@ -171,16 +183,21 @@ async function genLowPackages() {
     procedures: { name: string } | { name: string }[] | null;
     clients: { name: string } | { name: string }[] | null;
   };
-  const candidates = ((pkgs ?? []) as unknown as Row[])
+  const mapped = ((pkgs ?? []) as unknown as Row[])
     .map((p) => ({
       id: p.id, client_id: p.client_id,
       procName: Array.isArray(p.procedures) ? p.procedures[0]?.name : p.procedures?.name,
       cliName: Array.isArray(p.clients) ? p.clients[0]?.name : p.clients?.name,
       remaining: Number(p.sess_total ?? 0) - Number(p.sess_done ?? 0),
       sess_total: Number(p.sess_total ?? 0),
-    }))
-    .filter((p) => p.remaining > 0 && p.remaining <= 2 && p.sess_total > 1);
-  if (!candidates.length) return;
+    }));
+  const candidates = mapped.filter((p) => p.remaining > 0 && p.remaining <= 2 && p.sess_total > 1);
+  const avulsoSkipped = mapped.filter((p) => p.remaining > 0 && p.remaining <= 2 && p.sess_total === 1);
+  const skipInfo = {
+    count: avulsoSkipped.length,
+    names: avulsoSkipped.slice(0, 5).map((p) => `${p.cliName ?? "Cliente"} — ${p.procName ?? "Procedimento"}`),
+  };
+  if (!candidates.length) return skipInfo;
 
   const refIds = candidates.map((c) => c.id);
   const { data: existing } = await supabase
@@ -217,6 +234,7 @@ async function genLowPackages() {
     });
   }
   if (toInsert.length) await supabase.from("notifications").insert(toInsert);
+  return skipInfo;
 }
 
 async function genInactiveClients() {
