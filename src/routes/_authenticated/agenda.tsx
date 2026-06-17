@@ -46,7 +46,7 @@ const TOTAL_SLOTS = Math.ceil(((END_HOUR - START_HOUR) * 60) / SLOT_MIN);
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-gold/15 text-navy border-l-gold",
-  confirmed: "bg-blue-500/15 text-navy border-l-blue-500",
+  confirmed: "bg-slate-100 text-navy border-l-slate-400",
   done: "bg-success/15 text-success border-l-success",
   cancelled: "bg-danger/10 text-danger border-l-danger line-through",
   blocked: "bg-text2/20 text-text2 border-l-text2",
@@ -273,7 +273,7 @@ function AgendaPage() {
                     const extra: string[] = [];
                     if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
                     if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
-                    if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("ring-2 ring-blue-400");
+                    if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("!bg-blue-500/15 !border-l-blue-500 ring-2 ring-blue-300");
                     return (
                       <div
                         key={a.id}
