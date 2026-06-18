@@ -98,6 +98,7 @@ function ProceduresList() {
       return;
     }
     if (!confirm(`Deseja excluir o procedimento "${p.name}"? Esta ação não pode ser desfeita.`)) return;
+    await supabase.from("settings").update({ bonus_proc_id: null }).eq("bonus_proc_id", p.id);
     const { error } = await supabase.from("procedures").delete().eq("id", p.id);
     if (error) return toast.error(error.message);
     toast.success("Procedimento excluído");
