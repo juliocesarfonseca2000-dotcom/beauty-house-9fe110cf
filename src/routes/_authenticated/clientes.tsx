@@ -103,6 +103,13 @@ function ClientsPage() {
       if (signaturePaths.length) await supabase.storage.from("signatures").remove(signaturePaths);
       await withTimeout(supabase.from("income").delete().eq("client_id", r.id), 12000, "Exclusão do financeiro da cliente");
       await withTimeout(supabase.from("clients").update({ referral_client_id: null }).eq("referral_client_id", r.id), 12000, "Ajuste de indicações");
+      const { data: pkgs } = await supabase.from("packages").select("id").eq("client_id", r.id);
+      if (pkgs?.length) {
+        const pkgIds = (pkgs as Array<{ id: string }>).map((p) => p.id);
+        await supabase.from("sessions").delete().in("package_id", pkgIds);
+      }
+      await supabase.from("appointments").delete().eq("client_id", r.id);
+      await supabase.from("packages").delete().eq("client_id", r.id);
       const { error } = await withTimeout(
         supabase.from("clients").delete().eq("id", r.id),
         12000,
@@ -112,7 +119,7 @@ function ClientsPage() {
       return r;
     },
     onSuccess: (r) => {
-      toast.success("Cliente excluída");
+      toast.success(`Cliente ${r.name} removida com sucesso`);
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.removeQueries({ queryKey: ["client", r.id] });
     },

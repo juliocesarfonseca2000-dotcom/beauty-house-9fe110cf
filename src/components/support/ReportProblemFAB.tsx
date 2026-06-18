@@ -29,6 +29,7 @@ export function ReportProblemFAB() {
       page,
       user_agent,
       message: trimmed,
+      created_at,
     }).select("id").single();
     if (error) {
       setBusy(false);

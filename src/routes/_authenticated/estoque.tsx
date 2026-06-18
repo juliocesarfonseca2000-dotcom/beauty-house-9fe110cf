@@ -419,7 +419,7 @@ function MovementModal({
   const [notes, setNotes] = useState("");
   const [takenBy, setTakenBy] = useState("");
   const defaultCost = type === "in"
-    ? ((Number(product.cost_price ?? 0) || 0) * 0).toFixed(2)
+    ? (Number(product.cost_price ?? 0) || 0).toFixed(2)
     : "";
   const [costTotal, setCostTotal] = useState(defaultCost);
   const [createExpense, setCreateExpense] = useState(type === "in");

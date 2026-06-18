@@ -59,8 +59,8 @@ export function AnamneseTab({ clientId }: { clientId: string }) {
           pregnant_nursing: !!an.pregnant_nursing,
           pacemaker_metal: !!an.pacemaker_metal,
           coagulation_issue: !!an.coagulation_issue,
-          rare_conditions: an.rare_conditions ?? an.contraindications ?? "",
-          aesthetic_history: an.aesthetic_history ?? an.health_history ?? "",
+          rare_conditions: an.rare_conditions ?? "",
+          aesthetic_history: an.aesthetic_history ?? "",
         });
       }
       if (me) {

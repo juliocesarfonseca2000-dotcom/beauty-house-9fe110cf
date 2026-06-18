@@ -164,6 +164,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
 
       if (!skipHistory) {
         const valid = history.filter((h) => h.procedure_id && h.sessions_total > 0);
+        let failedCount = 0;
         for (const row of valid) {
           const done = Math.max(0, Math.min(row.sessions_done, row.sessions_total));
           const total = row.sessions_total;
@@ -203,7 +204,12 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
               signature_data: null,
             };
           });
-          await supabase.from("sessions").insert(sessRows);
+          const { error: sessErr } = await supabase.from("sessions").insert(sessRows);
+          if (sessErr) {
+            console.warn("Erro ao importar sessões:", sessErr.message);
+            failedCount += 1;
+            continue;
+          }
         }
       }
 

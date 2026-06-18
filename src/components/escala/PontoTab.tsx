@@ -116,7 +116,7 @@ export function PontoTab() {
     if (editValue) {
       const [hh, mm] = editValue.split(":").map((s) => parseInt(s, 10));
       if (isNaN(hh) || isNaN(mm)) { toast.error("Formato HH:MM"); return; }
-      const d = new Date(`${date}T${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00`);
+      const d = new Date(`${date}T${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00-03:00`);
       iso = d.toISOString();
     }
     await upsert(userId, { [field]: iso } as Partial<TimeEntry>);

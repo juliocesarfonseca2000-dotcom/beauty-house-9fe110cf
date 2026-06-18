@@ -372,9 +372,9 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
     e.preventDefault();
     if (!name.trim()) return toast.error("Nome obrigatório");
     const pwd = window.prompt("Digite a senha para salvar o procedimento:");
-    const { data: pwdData } = await supabase.from("settings").select("admin_password").limit(1).maybeSingle();
-    const expected = (pwdData as { admin_password: string } | null)?.admin_password;
-    if (!expected) { toast.error("Erro ao verificar senha"); return; }
+    const { data: pwdData } = await supabase.from("settings").select("admin_password").limit(1);
+    const expected = (pwdData as Array<{ admin_password: string }> | null)?.[0]?.admin_password;
+    if (!expected) { toast.error("Senha de admin não configurada"); return; }
     if (pwd !== expected) {
       toast.error("Senha incorreta. Acesso negado.");
       return;

@@ -72,7 +72,7 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
           clientId={clientId}
           procs={procs}
           userId={user?.id ?? null}
-          initial={notes[0] ?? null}
+          initial={null}
           onCancel={() => setCreating(false)}
           onSaved={onSaved}
         />
