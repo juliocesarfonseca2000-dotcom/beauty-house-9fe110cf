@@ -93,7 +93,7 @@ export function NotificationBell() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
   const markAllRead = async () => {
-    await supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+    await supabase.from("notifications").update({ is_read: true }).eq("is_read", false).eq("user_id", user!.id);
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
   const openNotif = async (n: Notif) => {

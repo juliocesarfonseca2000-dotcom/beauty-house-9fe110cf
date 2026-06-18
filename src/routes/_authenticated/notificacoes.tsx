@@ -62,7 +62,7 @@ function NotificationsPage() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
   const clearRead = async () => {
-    await supabase.from("notifications").delete().eq("is_read", true);
+    await supabase.from("notifications").delete().eq("is_read", true).eq("user_id", user!.id);
     toast.success("Notificações lidas removidas");
     qc.invalidateQueries({ queryKey: ["notifications-all"] });
   };

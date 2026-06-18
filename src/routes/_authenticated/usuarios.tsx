@@ -57,10 +57,6 @@ function UsersPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
 
-  if (me?.role !== "admin") {
-    return <div className="bh-card p-12 text-center text-text3">Apenas administradores podem gerenciar usuários.</div>;
-  }
-
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase.from("app_users").select("*").order("name");
@@ -69,6 +65,10 @@ function UsersPage() {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+
+  if (me?.role !== "admin") {
+    return <div className="bh-card p-12 text-center text-text3">Apenas administradores podem gerenciar usuários.</div>;
+  }
 
   return (
     <div className="space-y-4">

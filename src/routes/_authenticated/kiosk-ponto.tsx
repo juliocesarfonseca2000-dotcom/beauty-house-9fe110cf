@@ -47,7 +47,7 @@ function KioskPontoPage() {
         .neq("is_kiosk", true)
         .or(`name.ilike.%${q}%,email.ilike.%${q}%,cpf.ilike.%${q}%`)
         .limit(8);
-      setResults(((data ?? []) as Person[]).filter((p) => p.role !== "admin" || true));
+      setResults(((data ?? []) as Person[]).filter((p) => p.role !== "admin"));
     }, 200);
     return () => clearTimeout(t);
   }, [query]);

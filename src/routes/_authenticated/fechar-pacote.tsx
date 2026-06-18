@@ -110,7 +110,8 @@ function ClosePackagePage() {
 
   const unlockDiscount = async () => {
     const { data } = await supabase.from("settings").select("admin_password").limit(1).maybeSingle();
-    const expected = (data as { admin_password: string } | null)?.admin_password ?? "@BeautyLu2026";
+    const expected = (data as { admin_password: string } | null)?.admin_password;
+    if (!expected) { toast.error("Erro ao verificar senha"); return; }
     if (adminPin === expected) {
       setDiscountUnlocked(true);
       toast.success("Desconto liberado");
