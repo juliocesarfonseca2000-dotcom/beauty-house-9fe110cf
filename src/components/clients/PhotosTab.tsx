@@ -73,6 +73,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
           url: pub.publicUrl,
           category,
           procedure_id: procedureId || null,
+          date: new Date().toISOString().split("T")[0],
         }), 12000, "Registro da foto");
         if (ins.error) throw ins.error;
       }

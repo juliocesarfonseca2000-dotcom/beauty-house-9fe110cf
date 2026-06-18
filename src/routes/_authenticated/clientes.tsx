@@ -63,7 +63,17 @@ function ClientsPage() {
     staleTime: 60_000,
   });
 
-  const filtered = rows;
+  const filtered = q.trim()
+    ? rows.filter((r) => {
+        const term = q.trim().toLowerCase();
+        return (
+          r.name.toLowerCase().includes(term) ||
+          (r.phone ?? "").includes(term) ||
+          (r.cpf ?? "").includes(term) ||
+          String(r.record_num).includes(term)
+        );
+      })
+    : rows;
 
 
   const toggleMutation = useMutation({

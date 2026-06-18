@@ -117,7 +117,7 @@ export function ClientRecordContent({ id, backTo = "/clientes", initialTab }: { 
           ["prontuario", "Prontuário"],
           ["sessoes", "Sessões"],
           ["fotos", "Fotos"],
-          ["historico", "Histórico $"],
+          ["historico", "Histórico"],
         ] as [Tab, string][]).map(([k, l]) => (
           <button
             key={k}

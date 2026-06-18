@@ -920,7 +920,12 @@ function SignSessionModal({
         notes: notes || null,
       }).eq("id", session.id), 12000, "Confirmação da sessão");
       if (error) throw error;
-      await withTimeout(supabase.from("packages").update({ sess_done: pkg.sess_done + 1 }).eq("id", pkg.id), 12000, "Atualização do pacote");
+      const { data: fresh } = await withTimeout(
+        supabase.from("packages").select("sess_done").eq("id", pkg.id).single(),
+        5000, "Leitura do pacote"
+      );
+      const newDone = (fresh?.sess_done ?? 0) + 1;
+      await withTimeout(supabase.from("packages").update({ sess_done: newDone }).eq("id", pkg.id), 12000, "Atualização do pacote");
       toast.success("Sessão confirmada!");
       onSaved();
     } catch (e: unknown) {

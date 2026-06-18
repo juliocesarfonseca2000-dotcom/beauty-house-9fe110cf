@@ -69,7 +69,7 @@ function ClosePackagePage() {
     if (search.length < 2 || client) { setResults([]); return; }
     const t = setTimeout(async () => {
       const { data } = await supabase
-        .from("clients").select("id,name,record_num,phone")
+        .from("clients").select("id,name,record_num,phone,cpf,address,birthdate")
         .ilike("name", `%${search}%`).eq("active", true).limit(8);
       setResults((data as Client[]) ?? []);
     }, 250);
@@ -199,6 +199,7 @@ function ClosePackagePage() {
           } else {
             await supabase.from("income").insert({
               client_id: client.id,
+              date: new Date().toISOString().split("T")[0],
               description: `Taxa de cartão repassada (${feePctNum}%) — ${client.name}`,
               amount: feeValueTotal,
               pay_method: payMethodLabel,
