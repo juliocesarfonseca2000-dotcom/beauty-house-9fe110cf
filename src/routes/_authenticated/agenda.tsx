@@ -52,6 +52,10 @@ const STATUS_COLORS: Record<string, string> = {
   blocked: "bg-text2/20 text-text2 border-l-text2",
 };
 
+function toSPDate(dt: Date) {
+  return new Date(dt.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+}
+
 function fmtDate(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -68,13 +72,16 @@ function AgendaPage() {
 
   useEffect(() => {
     if (me?.role !== "professional" || !me?.id) return;
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const spOffset = -3 * 60;
+    const spNow = new Date(now.getTime() + (spOffset - (-now.getTimezoneOffset())) * 60000);
+    const today = spNow.toISOString().split("T")[0];
     supabase
       .from("appointments")
       .select("id", { count: "exact", head: true })
       .eq("professional_id", me.id)
-      .gte("datetime", `${today}T00:00:00`)
-      .lt("datetime", `${today}T23:59:59`)
+      .gte("datetime", `${today}T00:00:00-03:00`)
+      .lt("datetime", `${today}T23:59:59-03:00`)
       .then(({ count }) => {
         if ((count ?? 0) === 0) navigate({ to: "/escala" });
       });
@@ -265,7 +272,8 @@ function AgendaPage() {
 
                   {(apptsByPro[p.id] ?? []).map((a) => {
                     const dt = new Date(a.datetime);
-                    const minFromStart = (dt.getHours() - START_HOUR) * 60 + dt.getMinutes();
+                    const spDt = toSPDate(dt);
+                    const minFromStart = (spDt.getHours() - START_HOUR) * 60 + spDt.getMinutes();
                     if (minFromStart < 0 || minFromStart >= (END_HOUR - START_HOUR) * 60) return null;
                     const dur = a.duration_min ?? 60;
                     const top = (minFromStart / SLOT_MIN) * SLOT_PX;
@@ -1024,8 +1032,8 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
       {editing && (
         <ApptModal
           initialDate={new Date(appt.datetime)}
-          initialHour={new Date(appt.datetime).getHours()}
-          initialMin={new Date(appt.datetime).getMinutes()}
+          initialHour={toSPDate(new Date(appt.datetime)).getHours()}
+          initialMin={toSPDate(new Date(appt.datetime)).getMinutes()}
           initialProId={appt.professional_id}
           editingApptId={appt.id}
           editingClientId={appt.client_id}

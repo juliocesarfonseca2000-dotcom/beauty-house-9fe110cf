@@ -182,9 +182,13 @@ function ClosePackagePage() {
         const feePctNum = cardFeePctNum;
         const feeValueTotal = baseTotal * (feePctNum / 100);
         try {
-          await supabase.from("income")
-            .update({ card_fee_pct: feePctNum, card_fee_payer: cardFeePayer })
-            .in("package_id", pkgIds);
+          if (pkgIds.length > 0) {
+            const { error: feeError } = await supabase
+              .from("income")
+              .update({ card_fee_pct: feePctNum, card_fee_payer: cardFeePayer })
+              .in("package_id", pkgIds);
+            if (feeError) console.error("Erro ao salvar taxa de cartão:", feeError);
+          }
           if (cardFeePayer === "empresa") {
             await supabase.from("expenses").insert({
               description: `Taxa de cartão (${feePctNum}%) — ${client.name}`,

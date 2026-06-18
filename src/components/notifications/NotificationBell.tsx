@@ -312,7 +312,11 @@ async function genUnconfirmedAppts() {
     .from("notifications").select("reference_id")
     .eq("type", "appointment_unconfirmed")
     .in("reference_id", ids);
-  const seen = new Set(((existing ?? []) as Array<{ reference_id: string | null }>).map((e) => e.reference_id));
+  const seen = new Set(
+    ((existing ?? []) as Array<{ reference_id: string | null }>)
+      .map((e) => e.reference_id)
+      .filter((id): id is string => id !== null)
+  );
   const toInsert = candidates.filter((c) => !seen.has(c.id)).map((c) => {
     const cli = Array.isArray(c.clients) ? c.clients[0]?.name : c.clients?.name;
     const proc = Array.isArray(c.procedures) ? c.procedures[0]?.name : c.procedures?.name;
