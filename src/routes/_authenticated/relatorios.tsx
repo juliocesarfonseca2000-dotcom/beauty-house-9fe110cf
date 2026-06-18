@@ -225,13 +225,13 @@ function InativosReport() {
       const c60s = c60.toISOString().slice(0, 10);
 
       const [{ data: clients }, { data: sessions }] = await Promise.all([
-        supabase.from("clients").select("id,name,phone").eq("active", true).limit(500),
+        supabase.from("clients").select("id,name,phone").eq("active", true).limit(5000),
         supabase
           .from("sessions")
           .select("client_id,done_at,packages(procedures(name))")
           .not("done_at", "is", null)
           .eq("status", "done")
-          .limit(500),
+          .limit(5000),
       ]);
 
       type SessRow = {
@@ -523,11 +523,11 @@ function ProdutividadeReport() {
       const fromTs = `${from}T00:00:00`;
       const toTs = `${to}T23:59:59`;
       const [{ data: users }, { data: sessions }, { data: appts }] = await Promise.all([
-        supabase.from("app_users").select("id,name,active").eq("active", true).limit(500),
+        supabase.from("app_users").select("id,name,active").eq("active", true).limit(5000),
         supabase.from("sessions").select("professional_id,done_at,status")
-          .eq("status", "done").gte("done_at", fromTs).lte("done_at", toTs).limit(500),
+          .eq("status", "done").gte("done_at", fromTs).lte("done_at", toTs).limit(5000),
         supabase.from("appointments").select("professional_id,datetime")
-          .gte("datetime", fromTs).lte("datetime", toTs).limit(500),
+          .gte("datetime", fromTs).lte("datetime", toTs).limit(5000),
       ]);
       const sessByProf = new Map<string, number>();
       (sessions ?? []).forEach((s: { professional_id: string | null }) => {
@@ -607,8 +607,8 @@ function TopClientesReport() {
     (async () => {
       setLoading(true);
       const [{ data: sessions }, { data: income }] = await Promise.all([
-        supabase.from("sessions").select("client_id").eq("status", "done").limit(500),
-        supabase.from("income").select("client_id,amount").limit(500),
+        supabase.from("sessions").select("client_id").eq("status", "done").limit(5000),
+        supabase.from("income").select("client_id,amount").limit(5000),
       ]);
       const sessByClient = new Map<string, number>();
       (sessions ?? []).forEach((s: { client_id: string | null }) => {

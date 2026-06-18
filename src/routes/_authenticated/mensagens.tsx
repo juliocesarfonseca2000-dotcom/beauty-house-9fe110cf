@@ -184,12 +184,16 @@ function GenerateModal({ audience, audienceLabel, clients, onClose }: { audience
       const { text: out } = await generate({ data: { audience: audienceLabel, instruction } });
       setText(out);
       // log campanha
-      await supabase.from("message_campaigns").insert({
+      const { error: campaignErr } = await supabase.from("message_campaigns").insert({
         audience,
         message_template: out,
         client_count: clients.length,
         created_by: user?.id ?? null,
       });
+      if (campaignErr) {
+        console.warn("message_campaigns:", campaignErr.message);
+        return;
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao gerar mensagem");
     } finally {

@@ -839,6 +839,7 @@ function ValidateBonusModal({ pkg, onClose, onSaved }: { pkg: Package; onClose: 
         bonus_validated: true,
         bonus_validated_at: new Date().toISOString(),
         bonus_validated_by: user?.id ?? null,
+        notes: notes || null,
       }).eq("id", pkg.id);
       if (error) throw error;
       toast.success("Bônus validado");

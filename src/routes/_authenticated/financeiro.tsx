@@ -95,7 +95,9 @@ function FinanceiroPage() {
     if (pin) { setStoredPin(pin); return; }
     // Fallback legado
     const { data: legacy } = await supabase.from("settings").select("finance_pin").limit(1).maybeSingle();
-    setStoredPin(legacy?.finance_pin ?? "1234");
+    const legacyPin = legacy?.finance_pin;
+    if (!legacyPin) { toast.error("Erro ao carregar PIN"); return; }
+    setStoredPin(legacyPin);
   };
 
   useEffect(() => { loadPin(); }, []);

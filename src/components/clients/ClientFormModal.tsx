@@ -29,6 +29,17 @@ export function ClientFormModal({
   const [refSearch, setRefSearch] = useState("");
   const [refResults, setRefResults] = useState<Evaluator[]>([]);
   const [busy, setBusy] = useState(false);
+  const [bonusMsg, setBonusMsg] = useState("pacote bônus");
+
+  useEffect(() => {
+    import("@/components/system/SystemSettingsModal").then(({ getBonusConfig }) =>
+      getBonusConfig().then((cfg) => {
+        if (cfg?.sessions_count && cfg?.procedure_name) {
+          setBonusMsg(`${cfg.sessions_count} sessões de ${cfg.procedure_name}`);
+        }
+      })
+    );
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -146,7 +157,10 @@ export function ClientFormModal({
           }
         })();
         // Não await — segue o fluxo. Só logamos erro silenciosamente.
-        bonusPromise.catch((e) => console.error("Bônus indicação falhou:", e));
+        bonusPromise.catch((err) => {
+          console.error(err);
+          toast.error("Erro ao criar pacote bônus de indicação");
+        });
       }
 
 
@@ -210,7 +224,7 @@ export function ClientFormModal({
                 </div>
               )}
               {referralClientId && (
-                <div className="text-xs text-success mt-1">✓ Bônus de 5 sessões de Massagem 40' será creditado</div>
+                <div className="text-xs text-success mt-1">✓ Bônus de {bonusMsg} será creditado</div>
               )}
             </Field>
           )}
