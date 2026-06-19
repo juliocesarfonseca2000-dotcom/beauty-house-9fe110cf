@@ -1173,6 +1173,51 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
           }}
         />
       )}
+      {termAsk && (
+        <div className="fixed inset-0 z-[60] bg-navy/70 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="font-display text-xl text-navy mb-2">Termo de Consentimento</div>
+            <div className="text-sm text-text2 mb-4">
+              <strong className="text-navy">{termAsk.clientName}</strong> já assinou o termo de consentimento para <strong>{termAsk.procedureName}</strong>?
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const ask = termAsk;
+                  setTermAsk(null);
+                  await doConfirmAttendance();
+                  void ask;
+                }}
+                className="w-full px-3 py-2 rounded-md bg-success text-white text-sm font-bold hover:bg-success/90"
+              >
+                ✅ Sim, já assinou
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTermModal(termAsk); setTermAsk(null); }}
+                className="w-full px-3 py-2 rounded-md bg-gold/15 text-navy border border-gold text-sm font-bold hover:bg-gold/25"
+              >
+                📋 Não, precisa assinar
+              </button>
+              <button
+                type="button"
+                onClick={() => setTermAsk(null)}
+                className="w-full px-3 py-2 rounded-md text-text2 text-xs hover:bg-bg2"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {termModal && !termAsk && (() => {
+        // Quando vier do fluxo de "Confirmar presença", após assinar deve confirmar presença (não marcar chegada).
+        const fromAttendance = !appt.client_arrived_at ? false : false; // mantém compat
+        void fromAttendance;
+        return null;
+      })()}
+
     </div>
       </div>
     </div>
