@@ -468,7 +468,15 @@ function PacotesReport() {
           </select>
         </div>
         <WhatsBtn onClick={whats} disabled={rows.length === 0} />
+        <SendAllBtn
+          onClick={() => sendToAll(
+            rows.map((r) => ({ name: r.client_name, phone: r.phone })),
+            "Olá {nome}! Seu pacote está acabando — vamos agendar suas próximas sessões? 💆"
+          )}
+          disabled={rows.filter((r) => r.phone).length === 0}
+        />
       </ReportHeader>
+
       <div className="bh-card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-bg2 text-text3">
