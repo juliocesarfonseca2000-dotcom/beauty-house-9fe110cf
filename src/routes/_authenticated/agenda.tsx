@@ -45,12 +45,13 @@ const SLOT_PX = 28;
 const TOTAL_SLOTS = Math.ceil(((END_HOUR - START_HOUR) * 60) / SLOT_MIN);
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gold/15 text-navy border-l-gold",
-  confirmed: "bg-slate-100 text-navy border-l-slate-400",
-  done: "bg-success/15 text-success border-l-success",
-  cancelled: "bg-danger/10 text-danger border-l-danger line-through",
-  blocked: "bg-text2/20 text-text2 border-l-text2",
+  pending:   "bg-amber-50 text-navy border-l-amber-400",
+  confirmed: "bg-slate-50 text-navy border-l-slate-300",
+  done:      "bg-emerald-50 text-emerald-800 border-l-emerald-400",
+  cancelled: "bg-red-50 text-red-700 border-l-red-400 line-through",
+  blocked:   "bg-gray-100 text-gray-500 border-l-gray-400",
 };
+
 
 function toSPDate(dt: Date) {
   return new Date(dt.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
