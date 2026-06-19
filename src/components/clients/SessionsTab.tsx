@@ -841,8 +841,12 @@ function ValidateBonusModal({ pkg, onClose, onSaved }: { pkg: Package; onClose: 
         bonus_validated_by: user?.id ?? null,
         notes: notes || null,
       }).eq("id", pkg.id);
-      if (error) throw error;
-      toast.success("Bônus validado");
+      if (error) {
+        console.error("Erro validação bônus:", error);
+        toast.error(`Erro ao validar bônus: ${error.message}`);
+        return;
+      }
+      toast.success("Bônus validado com sucesso!");
       onSaved();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro");
