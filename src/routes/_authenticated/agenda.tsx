@@ -122,8 +122,9 @@ function AgendaPage() {
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
       supabase.from("staff_absences")
-        .select("user_id,type,date_start,date_end")
+        .select("id,user_id,type,date_start,date_end")
         .lte("date_start", dayYmd).gte("date_end", dayYmd),
+
     ]);
     if (pErr) console.error("[agenda] pros query failed", pErr);
     if (aErr) console.error("[agenda] appointments query failed", aErr);
