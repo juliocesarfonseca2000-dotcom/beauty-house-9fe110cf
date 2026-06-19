@@ -37,9 +37,29 @@ function ClientsPage() {
   const [openScan, setOpenScan] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [todayIds, setTodayIds] = useState<string[] | undefined>(undefined);
+
+  useEffect(() => {
+    if (user?.role !== "professional") {
+      setTodayIds(undefined);
+      return;
+    }
+    (async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: appts } = await supabase
+        .from("appointments")
+        .select("client_id")
+        .eq("professional_id", user.id)
+        .gte("datetime", `${today}T00:00:00-03:00`)
+        .lt("datetime", `${today}T23:59:59-03:00`);
+      const ids = (appts ?? []).map((a: any) => a.client_id).filter(Boolean) as string[];
+      setTodayIds(ids);
+    })();
+  }, [user?.role, user?.id]);
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["clients", filter, q],
+    queryKey: ["clients", filter, q, user?.role, user?.id],
     queryFn: async () => {
       const term = q.trim();
       let query = supabase.from("clients").select("id,record_num,name,phone,cpf,active,created_at");
@@ -56,7 +76,8 @@ function ClientsPage() {
       }
       if (filter === "active") query = query.eq("active", true);
       if (filter === "inactive") query = query.eq("active", false);
-      query = query.order("name").limit(50);
+      if (user?.role !== "professional") query = query.limit(50);
+      query = query.order("name");
       const { data, error } = await withTimeout(query, 10000, "Carregamento de clientes");
       if (error) throw error;
       return (data as Row[]) ?? [];

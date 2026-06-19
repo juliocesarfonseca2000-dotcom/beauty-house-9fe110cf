@@ -474,7 +474,7 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
           <div className="border-t pt-4 space-y-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-navy">
               <input type="checkbox" checked={requiresTerm} onChange={(e) => setRequiresTerm(e.target.checked)} />
-              Exige termo de consentimento (assinado antes da 1ª sessão)
+              Exige termo de consentimento (assinado em cada sessão)
             </label>
             {requiresTerm && (
               <Field label="Texto do termo">
