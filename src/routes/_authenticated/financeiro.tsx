@@ -824,6 +824,9 @@ function FechamentoTab() {
   );
   const result = totalIn - totalOut;
 
+  const uniqueClients = useMemo(() => new Set(income.map((i) => i.client_id).filter(Boolean)).size, [income]);
+  const ticketMedio = uniqueClients > 0 ? totalIn / uniqueClients : 0;
+
   const byMethod = useMemo(() => {
     const m = new Map<string, number>();
     income.forEach((i) => {
@@ -891,7 +894,7 @@ function FechamentoTab() {
         </button>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
         <div className="bh-card p-5">
           <div className="text-xs text-text3 uppercase tracking-wide">Receitas</div>
           <div className="font-display text-3xl text-success mt-1">{fmtMoney(totalIn)}</div>
@@ -912,6 +915,13 @@ function FechamentoTab() {
           <div className="text-xs text-text3 mt-1">
             Margem: {totalIn > 0 ? `${((result / totalIn) * 100).toFixed(1)}%` : "—"}
           </div>
+        </div>
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="text-xs text-text2 uppercase tracking-wide">Ticket Médio por Cliente</div>
+          <div className="text-2xl font-bold text-gold mt-1">
+            {ticketMedio.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          </div>
+          <div className="text-xs text-text3 mt-1">{uniqueClients} cliente(s) no período</div>
         </div>
       </div>
 
