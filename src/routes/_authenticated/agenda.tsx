@@ -739,7 +739,20 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Cliente*</label>
-            {client ? (
+            {useGuestName ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="bh-badge bg-purple-100 text-purple-700">👤 Sem cadastro</span>
+                  <button type="button" onClick={() => { setUseGuestName(false); setGuestName(""); }} className="text-xs text-text2 hover:text-navy ml-auto">Voltar à busca</button>
+                </div>
+                <input
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Nome do cliente (sem ficha)"
+                  className="w-full px-3 py-2 rounded-lg border border-purple-300 bg-purple-50 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+                />
+              </div>
+            ) : client ? (
               <div className="flex items-center justify-between bg-bg2 rounded-lg p-2.5">
                 <div className="text-sm"><span className="font-semibold text-navy">{client.name}</span> <span className="text-text3">#{client.record_num}</span></div>
                 <button type="button" onClick={() => setClient(null)} className="text-xs text-text2 hover:text-navy">Trocar</button>
@@ -747,19 +760,32 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             ) : (
               <div className="relative">
                 <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text3" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome ou nº ficha..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, nº ficha ou telefone..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm" />
                 {results.length > 0 && (
                   <div className="mt-1 bh-card max-h-48 overflow-y-auto absolute z-10 w-full bg-card">
                     {results.map((c) => (
-                      <button key={c.id} type="button" onClick={() => { setClient(c); setSearch(""); }} className="w-full text-left px-3 py-2 hover:bg-bg2 text-sm">
+                      <button key={c.id} type="button" onClick={() => { setClient(c); setSearch(""); setSearched(false); }} className="w-full text-left px-3 py-2 hover:bg-bg2 text-sm">
                         <span className="font-semibold text-navy">{c.name}</span> <span className="text-text3 text-xs">#{c.record_num}</span>
                       </button>
                     ))}
                   </div>
                 )}
+                {searched && search.length >= 2 && results.length === 0 && (
+                  <div className="mt-2 flex items-center justify-between gap-2 p-2 rounded-lg border border-dashed border-purple-300 bg-purple-50/50 text-xs">
+                    <span className="text-text2">Nenhuma cliente encontrada.</span>
+                    <button
+                      type="button"
+                      onClick={() => { setUseGuestName(true); setGuestName(search); setSearch(""); setResults([]); }}
+                      className="px-2 py-1 rounded bg-purple-600 text-white font-semibold hover:bg-purple-700"
+                    >
+                      👤 Agendar sem cadastro
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Procedimento">
