@@ -124,10 +124,14 @@ function AgendaPage() {
         .select("user_id,type,date_start,date_end")
         .lte("date_start", dayYmd).gte("date_end", dayYmd),
     ]);
+    if (pErr) console.error("[agenda] pros query failed", pErr);
+    if (aErr) console.error("[agenda] appointments query failed", aErr);
+    if (absErr) console.error("[agenda] absences query failed", absErr);
     setPros((pdata as Professional[]) ?? []);
     setAppts((adata as unknown as Appt[]) ?? []);
     setAbsences((absData as Absence[]) ?? []);
     setLoading(false);
+
   };
   useEffect(() => {
     load();
