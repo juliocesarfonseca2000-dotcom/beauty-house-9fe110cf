@@ -37,6 +37,42 @@ function copyWhatsApp(text: string) {
     () => toast.error("Não foi possível copiar."),
   );
 }
+function sendToAll(clients: Array<{ name: string; phone: string | null }>, defaultMessage: string) {
+  const withPhone = clients.filter((c) => c.phone);
+  if (!withPhone.length) {
+    toast.error("Nenhum cliente com telefone cadastrado");
+    return;
+  }
+  const message = window.prompt(
+    `Mensagem (use {nome} para personalizar):`,
+    defaultMessage,
+  );
+  if (!message) return;
+  const ok = window.confirm(`Enviar mensagem para ${withPhone.length} cliente(s) via WhatsApp?`);
+  if (!ok) return;
+  for (let i = 0; i < withPhone.length; i++) {
+    const phone = withPhone[i].phone!.replace(/\D/g, "");
+    const text = encodeURIComponent(message.replace(/\{nome\}/g, withPhone[i].name.split(" ")[0] ?? withPhone[i].name));
+    setTimeout(() => {
+      window.open(`https://wa.me/${phone.startsWith("55") ? phone : "55" + phone}?text=${text}`, "_blank");
+    }, i * 800);
+  }
+  toast.success(`Abrindo WhatsApp para ${withPhone.length} clientes...`);
+}
+function SendAllBtn({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{ background: "#25D366" }}
+      title="Enviar mensagem em massa via WhatsApp"
+    >
+      📲 Enviar para todos
+    </button>
+  );
+}
 function downloadCsv(filename: string, rows: (string | number)[][]) {
   const csv = rows
     .map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
@@ -49,6 +85,7 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
 
 function RelatoriosPage() {
   const [tab, setTab] = useState<Tab>("aniversariantes");
@@ -172,7 +209,12 @@ function AniversariantesReport() {
           ))}
         </select>
         <WhatsBtn onClick={whats} disabled={rows.length === 0} />
+        <SendAllBtn
+          onClick={() => sendToAll(rows, "Olá {nome}! 🎂 A Beauty House deseja um feliz mês de aniversário! Agende seu mimo especial.")}
+          disabled={rows.filter((r) => r.phone).length === 0}
+        />
       </ReportHeader>
+
       <div className="bh-card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-bg2 text-text3">
@@ -214,6 +256,8 @@ function InativosReport() {
   const [r30, setR30] = useState<InativoRow[]>([]);
   const [r60, setR60] = useState<InativoRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [visible30, setVisible30] = useState(100);
+  const [visible60, setVisible60] = useState(100);
 
   useEffect(() => {
     (async () => {
@@ -225,14 +269,14 @@ function InativosReport() {
       const c60s = c60.toISOString().slice(0, 10);
 
       const [{ data: clients }, { data: sessions }] = await Promise.all([
-        supabase.from("clients").select("id,name,phone").eq("active", true).limit(5000),
+        supabase.from("clients").select("id,name,phone").eq("active", true),
         supabase
           .from("sessions")
           .select("client_id,done_at,packages(procedures(name))")
           .not("done_at", "is", null)
-          .eq("status", "done")
-          .limit(5000),
+          .eq("status", "done"),
       ]);
+
 
       type SessRow = {
         client_id: string | null;
@@ -278,52 +322,71 @@ function InativosReport() {
     copyWhatsApp(lines.join("\n"));
   }
 
-  const Section = ({ title, days, rows }: { title: string; days: number; rows: InativoRow[] }) => (
-    <div className="space-y-2">
-      <div className="bh-card p-4 flex items-end gap-3 flex-wrap">
-        <div>
-          <div className="font-display text-lg text-navy">{title}</div>
-          <div className="text-xs text-text3 mt-0.5">{rows.length} cliente(s)</div>
+  const Section = ({ title, days, rows, visible, setVisible }: { title: string; days: number; rows: InativoRow[]; visible: number; setVisible: (n: number) => void }) => {
+    const visibleRows = rows.slice(0, visible);
+    return (
+      <div className="space-y-2">
+        <div className="bh-card p-4 flex items-end gap-3 flex-wrap">
+          <div>
+            <div className="font-display text-lg text-navy">{title}</div>
+            <div className="text-xs text-text3 mt-0.5">{rows.length} cliente(s) sem visita há {days}+ dias</div>
+          </div>
+          <div className="flex-1" />
+          <WhatsBtn onClick={() => whats(rows, days)} disabled={rows.length === 0} />
+          <SendAllBtn
+            onClick={() => sendToAll(rows, `Olá {nome}! Sentimos sua falta na Beauty House. Que tal agendar uma visita? 💖`)}
+            disabled={rows.filter((r) => r.phone).length === 0}
+          />
         </div>
-        <div className="flex-1" />
-        <WhatsBtn onClick={() => whats(rows, days)} disabled={rows.length === 0} />
-      </div>
-      <div className="bh-card p-0 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-bg2 text-text3">
-            <tr>
-              <th className="text-left p-3">Cliente</th>
-              <th className="text-left p-3">Último procedimento</th>
-              <th className="text-left p-3">Última visita</th>
-              <th className="text-left p-3">Telefone</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={4} className="p-6 text-center text-text3">Carregando…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={4} className="p-6 text-center text-success">Ninguém nessa faixa.</td></tr>
-            ) : rows.map((r) => (
-              <tr key={r.id} className="border-t border-border">
-                <td className="p-3 font-medium">{r.name}</td>
-                <td className="p-3 text-text2">{r.last_proc ?? "—"}</td>
-                <td className="p-3 text-text2">{r.last ? new Date(r.last).toLocaleDateString("pt-BR") : "nunca"}</td>
-                <td className="p-3 text-text2">{r.phone ?? "—"}</td>
+        <div className="bh-card p-0 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-bg2 text-text3">
+              <tr>
+                <th className="text-left p-3">Cliente</th>
+                <th className="text-left p-3">Último procedimento</th>
+                <th className="text-left p-3">Última visita</th>
+                <th className="text-left p-3">Telefone</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="p-6 text-center text-text3">Carregando…</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={4} className="p-6 text-center text-success">Ninguém nessa faixa.</td></tr>
+              ) : visibleRows.map((r) => (
+                <tr key={r.id} className="border-t border-border">
+                  <td className="p-3 font-medium">{r.name}</td>
+                  <td className="p-3 text-text2">{r.last_proc ?? "—"}</td>
+                  <td className="p-3 text-text2">{r.last ? new Date(r.last).toLocaleDateString("pt-BR") : "nunca"}</td>
+                  <td className="p-3 text-text2">{r.phone ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rows.length > visible && (
+            <div className="p-3 border-t border-border text-center">
+              <button
+                type="button"
+                onClick={() => setVisible(visible + 100)}
+                className="px-4 py-2 rounded-md border border-border text-sm text-text2 hover:bg-bg2"
+              >
+                Carregar mais +100 ({rows.length - visible} restantes)
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
-      <Section title="Sem visita há +30 dias" days={30} rows={r30} />
-      <Section title="Sem visita há +60 dias" days={60} rows={r60} />
+      <Section title="Sem visita há +30 dias" days={30} rows={r30} visible={visible30} setVisible={setVisible30} />
+      <Section title="Sem visita há +60 dias" days={60} rows={r60} visible={visible60} setVisible={setVisible60} />
     </div>
   );
 }
+
 
 // ============= 3. PACOTES A VENCER =============
 function PacotesReport() {
@@ -405,7 +468,15 @@ function PacotesReport() {
           </select>
         </div>
         <WhatsBtn onClick={whats} disabled={rows.length === 0} />
+        <SendAllBtn
+          onClick={() => sendToAll(
+            rows.map((r) => ({ name: r.client_name, phone: r.phone })),
+            "Olá {nome}! Seu pacote está acabando — vamos agendar suas próximas sessões? 💆"
+          )}
+          disabled={rows.filter((r) => r.phone).length === 0}
+        />
       </ReportHeader>
+
       <div className="bh-card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-bg2 text-text3">
