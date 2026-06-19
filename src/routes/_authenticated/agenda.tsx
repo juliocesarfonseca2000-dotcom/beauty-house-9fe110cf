@@ -309,15 +309,18 @@ function AgendaPage() {
                     const dur = a.duration_min ?? 60;
                     const top = (minFromStart / SLOT_MIN) * SLOT_PX;
                     const height = Math.max(SLOT_PX, (dur / SLOT_MIN) * SLOT_PX) - 2;
+                    const isGuest = !a.client_id;
+                    const guestName = isGuest && a.notes?.startsWith("AVULSO: ") ? a.notes.slice(8) : null;
                     const extra: string[] = [];
                     if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
                     if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
                     if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("!bg-blue-500/15 !border-l-blue-500 ring-2 ring-blue-300");
+                    if (isGuest) extra.push("!bg-purple-50 !border-l-purple-400");
                     return (
                       <div
                         key={a.id}
                         onClick={() => canManage && setViewing(a)}
-                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending} ${extra.join(" ")}`}
+                        className={`absolute left-0.5 right-0.5 rounded p-1 text-xs border-l-2 min-h-[20px] ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending} ${extra.join(" ")}`}
                         style={{ top, height }}
                       >
                         {a.status === "blocked" ? (
@@ -331,8 +334,10 @@ function AgendaPage() {
                               {a.client_arrived_at && <span title="Cliente chegou">🏠 </span>}
                               {a.is_preference && <span title="Preferência da cliente">⭐ </span>}
                               {a.is_first_visit && <span title="Primeira vez">🆕 </span>}
-                              {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
+                              {isGuest && <span title="Avulso sem cadastro">👤 </span>}
+                              {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {guestName ?? a.clients?.name ?? "—"}
                             </div>
+
                             <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
                           </>
                         )}
