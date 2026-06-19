@@ -97,7 +97,9 @@ function KioskPontoPage() {
   const canBreakEnd = !!today?.break_start && !today?.break_end;
   const canOut = !!today?.clock_in && !today?.clock_out && (!today?.break_start || !!today?.break_end);
 
+  if (!authReady) return <div className="fixed inset-0 bg-navy z-40" />;
   if (!user) return null;
+
 
   const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
