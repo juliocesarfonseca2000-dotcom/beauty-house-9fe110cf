@@ -136,7 +136,8 @@ function AgendaPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayStart.getTime(), dayEnd.getTime(), dayYmd]);
+  }, [dayStart.getTime(), dayEnd.getTime(), dayYmd, isProfessional, me?.id]);
+
 
   const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 
