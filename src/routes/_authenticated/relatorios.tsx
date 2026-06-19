@@ -209,7 +209,12 @@ function AniversariantesReport() {
           ))}
         </select>
         <WhatsBtn onClick={whats} disabled={rows.length === 0} />
+        <SendAllBtn
+          onClick={() => sendToAll(rows, "Olá {nome}! 🎂 A Beauty House deseja um feliz mês de aniversário! Agende seu mimo especial.")}
+          disabled={rows.filter((r) => r.phone).length === 0}
+        />
       </ReportHeader>
+
       <div className="bh-card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-bg2 text-text3">
