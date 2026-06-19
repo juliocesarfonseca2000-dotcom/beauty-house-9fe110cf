@@ -64,7 +64,7 @@ export function NotificationBell() {
       const { data } = await query;
       return (data as Notif[]) ?? [];
     },
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
   });
 
   const visible = useMemo(
@@ -81,7 +81,7 @@ export function NotificationBell() {
     if (!canSee) return;
     let cancelled = false;
     (async () => {
-      const [low] = await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmedAppts()]);
+      const [low] = await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmed()]);
       if (cancelled) return;
       setAvulsoSkipped(low);
       qc.invalidateQueries({ queryKey: ["notifications"] });
@@ -202,7 +202,7 @@ async function genLowPackages(): Promise<{ count: number; names: string[] }> {
       remaining: Number(p.sess_total ?? 0) - Number(p.sess_done ?? 0),
       sess_total: Number(p.sess_total ?? 0),
     }));
-  const candidates = mapped.filter((p) => p.remaining > 0 && p.remaining <= 2 && p.sess_total > 1);
+  const candidates = mapped.filter((p) => p.remaining > 0 && p.remaining <= 2 && Number(p.sess_total ?? 0) > 1);
   const avulsoSkipped = mapped.filter((p) => p.remaining > 0 && p.remaining <= 2 && p.sess_total === 1);
   const skipInfo = {
     count: avulsoSkipped.length,
