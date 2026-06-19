@@ -487,24 +487,26 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   }, [client]);
 
   useEffect(() => {
-    if (search.length < 2 || client) { setResults([]); return; }
+    if (search.length < 2 || client) { setResults([]); setSearched(false); return; }
     const t = setTimeout(async () => {
-      const isNumeric = /^\d+$/.test(search.trim());
+      const isNum = /^\d+$/.test(search.trim());
       let query = supabase
         .from("clients")
-        .select("id,name,record_num")
+        .select("id,name,record_num,phone")
         .eq("active", true)
-        .limit(6);
-      if (isNumeric) {
+        .limit(8);
+      if (isNum) {
         query = query.or(`record_num.eq.${parseInt(search)},phone.ilike.%${search}%`);
       } else {
         query = query.ilike("name", `%${search}%`);
       }
       const { data } = await query;
       setResults((data as Client[]) ?? []);
+      setSearched(true);
     }, 250);
     return () => clearTimeout(t);
   }, [search, client]);
+
 
   useEffect(() => {
     const proc = procId
