@@ -1018,6 +1018,41 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     onChanged();
   };
 
+  const confirmAttendance = async () => {
+    if (!appt.client_id || !appt.procedure_id) {
+      await doConfirmAttendance();
+      return;
+    }
+    const { data: proc } = await supabase
+      .from("procedures")
+      .select("requires_term, term_text, name")
+      .eq("id", appt.procedure_id)
+      .maybeSingle();
+    if (!proc?.requires_term || !proc.term_text) {
+      await doConfirmAttendance();
+      return;
+    }
+    const { data: pkg } = await supabase
+      .from("packages")
+      .select("id")
+      .eq("client_id", appt.client_id)
+      .eq("procedure_id", appt.procedure_id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setTermAsk({
+      clientName: appt.clients?.name ?? "Cliente",
+      clientId: appt.client_id,
+      procedureId: appt.procedure_id,
+      procedureName: proc.name,
+      termText: proc.term_text,
+      appointmentId: appt.id,
+      packageId: pkg?.id ?? null,
+    });
+  };
+
+
   const markNoShow = async () => {
     if (!window.confirm("Marcar cliente como FALTA?")) return;
     setBusy(true);
