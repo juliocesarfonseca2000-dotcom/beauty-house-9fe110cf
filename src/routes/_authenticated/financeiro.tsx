@@ -916,6 +916,13 @@ function FechamentoTab() {
             Margem: {totalIn > 0 ? `${((result / totalIn) * 100).toFixed(1)}%` : "—"}
           </div>
         </div>
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="text-xs text-text2 uppercase tracking-wide">Ticket Médio por Cliente</div>
+          <div className="text-2xl font-bold text-gold mt-1">
+            {ticketMedio.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          </div>
+          <div className="text-xs text-text3 mt-1">{uniqueClients} cliente(s) no período</div>
+        </div>
       </div>
 
       <div className="bh-card p-5">
