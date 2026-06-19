@@ -81,7 +81,7 @@ export function NotificationBell() {
     if (!canSee) return;
     let cancelled = false;
     (async () => {
-      const [low] = await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmed()]);
+      const [low] = await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmed(user)]);
       if (cancelled) return;
       setAvulsoSkipped(low);
       qc.invalidateQueries({ queryKey: ["notifications"] });
@@ -298,7 +298,7 @@ async function genInactiveClients() {
   if (toInsert.length) await supabase.from("notifications").insert(toInsert);
 }
 
-async function genUnconfirmed() {
+async function genUnconfirmed(user: { id: string } | null | undefined) {
   if (!user) return;
   const now = new Date().toISOString();
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
