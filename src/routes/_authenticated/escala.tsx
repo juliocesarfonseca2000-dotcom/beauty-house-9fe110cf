@@ -86,6 +86,8 @@ function EscalaAdmin() {
   );
 }
 
+const WEEKDAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
 function MeuPontoView() {
   const { user: me } = useAuth();
   const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; });
@@ -97,13 +99,13 @@ function MeuPontoView() {
   const mo = cursor.getMonth();
   const dim = daysInMonth(y, mo);
   const monthStart = `${y}-${pad(mo + 1)}-01`;
-  const monthEnd = `${y}-${pad(mo + 1)}-${pad(dim)}`;
+  const monthEnd   = `${y}-${pad(mo + 1)}-${pad(dim)}`;
 
   useEffect(() => {
     if (!me?.id) return;
     setLoading(true);
     Promise.all([
-      supabase.from("time_entries").select("*").eq("user_id", me.id).gte("date", monthStart).lte("date", monthEnd).order("date"),
+      supabase.from("time_entries").select("*").eq("user_id", me.id).gte("date", monthStart).lte("date", monthEnd).order("date", { ascending: false }),
       supabase.from("staff_absences").select("*").eq("user_id", me.id).lte("date_start", monthEnd).gte("date_end", monthStart),
     ]).then(([entRes, absRes]) => {
       setEntries((entRes.data as PontoEntry[]) ?? []);
@@ -113,38 +115,63 @@ function MeuPontoView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthStart, monthEnd, me?.id]);
 
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const todayStr = (() => { const n = new Date(); return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`; })();
 
+  // ── Resumo ──────────────────────────────────────────────────────────────
   const totalMinutes = entries.reduce((acc, e) => acc + computeTotalMinutes(e), 0);
-  const daysWithPonto = entries.filter((e) => e.clock_in && e.clock_out).length;
-  const absenceDays = absences.reduce((acc, a) => {
-    const s = new Date(a.date_start + "T00:00:00");
-    const end = new Date(a.date_end + "T00:00:00");
+  const daysPresent  = entries.filter((e) => !!e.clock_in).length;
+  const absenceDays  = useMemo(() => absences.reduce((acc, a) => {
+    const dt = new Date(a.date_start + "T00:00:00");
+    const end = new Date(a.date_end   + "T00:00:00");
     let n = 0;
-    const dt = new Date(s);
     while (dt <= end) { n++; dt.setDate(dt.getDate() + 1); }
     return acc + n;
-  }, 0);
+  }, 0), [absences]);
 
-  const days = Array.from({ length: dim }, (_, i) => {
-    const dayNum = i + 1;
-    const iso = `${y}-${pad(mo + 1)}-${pad(dayNum)}`;
-    const entry = entries.find((e) => e.date === iso);
-    const absence = absences.find((a) => a.date_start <= iso && a.date_end >= iso);
-    let bg = "#FFFFFF";
-    if (absence) {
-      bg = absence.type === "absent" ? "#FFEBEE" : "#F5F5F5";
-    } else if (entry?.clock_in && entry?.clock_out) {
-      bg = "#E8F5E9";
-    }
-    return { dayNum, iso, bg, entry, absence };
-  });
+  // ── Calendário (grid 7 colunas com offset) ──────────────────────────────
+  const firstWeekday = new Date(y, mo, 1).getDay();
+  const calCells = useMemo(() => {
+    const totalCells = Math.ceil((firstWeekday + dim) / 7) * 7;
+    return Array.from({ length: totalCells }, (_, idx) => {
+      const dayNum = idx - firstWeekday + 1;
+      if (dayNum < 1 || dayNum > dim) return null;
+      const iso = `${y}-${pad(mo + 1)}-${pad(dayNum)}`;
+      const entry   = entries.find((e) => e.date === iso);
+      const absence = absences.find((a) => a.date_start <= iso && a.date_end >= iso);
+      let bg = "";
+      if (absence) {
+        bg = absence.type === "absent" ? "#FFEBEE" : "#F5F5F5";
+      } else if (entry?.clock_in && entry?.clock_out) {
+        bg = "#E8F5E9";
+      }
+      return { dayNum, iso, bg };
+    });
+  }, [y, mo, dim, firstWeekday, entries, absences]);
+
+  // ── Linhas da tabela (desc, inclui ausências sem entrada) ───────────────
+  const tableRows = useMemo(() => {
+    const isoSet = new Set<string>(entries.map((e) => e.date));
+    absences.forEach((a) => {
+      const dt = new Date(a.date_start + "T00:00:00");
+      const end = new Date(a.date_end   + "T00:00:00");
+      while (dt <= end) {
+        const iso = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+        if (iso >= monthStart && iso <= monthEnd) isoSet.add(iso);
+        dt.setDate(dt.getDate() + 1);
+      }
+    });
+    return Array.from(isoSet).sort().reverse().map((iso) => ({
+      iso,
+      entry:   entries.find((e) => e.date === iso) ?? null,
+      absence: absences.find((a) => a.date_start <= iso && a.date_end >= iso) ?? null,
+    }));
+  }, [entries, absences, monthStart, monthEnd]);
 
   const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   return (
     <div className="space-y-5">
+      {/* Título + navegação */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-xl text-navy">
           Meu Ponto — {me?.name} — <span className="capitalize">{monthLabel}</span>
@@ -160,89 +187,107 @@ function MeuPontoView() {
         <div className="bh-card p-8 text-center text-text3 text-sm">Carregando…</div>
       ) : (
         <>
-          {/* Resumo */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bh-card p-4 text-center">
-              <div className="text-2xl font-bold text-navy">{fmtDuration(totalMinutes)}</div>
-              <div className="text-xs text-text2 mt-1">Total trabalhado</div>
+          {/* Cards resumo */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bh-card p-5 text-center">
+              <div className="text-3xl font-bold text-navy">{fmtDuration(totalMinutes)}</div>
+              <div className="text-xs text-text2 mt-1.5">Total de Horas Trabalhadas</div>
             </div>
-            <div className="bh-card p-4 text-center">
-              <div className="text-2xl font-bold text-navy">{daysWithPonto}</div>
-              <div className="text-xs text-text2 mt-1">Dias com ponto</div>
+            <div className="bh-card p-5 text-center">
+              <div className="text-3xl font-bold text-navy">{daysPresent}</div>
+              <div className="text-xs text-text2 mt-1.5">Dias Presentes</div>
             </div>
-            <div className="bh-card p-4 text-center">
-              <div className="text-2xl font-bold text-navy">{absenceDays}</div>
-              <div className="text-xs text-text2 mt-1">Dias de ausência</div>
+            <div className="bh-card p-5 text-center">
+              <div className="text-3xl font-bold text-navy">{absenceDays}</div>
+              <div className="text-xs text-text2 mt-1.5">Dias de Ausência</div>
             </div>
           </div>
 
           {/* Calendário */}
           <div className="bh-card p-4">
-            <div className="text-xs font-semibold text-text2 uppercase tracking-wide mb-3">Calendário do mês</div>
-            <div className="flex flex-wrap gap-1.5">
-              {days.map(({ dayNum, iso, bg }) => (
-                <div
-                  key={iso}
-                  style={{ backgroundColor: bg }}
-                  className={`w-8 h-8 rounded flex items-center justify-center text-xs font-medium border ${iso === todayStr ? "border-gold ring-1 ring-gold" : "border-border/40"}`}
-                  title={iso}
-                >
-                  {dayNum}
-                </div>
+            <div className="text-xs font-semibold text-text2 uppercase tracking-wide mb-3">
+              Calendário — <span className="capitalize">{monthLabel}</span>
+            </div>
+            {/* Cabeçalho dias da semana */}
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {WEEKDAYS_SHORT.map((d) => (
+                <div key={d} className="text-center text-[10px] font-semibold text-text3 uppercase">{d}</div>
               ))}
             </div>
+            {/* Dias */}
+            <div className="grid grid-cols-7 gap-1">
+              {calCells.map((cell, idx) =>
+                cell === null ? (
+                  <div key={idx} />
+                ) : (
+                  <div
+                    key={cell.iso}
+                    style={{ backgroundColor: cell.bg || "#FFFFFF" }}
+                    className={`aspect-square rounded flex items-center justify-center text-xs font-medium border ${
+                      cell.iso === todayStr ? "border-gold ring-1 ring-gold font-bold" : "border-border/30"
+                    }`}
+                  >
+                    {cell.dayNum}
+                  </div>
+                )
+              )}
+            </div>
+            {/* Legenda */}
             <div className="flex flex-wrap gap-4 mt-3 text-[10px] text-text2">
-              {[["#E8F5E9","Ponto completo"],["#F5F5F5","Folga/Férias/Licença"],["#FFEBEE","Falta"],["#FFFFFF","Sem registro"]].map(([color, label]) => (
+              {([["#E8F5E9","Ponto completo"],["#F5F5F5","Folga / Férias / Licença"],["#FFEBEE","Falta"],["","Sem registro"]] as [string, string][]).map(([bg, label]) => (
                 <span key={label} className="flex items-center gap-1">
-                  <span style={{ background: color }} className="inline-block w-3 h-3 rounded border border-border/40 shrink-0" />
+                  <span style={{ background: bg || "#FFFFFF" }} className="inline-block w-3 h-3 rounded border border-border/40 shrink-0" />
                   {label}
                 </span>
               ))}
             </div>
           </div>
 
-          {/* Tabela */}
+          {/* Tabela de registros */}
           <div className="bh-card overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-bg2 text-text2 text-xs">
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold">Data</th>
-                  <th className="text-center px-3 py-3 font-semibold">Entrada</th>
-                  <th className="text-center px-3 py-3 font-semibold">Pausa</th>
-                  <th className="text-center px-3 py-3 font-semibold">Retorno</th>
-                  <th className="text-center px-3 py-3 font-semibold">Saída</th>
-                  <th className="text-center px-3 py-3 font-semibold">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {days.map(({ dayNum, iso, entry, absence, bg }) => {
-                  if (!entry && !absence) return null;
-                  const min = entry ? computeTotalMinutes(entry as Parameters<typeof computeTotalMinutes>[0]) : 0;
-                  const absLabel = absence ? TYPE_LABEL[absence.type as keyof typeof TYPE_LABEL] : null;
-                  return (
-                    <tr key={iso} className="border-t" style={{ background: bg === "#FFFFFF" ? undefined : bg + "80" }}>
-                      <td className="px-4 py-2.5 text-navy font-medium">
-                        {new Date(iso + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })}
-                      </td>
-                      {absLabel ? (
-                        <td colSpan={5} className="px-3 py-2.5 text-center text-xs text-text2 italic">{absLabel}</td>
-                      ) : (
-                        <>
-                          <td className="px-3 py-2.5 text-center text-text2">{fmtTime(entry?.clock_in ?? null)}</td>
-                          <td className="px-3 py-2.5 text-center text-text2">{fmtTime(entry?.break_start ?? null)}</td>
-                          <td className="px-3 py-2.5 text-center text-text2">{fmtTime(entry?.break_end ?? null)}</td>
-                          <td className="px-3 py-2.5 text-center text-text2">{fmtTime(entry?.clock_out ?? null)}</td>
-                          <td className="px-3 py-2.5 text-center font-semibold text-navy">{fmtDuration(min)}</td>
-                        </>
-                      )}
-                    </tr>
-                  );
-                })}
-                {days.every(({ entry, absence }) => !entry && !absence) && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-text3 text-sm">Nenhum registro neste mês.</td></tr>
-                )}
-              </tbody>
-            </table>
+            <div className="px-4 py-3 border-b">
+              <div className="text-xs font-semibold text-text2 uppercase tracking-wide">Registros do mês</div>
+            </div>
+            {tableRows.length === 0 ? (
+              <div className="px-4 py-10 text-center text-text3 text-sm">Nenhum registro neste mês.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-bg2 text-text2 text-xs">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-semibold">Data</th>
+                    <th className="text-center px-3 py-3 font-semibold">Entrada</th>
+                    <th className="text-center px-3 py-3 font-semibold">Início Pausa</th>
+                    <th className="text-center px-3 py-3 font-semibold">Fim Pausa</th>
+                    <th className="text-center px-3 py-3 font-semibold">Saída</th>
+                    <th className="text-center px-3 py-3 font-semibold">Total de Horas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map(({ iso, entry, absence }) => {
+                    const min      = entry ? computeTotalMinutes(entry) : 0;
+                    const absLabel = absence && !entry ? TYPE_LABEL[absence.type] : null;
+                    return (
+                      <tr key={iso} className="border-t hover:bg-bg2/30">
+                        <td className="px-4 py-2.5 text-navy font-medium whitespace-nowrap">
+                          {new Date(iso + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })}
+                        </td>
+                        {absLabel ? (
+                          <td colSpan={5} className="px-3 py-2.5 text-center text-xs text-text3 italic">{absLabel}</td>
+                        ) : (
+                          <>
+                            <td className="px-3 py-2.5 text-center text-text2">{fmtTime(entry?.clock_in   ?? null)}</td>
+                            <td className="px-3 py-2.5 text-center text-text2">{fmtTime(entry?.break_start ?? null)}</td>
+                            <td className="px-3 py-2.5 text-center text-text2">{fmtTime(entry?.break_end   ?? null)}</td>
+                            <td className="px-3 py-2.5 text-center text-text2">{fmtTime(entry?.clock_out   ?? null)}</td>
+                            <td className="px-3 py-2.5 text-center font-semibold text-navy">{fmtDuration(min)}</td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}
