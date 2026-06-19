@@ -106,9 +106,14 @@ function AgendaPage() {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: pdata }, { data: adata }, { data: absData }] = await Promise.all([
-      supabase.from("app_users").select("id,name").eq("active", true)
-        .eq("role", "professional").eq("show_in_agenda", true).order("name"),
+    const prosQuery = isProfessional && me?.id
+      ? supabase.from("app_users").select("id,name").eq("active", true)
+          .eq("role", "professional").eq("id", me.id).order("name")
+      : supabase.from("app_users").select("id,name").eq("active", true)
+          .eq("role", "professional").eq("show_in_agenda", true).order("name");
+    const [{ data: pdata, error: pErr }, { data: adata, error: aErr }, { data: absData, error: absErr }] = await Promise.all([
+      prosQuery,
+
 
       supabase.from("appointments")
         .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,clients(name),procedures(name)")
@@ -119,15 +124,20 @@ function AgendaPage() {
         .select("user_id,type,date_start,date_end")
         .lte("date_start", dayYmd).gte("date_end", dayYmd),
     ]);
+    if (pErr) console.error("[agenda] pros query failed", pErr);
+    if (aErr) console.error("[agenda] appointments query failed", aErr);
+    if (absErr) console.error("[agenda] absences query failed", absErr);
     setPros((pdata as Professional[]) ?? []);
     setAppts((adata as unknown as Appt[]) ?? []);
     setAbsences((absData as Absence[]) ?? []);
     setLoading(false);
+
   };
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayStart.getTime(), dayEnd.getTime(), dayYmd]);
+  }, [dayStart.getTime(), dayEnd.getTime(), dayYmd, isProfessional, me?.id]);
+
 
   const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 

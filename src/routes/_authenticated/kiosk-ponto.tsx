@@ -21,7 +21,7 @@ type Person = {
 };
 
 function KioskPontoPage() {
-  const { user, signOut } = useAuth();
+  const { user, authReady, signOut } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Person[]>([]);
@@ -97,7 +97,9 @@ function KioskPontoPage() {
   const canBreakEnd = !!today?.break_start && !today?.break_end;
   const canOut = !!today?.clock_in && !today?.clock_out && (!today?.break_start || !!today?.break_end);
 
+  if (!authReady) return <div className="fixed inset-0 bg-navy z-40" />;
   if (!user) return null;
+
 
   const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 

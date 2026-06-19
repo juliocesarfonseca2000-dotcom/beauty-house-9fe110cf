@@ -66,6 +66,22 @@ function NotificationsPage() {
     toast.success("Notificações lidas removidas");
     qc.invalidateQueries({ queryKey: ["notifications-all"] });
   };
+  const markAllRead = async () => {
+    const ids = items.filter((n) => !n.is_read).map((n) => n.id);
+    if (!ids.length) {
+      toast.info("Nenhuma notificação não lida");
+      return;
+    }
+    const { error } = await supabase.from("notifications").update({ is_read: true }).in("id", ids);
+    if (error) {
+      toast.error("Erro ao marcar como lidas");
+      return;
+    }
+    toast.success("Todas marcadas como lidas");
+    await qc.invalidateQueries({ queryKey: ["notifications-all"] });
+    await qc.invalidateQueries({ queryKey: ["notifications"] });
+  };
+
   const goTo = async (n: Notif) => {
     if (!n.is_read) await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
     qc.invalidateQueries({ queryKey: ["notifications-all"] });
@@ -94,9 +110,15 @@ function NotificationsPage() {
             >{l}</button>
           ))}
         </div>
-        <button onClick={clearRead} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-text2 hover:bg-bg2 flex items-center gap-1">
-          <IconChecks size={14} /> Limpar todas lidas
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={markAllRead} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-text2 hover:bg-bg2 flex items-center gap-1">
+            <IconChecks size={14} /> Marcar todas como lidas
+          </button>
+          <button onClick={clearRead} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-text2 hover:bg-bg2 flex items-center gap-1">
+            <IconChecks size={14} /> Limpar todas lidas
+          </button>
+        </div>
+
       </div>
 
       <div className="bh-card overflow-x-auto">
