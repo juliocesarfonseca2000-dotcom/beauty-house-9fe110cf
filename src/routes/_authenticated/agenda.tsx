@@ -213,7 +213,7 @@ function AgendaPage() {
           <div className="p-8 text-center text-text3">Nenhum profissional ativo.</div>
         ) : (
           <div className="min-w-[640px]">
-            <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
+            <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(64px, 1fr))` }}>
               <div className="px-2 py-3 bg-bg2 border-r" />
               {visiblePros.map((p) => {
                 const proAbsence = absences.find((a) => a.user_id === p.id);
@@ -255,7 +255,7 @@ function AgendaPage() {
 
             </div>
 
-            <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
+            <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(64px, 1fr))` }}>
               <div className="border-r bg-bg2/50">
                 {slots.map((s, i) => {
                   const label = `${String(s.h).padStart(2, "0")}:${String(s.m).padStart(2, "0")}`;
