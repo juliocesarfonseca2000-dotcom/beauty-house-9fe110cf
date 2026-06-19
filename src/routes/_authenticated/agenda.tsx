@@ -707,17 +707,18 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 
       const rows = targets.map((dt, idx) => {
         const row: Record<string, unknown> = {
-          client_id: client.id,
+          client_id: useGuestName ? null : client!.id,
           procedure_id: effectiveProcId,
           professional_id: proId,
           datetime: dt.toISOString(),
           duration_min: dur,
           status: "pending",
-          notes: notes || null,
+          notes: guestNotes,
           is_loose: isLoose,
           is_preference: isPreference,
           is_first_visit: idx === 0 ? isFirstVisit : false,
         };
+
         if (recurrenceGroup) row.recurrence_group = recurrenceGroup;
         return row;
       });
