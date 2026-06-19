@@ -37,6 +37,42 @@ function copyWhatsApp(text: string) {
     () => toast.error("Não foi possível copiar."),
   );
 }
+function sendToAll(clients: Array<{ name: string; phone: string | null }>, defaultMessage: string) {
+  const withPhone = clients.filter((c) => c.phone);
+  if (!withPhone.length) {
+    toast.error("Nenhum cliente com telefone cadastrado");
+    return;
+  }
+  const message = window.prompt(
+    `Mensagem (use {nome} para personalizar):`,
+    defaultMessage,
+  );
+  if (!message) return;
+  const ok = window.confirm(`Enviar mensagem para ${withPhone.length} cliente(s) via WhatsApp?`);
+  if (!ok) return;
+  for (let i = 0; i < withPhone.length; i++) {
+    const phone = withPhone[i].phone!.replace(/\D/g, "");
+    const text = encodeURIComponent(message.replace(/\{nome\}/g, withPhone[i].name.split(" ")[0] ?? withPhone[i].name));
+    setTimeout(() => {
+      window.open(`https://wa.me/${phone.startsWith("55") ? phone : "55" + phone}?text=${text}`, "_blank");
+    }, i * 800);
+  }
+  toast.success(`Abrindo WhatsApp para ${withPhone.length} clientes...`);
+}
+function SendAllBtn({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{ background: "#25D366" }}
+      title="Enviar mensagem em massa via WhatsApp"
+    >
+      📲 Enviar para todos
+    </button>
+  );
+}
 function downloadCsv(filename: string, rows: (string | number)[][]) {
   const csv = rows
     .map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))
@@ -49,6 +85,7 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
 
 function RelatoriosPage() {
   const [tab, setTab] = useState<Tab>("aniversariantes");
