@@ -34,7 +34,7 @@ type Appt = {
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
-type Absence = { user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; date_start: string; date_end: string; };
+type Absence = { id: string; user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; date_start: string; date_end: string; };
 
 const ABS_LABEL: Record<Absence["type"], string> = { vacation: "Férias", absent: "Falta", dayoff: "Folga", leave: "Licença" };
 
@@ -45,12 +45,13 @@ const SLOT_PX = 28;
 const TOTAL_SLOTS = Math.ceil(((END_HOUR - START_HOUR) * 60) / SLOT_MIN);
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gold/15 text-navy border-l-gold",
-  confirmed: "bg-slate-100 text-navy border-l-slate-400",
-  done: "bg-success/15 text-success border-l-success",
-  cancelled: "bg-danger/10 text-danger border-l-danger line-through",
-  blocked: "bg-text2/20 text-text2 border-l-text2",
+  pending:   "bg-amber-50 text-navy border-l-amber-400",
+  confirmed: "bg-slate-50 text-navy border-l-slate-300",
+  done:      "bg-emerald-50 text-emerald-800 border-l-emerald-400",
+  cancelled: "bg-red-50 text-red-700 border-l-red-400 line-through",
+  blocked:   "bg-gray-100 text-gray-500 border-l-gray-400",
 };
+
 
 function toSPDate(dt: Date) {
   return new Date(dt.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
@@ -121,8 +122,9 @@ function AgendaPage() {
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
       supabase.from("staff_absences")
-        .select("user_id,type,date_start,date_end")
+        .select("id,user_id,type,date_start,date_end")
         .lte("date_start", dayYmd).gte("date_end", dayYmd),
+
     ]);
     if (pErr) console.error("[agenda] pros query failed", pErr);
     if (aErr) console.error("[agenda] appointments query failed", aErr);
@@ -211,30 +213,49 @@ function AgendaPage() {
           <div className="p-8 text-center text-text3">Nenhum profissional ativo.</div>
         ) : (
           <div className="min-w-[640px]">
-            <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
+            <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(64px, 1fr))` }}>
               <div className="px-2 py-3 bg-bg2 border-r" />
-              {visiblePros.map((p) => (
-                <div key={p.id} className="px-3 py-3 text-center border-r last:border-r-0 bg-bg2">
-                  <div className="font-display text-navy truncate">{p.name}</div>
-                  {canManage && !absences.some((a) => a.user_id === p.id) && (
+              {visiblePros.map((p) => {
+                const proAbsence = absences.find((a) => a.user_id === p.id);
+                return (
+                <div key={p.id} className="px-2 py-1 text-center border-r last:border-r-0 bg-bg2">
+                  <div className="font-display text-navy text-xs truncate">{p.name}</div>
+                  {canManage && !proAbsence && (
                     <button
                       type="button"
                       onClick={() => setBlockingDay({ proId: p.id, proName: p.name })}
-                      className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-text3 hover:bg-danger/10 hover:text-danger transition"
+                      className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-text3 hover:bg-danger/10 hover:text-danger transition"
                     >
-                      <IconCalendarOff size={10} /> Bloquear dia
+                      <IconCalendarOff size={10} /> 🗓 Bloquear dia
                     </button>
                   )}
-                  {absences.some((a) => a.user_id === p.id) && (
-                    <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-danger/10 text-danger">
+                  {canManage && proAbsence && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm(`Desbloquear o dia de ${p.name}?`)) return;
+                        const { error } = await supabase.from("staff_absences").delete().eq("id", proAbsence.id);
+                        if (error) { toast.error(error.message); return; }
+                        setAbsences((prev) => prev.filter((a) => a.id !== proAbsence.id));
+                        toast.success(`Dia de ${p.name} desbloqueado`);
+                      }}
+                      className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-danger/10 text-danger hover:bg-danger/20 transition"
+                    >
+                      🔓 Desbloquear
+                    </button>
+                  )}
+                  {!canManage && proAbsence && (
+                    <div className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-danger/10 text-danger">
                       Dia bloqueado
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
+
             </div>
 
-            <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
+            <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(64px, 1fr))` }}>
               <div className="border-r bg-bg2/50">
                 {slots.map((s, i) => {
                   const label = `${String(s.h).padStart(2, "0")}:${String(s.m).padStart(2, "0")}`;
@@ -288,15 +309,18 @@ function AgendaPage() {
                     const dur = a.duration_min ?? 60;
                     const top = (minFromStart / SLOT_MIN) * SLOT_PX;
                     const height = Math.max(SLOT_PX, (dur / SLOT_MIN) * SLOT_PX) - 2;
+                    const isGuest = !a.client_id;
+                    const guestName = isGuest && a.notes?.startsWith("AVULSO: ") ? a.notes.slice(8) : null;
                     const extra: string[] = [];
                     if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
                     if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
                     if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("!bg-blue-500/15 !border-l-blue-500 ring-2 ring-blue-300");
+                    if (isGuest) extra.push("!bg-purple-50 !border-l-purple-400");
                     return (
                       <div
                         key={a.id}
                         onClick={() => canManage && setViewing(a)}
-                        className={`absolute left-1 right-1 rounded p-1.5 text-xs border-l-2 ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending} ${extra.join(" ")}`}
+                        className={`absolute left-0.5 right-0.5 rounded p-1 text-xs border-l-2 min-h-[20px] ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending} ${extra.join(" ")}`}
                         style={{ top, height }}
                       >
                         {a.status === "blocked" ? (
@@ -310,8 +334,10 @@ function AgendaPage() {
                               {a.client_arrived_at && <span title="Cliente chegou">🏠 </span>}
                               {a.is_preference && <span title="Preferência da cliente">⭐ </span>}
                               {a.is_first_visit && <span title="Primeira vez">🆕 </span>}
-                              {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.clients?.name}
+                              {isGuest && <span title="Avulso sem cadastro">👤 </span>}
+                              {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {guestName ?? a.clients?.name ?? "—"}
                             </div>
+
                             <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
                           </>
                         )}
@@ -390,6 +416,9 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [client, setClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Client[]>([]);
+  const [searched, setSearched] = useState(false);
+  const [useGuestName, setUseGuestName] = useState(false);
+  const [guestName, setGuestName] = useState("");
   const [procs, setProcs] = useState<PurchasedProcedure[]>([]);
   const [allProcs, setAllProcs] = useState<Procedure[]>([]);
   const [procId, setProcId] = useState("");
@@ -405,6 +434,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [busy, setBusy] = useState(false);
   const [isPreference, setIsPreference] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
+
   const [procPros, setProcPros] = useState<Record<string, string[]>>({});
   const isEditing = !!editingApptId;
 
@@ -457,24 +487,26 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   }, [client]);
 
   useEffect(() => {
-    if (search.length < 2 || client) { setResults([]); return; }
+    if (search.length < 2 || client) { setResults([]); setSearched(false); return; }
     const t = setTimeout(async () => {
-      const isNumeric = /^\d+$/.test(search.trim());
+      const isNum = /^\d+$/.test(search.trim());
       let query = supabase
         .from("clients")
-        .select("id,name,record_num")
+        .select("id,name,record_num,phone")
         .eq("active", true)
-        .limit(6);
-      if (isNumeric) {
+        .limit(8);
+      if (isNum) {
         query = query.or(`record_num.eq.${parseInt(search)},phone.ilike.%${search}%`);
       } else {
         query = query.ilike("name", `%${search}%`);
       }
       const { data } = await query;
       setResults((data as Client[]) ?? []);
+      setSearched(true);
     }, 250);
     return () => clearTimeout(t);
   }, [search, client]);
+
 
   useEffect(() => {
     const proc = procId
@@ -534,26 +566,30 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!client) return toast.error("Selecione uma cliente");
+    if (useGuestName) {
+      if (!guestName.trim()) return toast.error("Informe o nome do cliente avulso");
+    } else {
+      if (!client) return toast.error("Selecione uma cliente");
+    }
     if (!proId) return toast.error("Selecione um profissional");
-    const isLoose = !procId;
-    const effectiveProcId = procId || looseProcId;
-    if (isLoose && !looseProcId) return toast.error("Escolha qual procedimento será realizado (avulso)");
+    const isLoose = useGuestName ? true : !procId;
+    const effectiveProcId = useGuestName ? (looseProcId || null) : (procId || looseProcId);
+    if (!useGuestName && isLoose && !looseProcId) return toast.error("Escolha qual procedimento será realizado (avulso)");
+    const guestNotes = useGuestName ? `AVULSO: ${guestName.trim()}${notes ? ` — ${notes}` : ""}` : (notes || null);
     setBusy(true);
     try {
       if (isEditing && editingApptId) {
         const dur = Number(duration) || 60;
         const first = new Date(`${date}T${time}:00`);
-        const effectiveProcId = procId || looseProcId;
         const { error } = await supabase
           .from("appointments")
           .update({
-            client_id: client.id,
+            client_id: useGuestName ? null : client!.id,
             procedure_id: effectiveProcId || null,
             professional_id: proId,
             datetime: first.toISOString(),
             duration_min: dur,
-            notes: notes || null,
+            notes: guestNotes,
             is_preference: isPreference,
           })
           .eq("id", editingApptId);
@@ -562,6 +598,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         onSaved();
         return;
       }
+
       const dur = Number(duration) || 60;
       const selectedProc = procs.find((x) => x.id === procId);
       const available = selectedProc?.available ?? 1;
@@ -670,17 +707,18 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 
       const rows = targets.map((dt, idx) => {
         const row: Record<string, unknown> = {
-          client_id: client.id,
+          client_id: useGuestName ? null : client!.id,
           procedure_id: effectiveProcId,
           professional_id: proId,
           datetime: dt.toISOString(),
           duration_min: dur,
           status: "pending",
-          notes: notes || null,
+          notes: guestNotes,
           is_loose: isLoose,
           is_preference: isPreference,
           is_first_visit: idx === 0 ? isFirstVisit : false,
         };
+
         if (recurrenceGroup) row.recurrence_group = recurrenceGroup;
         return row;
       });
@@ -707,7 +745,20 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Cliente*</label>
-            {client ? (
+            {useGuestName ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="bh-badge bg-purple-100 text-purple-700">👤 Sem cadastro</span>
+                  <button type="button" onClick={() => { setUseGuestName(false); setGuestName(""); }} className="text-xs text-text2 hover:text-navy ml-auto">Voltar à busca</button>
+                </div>
+                <input
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Nome do cliente (sem ficha)"
+                  className="w-full px-3 py-2 rounded-lg border border-purple-300 bg-purple-50 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+                />
+              </div>
+            ) : client ? (
               <div className="flex items-center justify-between bg-bg2 rounded-lg p-2.5">
                 <div className="text-sm"><span className="font-semibold text-navy">{client.name}</span> <span className="text-text3">#{client.record_num}</span></div>
                 <button type="button" onClick={() => setClient(null)} className="text-xs text-text2 hover:text-navy">Trocar</button>
@@ -715,19 +766,32 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             ) : (
               <div className="relative">
                 <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text3" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome ou nº ficha..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm" />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, nº ficha ou telefone..." className="w-full pl-9 pr-3 py-2 rounded-lg border border-border text-sm" />
                 {results.length > 0 && (
                   <div className="mt-1 bh-card max-h-48 overflow-y-auto absolute z-10 w-full bg-card">
                     {results.map((c) => (
-                      <button key={c.id} type="button" onClick={() => { setClient(c); setSearch(""); }} className="w-full text-left px-3 py-2 hover:bg-bg2 text-sm">
+                      <button key={c.id} type="button" onClick={() => { setClient(c); setSearch(""); setSearched(false); }} className="w-full text-left px-3 py-2 hover:bg-bg2 text-sm">
                         <span className="font-semibold text-navy">{c.name}</span> <span className="text-text3 text-xs">#{c.record_num}</span>
                       </button>
                     ))}
                   </div>
                 )}
+                {searched && search.length >= 2 && results.length === 0 && (
+                  <div className="mt-2 flex items-center justify-between gap-2 p-2 rounded-lg border border-dashed border-purple-300 bg-purple-50/50 text-xs">
+                    <span className="text-text2">Nenhuma cliente encontrada.</span>
+                    <button
+                      type="button"
+                      onClick={() => { setUseGuestName(true); setGuestName(search); setSearch(""); setResults([]); }}
+                      className="px-2 py-1 rounded bg-purple-600 text-white font-semibold hover:bg-purple-700"
+                    >
+                      👤 Agendar sem cadastro
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Procedimento">
@@ -828,8 +892,12 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [termModal, setTermModal] = useState<TermModalData | null>(null);
+  const [termSource, setTermSource] = useState<"arrived" | "attendance">("arrived");
+
+  const [termAsk, setTermAsk] = useState<TermModalData | null>(null);
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (!appt.attendance_confirmed_by) { setConfirmedByName(null); return; }
@@ -892,6 +960,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
             .limit(1)
             .maybeSingle();
 
+          setTermSource("arrived");
           setTermModal({
             clientName: appt.clients?.name ?? "Cliente",
             clientId: appt.client_id,
@@ -901,6 +970,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
             appointmentId: appt.id,
             packageId: pkg?.id ?? null,
           });
+
           setBusy(false);
           return;
         }
@@ -912,7 +982,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     }
   };
 
-  const confirmAttendance = async () => {
+  const doConfirmAttendance = async () => {
     setBusy(true);
     const { error } = await supabase.from("appointments").update({
       attendance_status: "confirmed",
@@ -922,6 +992,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     }).eq("id", appt.id);
     setBusy(false);
     if (error) return toast.error(error.message);
+
     try {
       if (appt.procedure_id) {
         const { data: pkg } = await supabase
@@ -950,6 +1021,41 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     toast.success("Presença confirmada");
     onChanged();
   };
+
+  const confirmAttendance = async () => {
+    if (!appt.client_id || !appt.procedure_id) {
+      await doConfirmAttendance();
+      return;
+    }
+    const { data: proc } = await supabase
+      .from("procedures")
+      .select("requires_term, term_text, name")
+      .eq("id", appt.procedure_id)
+      .maybeSingle();
+    if (!proc?.requires_term || !proc.term_text) {
+      await doConfirmAttendance();
+      return;
+    }
+    const { data: pkg } = await supabase
+      .from("packages")
+      .select("id")
+      .eq("client_id", appt.client_id)
+      .eq("procedure_id", appt.procedure_id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setTermAsk({
+      clientName: appt.clients?.name ?? "Cliente",
+      clientId: appt.client_id,
+      procedureId: appt.procedure_id,
+      procedureName: proc.name,
+      termText: proc.term_text,
+      appointmentId: appt.id,
+      packageId: pkg?.id ?? null,
+    });
+  };
+
 
   const markNoShow = async () => {
     if (!window.confirm("Marcar cliente como FALTA?")) return;
@@ -1067,10 +1173,53 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
               signature_data: signatureData,
               signed_at: new Date().toISOString(),
             });
-            await finishMarkArrived();
+            setTermModal(null);
+            if (termSource === "attendance") {
+              await doConfirmAttendance();
+            } else {
+              await finishMarkArrived();
+            }
           }}
         />
       )}
+      {termAsk && (
+        <div className="fixed inset-0 z-[60] bg-navy/70 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="font-display text-xl text-navy mb-2">Termo de Consentimento</div>
+            <div className="text-sm text-text2 mb-4">
+              <strong className="text-navy">{termAsk.clientName}</strong> já assinou o termo de consentimento para <strong>{termAsk.procedureName}</strong>?
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  setTermAsk(null);
+                  await doConfirmAttendance();
+                }}
+                className="w-full px-3 py-2 rounded-md bg-success text-white text-sm font-bold hover:bg-success/90"
+              >
+                ✅ Sim, já assinou
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTermSource("attendance"); setTermModal(termAsk); setTermAsk(null); }}
+                className="w-full px-3 py-2 rounded-md bg-gold/15 text-navy border border-gold text-sm font-bold hover:bg-gold/25"
+              >
+                📋 Não, precisa assinar
+              </button>
+              <button
+                type="button"
+                onClick={() => setTermAsk(null)}
+                className="w-full px-3 py-2 rounded-md text-text2 text-xs hover:bg-bg2"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
       </div>
     </div>

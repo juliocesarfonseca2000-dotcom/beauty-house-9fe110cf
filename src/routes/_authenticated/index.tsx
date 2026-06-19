@@ -64,8 +64,14 @@ function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard label="Atendimentos hoje" value={isLoading ? "..." : String(data?.appointments.length ?? 0)} />
         <StatCard label="Clientes ativas" value={isLoading ? "..." : String(data?.activeClients ?? 0)} />
-        <StatCard label="Estoque crítico" value={isLoading ? "..." : String(data?.stockCritical ?? 0)} />
+        <Link to="/estoque" className="bh-card p-5 hover:border-red-400 hover:shadow-md transition block">
+          <div className="text-xs uppercase tracking-wider text-text3 font-semibold">Estoque crítico</div>
+          <div className={`font-display text-3xl mt-1 ${(data?.stockCritical ?? 0) > 0 ? "text-red-600 font-bold" : "text-navy"}`}>
+            {isLoading ? "..." : String(data?.stockCritical ?? 0)}
+          </div>
+        </Link>
       </div>
+
 
       <div>
         <div className="font-display text-xl text-navy mb-3">Atalhos rápidos</div>
