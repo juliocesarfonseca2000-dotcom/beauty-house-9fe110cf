@@ -110,9 +110,15 @@ function NotificationsPage() {
             >{l}</button>
           ))}
         </div>
-        <button onClick={clearRead} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-text2 hover:bg-bg2 flex items-center gap-1">
-          <IconChecks size={14} /> Limpar todas lidas
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={markAllRead} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-text2 hover:bg-bg2 flex items-center gap-1">
+            <IconChecks size={14} /> Marcar todas como lidas
+          </button>
+          <button onClick={clearRead} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-text2 hover:bg-bg2 flex items-center gap-1">
+            <IconChecks size={14} /> Limpar todas lidas
+          </button>
+        </div>
+
       </div>
 
       <div className="bh-card overflow-x-auto">
