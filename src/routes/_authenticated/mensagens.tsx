@@ -252,7 +252,18 @@ function GenerateModal({ audience, audienceLabel, clients, onClose }: { audience
 
           {text && (
             <div className="border-t pt-4">
-              <div className="font-display text-lg text-navy mb-2">Enviar para clientes ({clients.length})</div>
+              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                <div className="font-display text-lg text-navy">Enviar para clientes ({clients.length})</div>
+                <button
+                  type="button"
+                  onClick={sendAll}
+                  disabled={clients.filter((c) => c.phone).length === 0}
+                  className="px-3 py-1.5 rounded-md bg-[#25D366] text-white text-xs font-semibold flex items-center gap-1 hover:opacity-90 disabled:opacity-40"
+                >
+                  📲 Enviar para todos ({clients.filter((c) => c.phone).length})
+                </button>
+              </div>
+
               <div className="max-h-72 overflow-y-auto border border-border rounded-lg divide-y divide-border">
                 {clients.length === 0 ? (
                   <div className="p-4 text-text3 text-sm text-center">Nenhuma cliente neste público.</div>
