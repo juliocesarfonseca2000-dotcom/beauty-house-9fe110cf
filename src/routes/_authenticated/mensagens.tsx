@@ -208,6 +208,23 @@ function GenerateModal({ audience, audienceLabel, clients, onClose }: { audience
     window.open(`https://wa.me/${phone.startsWith("55") ? phone : "55" + phone}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
+  const sendAll = () => {
+    if (!text.trim()) return toast.error("Gere ou escreva uma mensagem antes de enviar.");
+    const withPhone = clients.filter((c) => c.phone);
+    if (!withPhone.length) return toast.error("Nenhum cliente com telefone cadastrado");
+    const ok = window.confirm(`Enviar mensagem para ${withPhone.length} cliente(s) via WhatsApp?`);
+    if (!ok) return;
+    for (let i = 0; i < withPhone.length; i++) {
+      const c = withPhone[i];
+      const msg = applyTemplate(text, c);
+      const phone = c.phone!.replace(/\D/g, "");
+      const url = `https://wa.me/${phone.startsWith("55") ? phone : "55" + phone}?text=${encodeURIComponent(msg)}`;
+      setTimeout(() => window.open(url, "_blank"), i * 800);
+    }
+    toast.success(`Abrindo WhatsApp para ${withPhone.length} clientes...`);
+  };
+
+
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-3xl my-8">
