@@ -416,6 +416,9 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [client, setClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Client[]>([]);
+  const [searched, setSearched] = useState(false);
+  const [useGuestName, setUseGuestName] = useState(false);
+  const [guestName, setGuestName] = useState("");
   const [procs, setProcs] = useState<PurchasedProcedure[]>([]);
   const [allProcs, setAllProcs] = useState<Procedure[]>([]);
   const [procId, setProcId] = useState("");
@@ -431,6 +434,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [busy, setBusy] = useState(false);
   const [isPreference, setIsPreference] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
+
   const [procPros, setProcPros] = useState<Record<string, string[]>>({});
   const isEditing = !!editingApptId;
 
