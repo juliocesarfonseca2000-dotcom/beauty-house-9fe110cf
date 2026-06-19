@@ -892,8 +892,10 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [termModal, setTermModal] = useState<TermModalData | null>(null);
+  const [termAsk, setTermAsk] = useState<TermModalData | null>(null);
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (!appt.attendance_confirmed_by) { setConfirmedByName(null); return; }
