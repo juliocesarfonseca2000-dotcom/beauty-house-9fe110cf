@@ -256,6 +256,8 @@ function InativosReport() {
   const [r30, setR30] = useState<InativoRow[]>([]);
   const [r60, setR60] = useState<InativoRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [visible30, setVisible30] = useState(100);
+  const [visible60, setVisible60] = useState(100);
 
   useEffect(() => {
     (async () => {
@@ -267,14 +269,14 @@ function InativosReport() {
       const c60s = c60.toISOString().slice(0, 10);
 
       const [{ data: clients }, { data: sessions }] = await Promise.all([
-        supabase.from("clients").select("id,name,phone").eq("active", true).limit(5000),
+        supabase.from("clients").select("id,name,phone").eq("active", true),
         supabase
           .from("sessions")
           .select("client_id,done_at,packages(procedures(name))")
           .not("done_at", "is", null)
-          .eq("status", "done")
-          .limit(5000),
+          .eq("status", "done"),
       ]);
+
 
       type SessRow = {
         client_id: string | null;
