@@ -146,6 +146,29 @@ function UsersPage() {
 }
 
 
+type DaySchedule = { start: string; end: string; active: boolean };
+type WorkSchedule = Record<string, DaySchedule>;
+
+const DEFAULT_SCHEDULE: WorkSchedule = {
+  monday:    { start: "09:00", end: "18:00", active: true },
+  tuesday:   { start: "09:00", end: "18:00", active: true },
+  wednesday: { start: "09:00", end: "18:00", active: true },
+  thursday:  { start: "09:00", end: "18:00", active: true },
+  friday:    { start: "09:00", end: "18:00", active: true },
+  saturday:  { start: "08:00", end: "14:00", active: true },
+  sunday:    { start: "09:00", end: "18:00", active: false },
+};
+
+const DAYS = [
+  { key: "monday",    label: "Segunda" },
+  { key: "tuesday",   label: "Terça" },
+  { key: "wednesday", label: "Quarta" },
+  { key: "thursday",  label: "Quinta" },
+  { key: "friday",    label: "Sexta" },
+  { key: "saturday",  label: "Sábado" },
+  { key: "sunday",    label: "Domingo" },
+];
+
 function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onClose: () => void; onSaved: () => void }) {
   const { user: me } = useAuth();
   const isEdit = !!initial;
@@ -158,6 +181,9 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
   const [active, setActive] = useState(initial?.active ?? true);
   const [showInAgenda, setShowInAgenda] = useState<boolean>(initial?.show_in_agenda ?? true);
   const [perms, setPerms] = useState<Permissions>(initial?.permissions ?? DEFAULT_PERMS_BY_ROLE.professional);
+  const [workSchedule, setWorkSchedule] = useState<WorkSchedule>(
+    (initial as AppUser & { work_schedule?: WorkSchedule })?.work_schedule ?? DEFAULT_SCHEDULE
+  );
   const [busy, setBusy] = useState(false);
 
   const createFn = useServerFn(createAppUser);
@@ -185,7 +211,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token,
             id: initial.id,
-            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda },
+            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda, work_schedule: workSchedule },
             password: password || undefined,
           },
         });
@@ -194,7 +220,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token, email, password, name,
             role, cargo: cargo || null, is_evaluator: isEval, permissions: perms,
-            show_in_agenda: showInAgenda,
+            show_in_agenda: showInAgenda, work_schedule: workSchedule,
           },
         });
       }
@@ -286,6 +312,38 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
                 <div className="text-xs text-text3">Desmarque para colaboradoras que não fazem atendimento (limpeza, suporte)</div>
               </div>
             </label>
+          )}
+
+          {role === "professional" && (
+            <div className="space-y-2 mt-4 p-3 bg-bg2 rounded-lg border border-border">
+              <div className="text-sm font-semibold text-navy">🕐 Horário de Trabalho</div>
+              {DAYS.map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={workSchedule[key].active}
+                    onChange={(e) => setWorkSchedule((prev) => ({ ...prev, [key]: { ...prev[key], active: e.target.checked } }))}
+                    className="accent-gold w-4 h-4"
+                  />
+                  <span className="text-sm w-16 text-navy">{label}</span>
+                  <input
+                    type="time"
+                    value={workSchedule[key].start}
+                    disabled={!workSchedule[key].active}
+                    onChange={(e) => setWorkSchedule((prev) => ({ ...prev, [key]: { ...prev[key], start: e.target.value } }))}
+                    className="border border-border rounded px-2 py-1 text-sm disabled:opacity-40"
+                  />
+                  <span className="text-sm text-text2">até</span>
+                  <input
+                    type="time"
+                    value={workSchedule[key].end}
+                    disabled={!workSchedule[key].active}
+                    onChange={(e) => setWorkSchedule((prev) => ({ ...prev, [key]: { ...prev[key], end: e.target.value } }))}
+                    className="border border-border rounded px-2 py-1 text-sm disabled:opacity-40"
+                  />
+                </div>
+              ))}
+            </div>
           )}
 
 

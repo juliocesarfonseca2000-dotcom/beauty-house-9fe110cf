@@ -11,7 +11,9 @@ export const Route = createFileRoute("/_authenticated/agenda")({
   component: AgendaPage,
 });
 
-type Professional = { id: string; name: string };
+type DaySchedule = { start: string; end: string; active: boolean };
+type WorkSchedule = Record<string, DaySchedule>;
+type Professional = { id: string; name: string; work_schedule?: WorkSchedule | null };
 type Procedure = { id: string; name: string; duration_min: number | null; resource_id?: string | null };
 type PurchasedProcedure = Procedure & { available: number };
 type Client = { id: string; name: string; record_num: number };
@@ -53,6 +55,29 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 
+const DAY_KEYS = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"] as const;
+
+function getProScheduleLabel(pro: Professional, date: Date): string {
+  if (!pro.work_schedule) return "";
+  const key = DAY_KEYS[date.getDay()];
+  const day = pro.work_schedule[key];
+  if (!day) return "";
+  if (!day.active) return "Folga";
+  return `${day.start} - ${day.end}`;
+}
+
+function isOutsideWorkHours(pro: Professional, date: Date, slotH: number, slotM: number): boolean {
+  if (!pro.work_schedule) return false;
+  const key = DAY_KEYS[date.getDay()];
+  const day = pro.work_schedule[key];
+  if (!day) return false;
+  if (!day.active) return true;
+  const slotMin = slotH * 60 + slotM;
+  const [sH, sM] = day.start.split(":").map(Number);
+  const [eH, eM] = day.end.split(":").map(Number);
+  return slotMin < sH * 60 + sM || slotMin >= eH * 60 + eM;
+}
+
 function toSPDate(dt: Date) {
   return new Date(dt.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
 }
@@ -90,9 +115,9 @@ function AgendaPage() {
   const load = async () => {
     setLoading(true);
     const prosQuery = isProfessional && me?.id
-      ? supabase.from("app_users").select("id,name").eq("active", true)
+      ? supabase.from("app_users").select("id,name,work_schedule").eq("active", true)
           .eq("role", "professional").eq("id", me.id).order("name")
-      : supabase.from("app_users").select("id,name").eq("active", true)
+      : supabase.from("app_users").select("id,name,work_schedule").eq("active", true)
           .eq("role", "professional").eq("show_in_agenda", true).order("name");
     const [{ data: pdata, error: pErr }, { data: adata, error: aErr }, { data: absData, error: absErr }] = await Promise.all([
       prosQuery,
@@ -202,6 +227,7 @@ function AgendaPage() {
                 return (
                 <div key={p.id} className="px-2 py-1 text-center border-r last:border-r-0 bg-bg2">
                   <div className="font-display text-navy text-xs truncate">{p.name}</div>
+                  {(() => { const lbl = getProScheduleLabel(p, date); return lbl ? <div className="text-[10px] text-text2">{lbl}</div> : null; })()}
                   {canManage && !proAbsence && (
                     <button
                       type="button"
@@ -268,13 +294,18 @@ function AgendaPage() {
 
                   {slots.map((s, i) => {
                     const isHour = s.m === 0;
+                    const outOfHours = isOutsideWorkHours(p, date, s.h, s.m);
                     return (
                       <button
                         key={i}
                         type="button"
                         disabled={!canManage}
-                        onClick={() => canManage && setSlotChoice({ proId: p.id, hour: s.h, min: s.m })}
-                        className={`block w-full ${canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"}`}
+                        onClick={() => {
+                          if (!canManage) return;
+                          if (outOfHours) { toast.error(`Fora do horário de trabalho de ${p.name}`); return; }
+                          setSlotChoice({ proId: p.id, hour: s.h, min: s.m });
+                        }}
+                        className={`block w-full ${outOfHours ? "bg-gray-50 opacity-50 cursor-not-allowed" : canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"}`}
                         style={{
                           height: SLOT_PX,
                           borderTop: isHour ? "1.5px solid #94a3b8" : "1px solid #cbd5e1",
