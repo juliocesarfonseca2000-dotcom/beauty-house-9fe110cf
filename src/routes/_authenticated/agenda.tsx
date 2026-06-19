@@ -34,7 +34,7 @@ type Appt = {
   clients: { name: string } | null;
   procedures: { name: string } | null;
 };
-type Absence = { user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; date_start: string; date_end: string; };
+type Absence = { id: string; user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; date_start: string; date_end: string; };
 
 const ABS_LABEL: Record<Absence["type"], string> = { vacation: "Férias", absent: "Falta", dayoff: "Folga", leave: "Licença" };
 
