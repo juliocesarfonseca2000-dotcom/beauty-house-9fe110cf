@@ -71,24 +71,6 @@ function AgendaPage() {
   const canManage = me?.role === "admin" || me?.role === "receptionist";
   const isProfessional = me?.role === "professional";
 
-  useEffect(() => {
-    if (me?.role !== "professional" || !me?.id) return;
-    const now = new Date();
-    const spOffset = -3 * 60;
-    const spNow = new Date(now.getTime() + (spOffset - (-now.getTimezoneOffset())) * 60000);
-    const today = spNow.toISOString().split("T")[0];
-    supabase
-      .from("appointments")
-      .select("id", { count: "exact", head: true })
-      .eq("professional_id", me.id)
-      .gte("datetime", `${today}T00:00:00-03:00`)
-      .lt("datetime", `${today}T23:59:59-03:00`)
-      .then(({ count }) => {
-        if ((count ?? 0) === 0) navigate({ to: "/escala" });
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me?.id, me?.role]);
-
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
   const [proFilter, setProFilter] = useState<string>(isProfessional && me?.id ? me.id : "all");
