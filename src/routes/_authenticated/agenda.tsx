@@ -46,6 +46,7 @@ const END_HOUR = 21;
 const SLOT_MIN = 22;
 const SLOT_PX = 28;
 const TOTAL_SLOTS = Math.ceil(((END_HOUR - START_HOUR) * 60) / SLOT_MIN);
+const PIXELS_PER_MIN = SLOT_PX / SLOT_MIN;
 
 const STATUS_COLORS: Record<string, string> = {
   pending:   "bg-amber-50 text-navy border-l-amber-400",
@@ -64,7 +65,8 @@ function getProScheduleLabel(pro: Professional, date: Date): string {
   const day = pro.work_schedule[key];
   if (!day) return "";
   if (!day.active) return "Folga";
-  return `${day.start} - ${day.end}`;
+  const fmt = (t: string) => t.replace(/:00$/, "h").replace(/:(\d+)$/, "h$1");
+  return `${fmt(day.start)}-${fmt(day.end)}`;
 }
 
 function isOutsideWorkHours(pro: Professional, date: Date, slotH: number, slotM: number): boolean {
@@ -214,20 +216,20 @@ function AgendaPage() {
         </div>
       </div>
 
-      <div className="bh-card overflow-x-auto">
+      <div className="bh-card overflow-x-auto -mx-4 px-0 sm:mx-0 [scroll-behavior:smooth]">
         {loading ? (
           <TableSkeleton rows={5} cols={4} />
         ) : visiblePros.length === 0 ? (
           <div className="p-8 text-center text-text3">Nenhum profissional ativo.</div>
         ) : (
-          <div className="min-w-[640px]">
-            <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(64px, 1fr))` }}>
+          <div style={{ minWidth: `${64 + visiblePros.length * 70}px` }}>
+            <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(70px, 140px))` }}>
               <div className="px-2 py-3 bg-bg2 border-r" />
               {visiblePros.map((p) => {
                 const proAbsence = absences.find((a) => a.user_id === p.id);
                 return (
-                <div key={p.id} className="px-2 py-1 text-center border-r last:border-r-0 bg-bg2">
-                  <div className="font-display text-navy text-xs truncate">{p.name}</div>
+                <div key={p.id} className="py-1 px-2 text-center border-r last:border-r-0 bg-bg2">
+                  <div className="font-semibold text-navy text-xs truncate">{p.name}</div>
                   {(() => { const lbl = getProScheduleLabel(p, date); return lbl ? <div className="text-[10px] text-text2">{lbl}</div> : null; })()}
                   {canManage && !proAbsence && (
                     <button
@@ -264,7 +266,9 @@ function AgendaPage() {
 
             </div>
 
-            <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(64px, 1fr))` }}>
+            <div className="sm:hidden text-center text-[10px] text-text3 py-0.5 border-b bg-bg2/50 select-none">← deslize →</div>
+
+            <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(70px, 140px))` }}>
               <div className="border-r bg-bg2/50">
                 {slots.map((s, i) => {
                   const label = `${String(s.h).padStart(2, "0")}:${String(s.m).padStart(2, "0")}`;
@@ -284,7 +288,20 @@ function AgendaPage() {
               {visiblePros.map((p) => {
                 const absence = absences.find((a) => a.user_id === p.id);
                 return (
-                <div key={p.id} className="relative border-r last:border-r-0">
+                <div
+                  key={p.id}
+                  className={`relative border-r last:border-r-0 ${canManage ? "cursor-pointer" : "cursor-default"}`}
+                  onClick={(e) => {
+                    if (!canManage) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    const totalMinutes = Math.floor(y / PIXELS_PER_MIN);
+                    const h = Math.floor((START_HOUR * 60 + totalMinutes) / 60);
+                    const m = Math.floor(((START_HOUR * 60 + totalMinutes) % 60) / SLOT_MIN) * SLOT_MIN;
+                    if (isOutsideWorkHours(p, date, h, m)) { toast.error(`Fora do horário de trabalho de ${p.name}`); return; }
+                    setSlotChoice({ proId: p.id, hour: h, min: m });
+                  }}
+                >
                   {absence && (
                     <div className="absolute inset-0 z-20 bg-danger/10 backdrop-blur-[1px] flex items-start justify-center pt-4 pointer-events-none">
                       <div className="px-2 py-1 rounded bg-danger text-white text-[11px] font-semibold shadow">
@@ -297,16 +314,9 @@ function AgendaPage() {
                     const isHour = s.m === 0;
                     const outOfHours = isOutsideWorkHours(p, date, s.h, s.m);
                     return (
-                      <button
+                      <div
                         key={i}
-                        type="button"
-                        disabled={!canManage}
-                        onClick={() => {
-                          if (!canManage) return;
-                          if (outOfHours) { toast.error(`Fora do horário de trabalho de ${p.name}`); return; }
-                          setSlotChoice({ proId: p.id, hour: s.h, min: s.m });
-                        }}
-                        className={`block w-full ${outOfHours ? "bg-gray-50 opacity-50 cursor-not-allowed" : canManage ? "hover:bg-gold/5 cursor-pointer" : "cursor-default"}`}
+                        className={`pointer-events-none w-full ${outOfHours ? "bg-gray-50 opacity-50" : ""}`}
                         style={{
                           height: SLOT_PX,
                           borderTop: isHour ? "1.5px solid #94a3b8" : "1px solid #cbd5e1",
@@ -333,7 +343,7 @@ function AgendaPage() {
                     return (
                       <div
                         key={a.id}
-                        onClick={() => canManage && setViewing(a)}
+                        onClick={(e) => { e.stopPropagation(); if (canManage) setViewing(a); }}
                         className={`absolute left-0.5 right-0.5 rounded p-1 text-xs border-l-2 min-h-[20px] ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending} ${extra.join(" ")}`}
                         style={{ top, height }}
                       >
