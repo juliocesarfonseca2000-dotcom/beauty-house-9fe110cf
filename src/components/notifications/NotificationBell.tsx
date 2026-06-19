@@ -95,9 +95,18 @@ export function NotificationBell() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
   const markAllRead = async () => {
-    await supabase.from("notifications").update({ is_read: true }).eq("is_read", false).eq("user_id", user!.id);
-    qc.invalidateQueries({ queryKey: ["notifications"] });
+    const ids = visible.filter((n) => !n.is_read).map((n) => n.id);
+    if (!ids.length) return;
+    const { error } = await supabase.from("notifications").update({ is_read: true }).in("id", ids);
+    if (error) {
+      toast.error("Erro ao marcar como lidas");
+      return;
+    }
+    toast.success("Todas marcadas como lidas");
+    await qc.invalidateQueries({ queryKey: ["notifications"] });
+    await qc.invalidateQueries({ queryKey: ["notifications-all"] });
   };
+
   const openNotif = async (n: Notif) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
     qc.invalidateQueries({ queryKey: ["notifications"] });
