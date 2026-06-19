@@ -215,25 +215,44 @@ function AgendaPage() {
           <div className="min-w-[640px]">
             <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
               <div className="px-2 py-3 bg-bg2 border-r" />
-              {visiblePros.map((p) => (
-                <div key={p.id} className="px-3 py-3 text-center border-r last:border-r-0 bg-bg2">
-                  <div className="font-display text-navy truncate">{p.name}</div>
-                  {canManage && !absences.some((a) => a.user_id === p.id) && (
+              {visiblePros.map((p) => {
+                const proAbsence = absences.find((a) => a.user_id === p.id);
+                return (
+                <div key={p.id} className="px-2 py-1 text-center border-r last:border-r-0 bg-bg2">
+                  <div className="font-display text-navy text-xs truncate">{p.name}</div>
+                  {canManage && !proAbsence && (
                     <button
                       type="button"
                       onClick={() => setBlockingDay({ proId: p.id, proName: p.name })}
-                      className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-text3 hover:bg-danger/10 hover:text-danger transition"
+                      className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-text3 hover:bg-danger/10 hover:text-danger transition"
                     >
-                      <IconCalendarOff size={10} /> Bloquear dia
+                      <IconCalendarOff size={10} /> 🗓 Bloquear dia
                     </button>
                   )}
-                  {absences.some((a) => a.user_id === p.id) && (
-                    <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-danger/10 text-danger">
+                  {canManage && proAbsence && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm(`Desbloquear o dia de ${p.name}?`)) return;
+                        const { error } = await supabase.from("staff_absences").delete().eq("id", proAbsence.id);
+                        if (error) { toast.error(error.message); return; }
+                        setAbsences((prev) => prev.filter((a) => a.id !== proAbsence.id));
+                        toast.success(`Dia de ${p.name} desbloqueado`);
+                      }}
+                      className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-danger/10 text-danger hover:bg-danger/20 transition"
+                    >
+                      🔓 Desbloquear
+                    </button>
+                  )}
+                  {!canManage && proAbsence && (
+                    <div className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-danger/10 text-danger">
                       Dia bloqueado
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
+
             </div>
 
             <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(140px, 1fr))` }}>
