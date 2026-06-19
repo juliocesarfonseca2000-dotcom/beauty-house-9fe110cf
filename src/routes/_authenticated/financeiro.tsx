@@ -894,7 +894,7 @@ function FechamentoTab() {
         </button>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
         <div className="bh-card p-5">
           <div className="text-xs text-text3 uppercase tracking-wide">Receitas</div>
           <div className="font-display text-3xl text-success mt-1">{fmtMoney(totalIn)}</div>
