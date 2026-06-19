@@ -355,11 +355,12 @@ function PacotesReport() {
             client_id: p.client_id,
             client_name: cli?.name ?? "—",
             phone: cli?.phone ?? null,
+            sess_total: Number(p.sess_total ?? 0),
             remaining: Number(p.sess_total ?? 0) - Number(p.sess_done ?? 0),
             procedure: proc?.name ?? "—",
           };
         })
-        .filter((p) => p.remaining > 0 && p.remaining <= threshold);
+        .filter((p) => Number(p.sess_total ?? 0) > 1 && p.remaining > 0 && p.remaining <= threshold);
 
       // Buscar última sessão done por pacote
       const ids = filtered.map((f) => f.id);
