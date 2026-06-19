@@ -21,7 +21,7 @@ type Person = {
 };
 
 function KioskPontoPage() {
-  const { user, signOut } = useAuth();
+  const { user, authReady, signOut } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Person[]>([]);
