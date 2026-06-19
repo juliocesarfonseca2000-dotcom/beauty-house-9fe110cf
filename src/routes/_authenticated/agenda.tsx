@@ -960,6 +960,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
             .limit(1)
             .maybeSingle();
 
+          setTermSource("arrived");
           setTermModal({
             clientName: appt.clients?.name ?? "Cliente",
             clientId: appt.client_id,
@@ -969,6 +970,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
             appointmentId: appt.id,
             packageId: pkg?.id ?? null,
           });
+
           setBusy(false);
           return;
         }
