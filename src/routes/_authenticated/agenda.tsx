@@ -892,6 +892,8 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [termModal, setTermModal] = useState<TermModalData | null>(null);
+  const [termSource, setTermSource] = useState<"arrived" | "attendance">("arrived");
+
   const [termAsk, setTermAsk] = useState<TermModalData | null>(null);
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
