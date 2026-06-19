@@ -298,47 +298,43 @@ async function genInactiveClients() {
   if (toInsert.length) await supabase.from("notifications").insert(toInsert);
 }
 
-async function genUnconfirmedAppts() {
-  const since = new Date(Date.now() - 12 * 60 * 60_000).toISOString();
+async function genUnconfirmed() {
+  if (!user) return;
+  const now = new Date().toISOString();
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
   const { data: appts } = await supabase
     .from("appointments")
-    .select("id,client_id,datetime,duration_min,status,clients(name),procedures(name)")
-    .gte("datetime", since)
-    .neq("status", "done")
-    .neq("status", "cancelled");
+    .select("id, client_id, professional_id, datetime, clients(name), procedures(name)")
+    .eq("status", "confirmed")
+    .lt("datetime", now)
+    .gte("datetime", oneDayAgo);
+
   if (!appts?.length) return;
-  const now = Date.now();
-  type Row = {
-    id: string; client_id: string; datetime: string; duration_min: number | null;
-    clients: { name: string } | { name: string }[] | null;
-    procedures: { name: string } | { name: string }[] | null;
-  };
-  const candidates = (appts as unknown as Row[]).filter((a) => {
-    const end = new Date(a.datetime).getTime() + (a.duration_min ?? 60) * 60_000;
-    return end + 30 * 60_000 < now;
-  });
-  if (!candidates.length) return;
-  const ids = candidates.map((c) => c.id);
+
+  // Busca notificações já existentes para não duplicar
   const { data: existing } = await supabase
-    .from("notifications").select("reference_id")
+    .from("notifications")
+    .select("reference_id")
     .eq("type", "appointment_unconfirmed")
-    .in("reference_id", ids);
-  const seen = new Set(
-    ((existing ?? []) as Array<{ reference_id: string | null }>)
-      .map((e) => e.reference_id)
-      .filter((id): id is string => id !== null)
-  );
-  const toInsert = candidates.filter((c) => !seen.has(c.id)).map((c) => {
-    const cli = Array.isArray(c.clients) ? c.clients[0]?.name : c.clients?.name;
-    const proc = Array.isArray(c.procedures) ? c.procedures[0]?.name : c.procedures?.name;
-    const hh = new Date(c.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    return {
-      type: "appointment_unconfirmed", target_roles: ["admin", "receptionist"],
-      title: "Sessão sem confirmação",
-      body: `⏰ ${cli ?? "Cliente"} — ${proc ?? "Procedimento"} às ${hh} não foi confirmada`,
-      action_url: `/agenda`, client_id: c.client_id, appointment_id: c.id, deep_tab: "sessoes",
-      reference_id: c.id, reference_type: "appointment",
-    };
-  });
-  if (toInsert.length) await supabase.from("notifications").insert(toInsert);
+    .eq("user_id", user.id)
+    .in("reference_id", appts.map(a => a.id));
+
+  const existingIds = new Set((existing ?? []).map(e => e.reference_id).filter(Boolean));
+
+  const toInsert = appts
+    .filter(a => !existingIds.has(a.id))
+    .map(a => ({
+      type: "appointment_unconfirmed",
+      title: "⏰ Sessão não confirmada",
+      body: `${(a.clients as any)?.name ?? "Cliente"} — ${(a.procedures as any)?.name ?? "Procedimento"} não foi confirmado`,
+      user_id: user.id,
+      reference_id: a.id,
+      reference_type: "appointment",
+      is_read: false,
+    }));
+
+  if (toInsert.length) {
+    await supabase.from("notifications").insert(toInsert);
+  }
 }
