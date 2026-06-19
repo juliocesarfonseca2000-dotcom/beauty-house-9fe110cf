@@ -1173,7 +1173,12 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
               signature_data: signatureData,
               signed_at: new Date().toISOString(),
             });
-            await finishMarkArrived();
+            setTermModal(null);
+            if (termSource === "attendance") {
+              await doConfirmAttendance();
+            } else {
+              await finishMarkArrived();
+            }
           }}
         />
       )}
@@ -1188,10 +1193,8 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
               <button
                 type="button"
                 onClick={async () => {
-                  const ask = termAsk;
                   setTermAsk(null);
                   await doConfirmAttendance();
-                  void ask;
                 }}
                 className="w-full px-3 py-2 rounded-md bg-success text-white text-sm font-bold hover:bg-success/90"
               >
@@ -1199,7 +1202,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
               </button>
               <button
                 type="button"
-                onClick={() => { setTermModal(termAsk); setTermAsk(null); }}
+                onClick={() => { setTermSource("attendance"); setTermModal(termAsk); setTermAsk(null); }}
                 className="w-full px-3 py-2 rounded-md bg-gold/15 text-navy border border-gold text-sm font-bold hover:bg-gold/25"
               >
                 📋 Não, precisa assinar
@@ -1215,12 +1218,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
           </div>
         </div>
       )}
-      {termModal && !termAsk && (() => {
-        // Quando vier do fluxo de "Confirmar presença", após assinar deve confirmar presença (não marcar chegada).
-        const fromAttendance = !appt.client_arrived_at ? false : false; // mantém compat
-        void fromAttendance;
-        return null;
-      })()}
+
 
     </div>
       </div>
