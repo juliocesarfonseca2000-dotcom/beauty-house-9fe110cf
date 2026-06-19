@@ -101,10 +101,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
               {visible.map((i) => {
                 const active = path === i.to || (i.to !== "/" && path.startsWith(i.to));
                 const count = countMap[i.key];
+                const to = user.role === "professional" && i.key === "meu_ponto" ? "/escala" : i.to;
                 return (
                   <Link
                     key={i.to}
-                    to={i.to}
+                    to={to}
                     onClick={onNavigate}
                     className={`flex items-center justify-between gap-3 px-5 py-2.5 text-sm transition-colors border-l-2 ${
                       active
