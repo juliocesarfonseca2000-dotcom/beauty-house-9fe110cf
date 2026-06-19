@@ -566,26 +566,30 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!client) return toast.error("Selecione uma cliente");
+    if (useGuestName) {
+      if (!guestName.trim()) return toast.error("Informe o nome do cliente avulso");
+    } else {
+      if (!client) return toast.error("Selecione uma cliente");
+    }
     if (!proId) return toast.error("Selecione um profissional");
-    const isLoose = !procId;
-    const effectiveProcId = procId || looseProcId;
-    if (isLoose && !looseProcId) return toast.error("Escolha qual procedimento será realizado (avulso)");
+    const isLoose = useGuestName ? true : !procId;
+    const effectiveProcId = useGuestName ? (looseProcId || null) : (procId || looseProcId);
+    if (!useGuestName && isLoose && !looseProcId) return toast.error("Escolha qual procedimento será realizado (avulso)");
+    const guestNotes = useGuestName ? `AVULSO: ${guestName.trim()}${notes ? ` — ${notes}` : ""}` : (notes || null);
     setBusy(true);
     try {
       if (isEditing && editingApptId) {
         const dur = Number(duration) || 60;
         const first = new Date(`${date}T${time}:00`);
-        const effectiveProcId = procId || looseProcId;
         const { error } = await supabase
           .from("appointments")
           .update({
-            client_id: client.id,
+            client_id: useGuestName ? null : client!.id,
             procedure_id: effectiveProcId || null,
             professional_id: proId,
             datetime: first.toISOString(),
             duration_min: dur,
-            notes: notes || null,
+            notes: guestNotes,
             is_preference: isPreference,
           })
           .eq("id", editingApptId);
@@ -594,6 +598,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         onSaved();
         return;
       }
+
       const dur = Number(duration) || 60;
       const selectedProc = procs.find((x) => x.id === procId);
       const available = selectedProc?.available ?? 1;
