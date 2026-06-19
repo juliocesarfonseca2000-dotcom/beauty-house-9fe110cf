@@ -1,3 +1,4 @@
+import { jsPDF } from "jspdf";
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -61,6 +62,7 @@ type Session = {
   signature_data: string | null;
   notes: string | null;
   appointment_id: string | null;
+  signed_term_id: string | null;
 };
 type Professional = { id: string; name: string };
 
@@ -75,6 +77,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [attachingSig, setAttachingSig] = useState<{ pkg: Package; session: Session } | null>(null);
   const [validatingBonus, setValidatingBonus] = useState<Package | null>(null);
   const [viewContract, setViewContract] = useState<string | null>(null);
+  const [viewSignedTerm, setViewSignedTerm] = useState<string | null>(null);
   const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
   const [addingExisting, setAddingExisting] = useState(false);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, string>>({});
@@ -100,7 +103,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       const ids = list.map((p) => p.id);
       const { data: sess, error: sessError } = await withTimeout(supabase
           .from("sessions")
-          .select("id,package_id,session_num,status,session_status,done_at,signature_url,signature_data,notes,appointment_id")
+          .select("id,package_id,session_num,status,session_status,done_at,signature_url,signature_data,notes,appointment_id,signed_term_id")
           .in("package_id", ids)
           .order("session_num"), 10000, "Carregamento das sessões");
       if (sessError) throw sessError;
@@ -307,54 +310,65 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                     ? "bg-gold text-white cursor-pointer hover:bg-gold2"
                     : "bg-bg2 text-text3";
                 return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    disabled={!isNext && s.status === "pending"}
-                    onClick={() => {
-                      if (s.status === "done") {
-                        if (isImported) {
-                          setAttachingSig({ pkg, session: s });
-                        } else {
-                          setViewSig({ pkg, session: s });
-                        }
-                      } else if (isNext) {
-                        if (s.appointment_id) {
-                          const st = attendanceMap[s.appointment_id];
-                          if (st === "no_show") {
-                            toast.error("Cliente marcado como FALTA na agenda — não é possível assinar a sessão.");
-                            return;
+                  <div key={s.id} className="relative">
+                    <button
+                      type="button"
+                      disabled={!isNext && s.status === "pending"}
+                      onClick={() => {
+                        if (s.status === "done") {
+                          if (isImported) {
+                            setAttachingSig({ pkg, session: s });
+                          } else {
+                            setViewSig({ pkg, session: s });
                           }
-                          if (st !== "confirmed") {
-                            toast.error("⏳ A presença precisa ser confirmada na Agenda antes de finalizar a sessão. Peça à recepção para confirmar a presença da cliente.");
-                            return;
+                        } else if (isNext) {
+                          if (s.appointment_id) {
+                            const st = attendanceMap[s.appointment_id];
+                            if (st === "no_show") {
+                              toast.error("Cliente marcado como FALTA na agenda — não é possível assinar a sessão.");
+                              return;
+                            }
+                            if (st !== "confirmed") {
+                              toast.error("⏳ A presença precisa ser confirmada na Agenda antes de finalizar a sessão. Peça à recepção para confirmar a presença da cliente.");
+                              return;
+                            }
                           }
+                          setChoosing({ pkg, session: s });
                         }
-                        setChoosing({ pkg, session: s });
+                      }}
+                      className={`relative w-11 h-11 rounded-md text-sm font-semibold ${cls} transition`}
+                      title={
+                        s.status === "done"
+                          ? isImported
+                            ? "Sessão importada — clique para anexar assinatura"
+                            : "Realizada — clique para ver"
+                          : isMissedJ ? "Falta justificada — reposição agendada"
+                          : s.status === "missed" ? "Sessão perdida — sem reposição"
+                          : isNext ? "Próxima sessão" : "Aguardando"
                       }
-                    }}
-                    className={`relative w-11 h-11 rounded-md text-sm font-semibold ${cls} transition`}
-                    title={
-                      s.status === "done"
-                        ? isImported
-                          ? "Sessão importada — clique para anexar assinatura"
-                          : "Realizada — clique para ver"
-                        : isMissedJ ? "Falta justificada — reposição agendada"
-                        : s.status === "missed" ? "Sessão perdida — sem reposição"
-                        : isNext ? "Próxima sessão" : "Aguardando"
-                    }
-                  >
-                    {s.session_num}
-                    {s.status === "done" && !isImported && (
-                      <IconLock size={9} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-px" />
+                    >
+                      {s.session_num}
+                      {s.status === "done" && !isImported && (
+                        <IconLock size={9} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-px" />
+                      )}
+                      {s.status === "done" && isImported && (
+                        <IconCamera size={10} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-0.5" />
+                      )}
+                      {(s.status === "missed" || isMissedJ) && (
+                        <span className="absolute inset-0 flex items-center justify-center text-white text-lg">✗</span>
+                      )}
+                    </button>
+                    {s.signed_term_id && (
+                      <button
+                        type="button"
+                        onClick={() => setViewSignedTerm(s.signed_term_id)}
+                        title="Ver termo assinado"
+                        className="absolute -bottom-1.5 -left-1 z-10 text-[8px] bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center leading-none"
+                      >
+                        📋
+                      </button>
                     )}
-                    {s.status === "done" && isImported && (
-                      <IconCamera size={10} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-0.5" />
-                    )}
-                    {(s.status === "missed" || isMissedJ) && (
-                      <span className="absolute inset-0 flex items-center justify-center text-white text-lg">✗</span>
-                    )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -419,6 +433,9 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       )}
       {viewContract && (
         <ContractModal existingContractId={viewContract} onClose={() => setViewContract(null)} />
+      )}
+      {viewSignedTerm && (
+        <SignedTermViewModal signedTermId={viewSignedTerm} onClose={() => setViewSignedTerm(null)} />
       )}
       {attachingSig && (
         <AttachSignatureModal
@@ -988,6 +1005,99 @@ function SignSessionModal({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SignedTermViewModal({ signedTermId, onClose }: { signedTermId: string; onClose: () => void }) {
+  const [term, setTerm] = useState<{
+    term_text: string;
+    signature_data: string | null;
+    signed_at: string | null;
+    clients: { name: string } | null;
+    procedures: { name: string } | null;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("signed_terms")
+      .select("term_text,signature_data,signed_at,clients(name),procedures(name)")
+      .eq("id", signedTermId)
+      .single()
+      .then(({ data }) => {
+        setTerm(data as typeof term);
+        setLoading(false);
+      });
+  }, [signedTermId]);
+
+  const downloadPDF = () => {
+    if (!term) return;
+    const clientName = term.clients?.name ?? "Cliente";
+    const procName = term.procedures?.name ?? "Procedimento";
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text("Est. Beauty House Medicina e Estética", 20, 20);
+    doc.setFontSize(11);
+    doc.text("CNPJ: 68.438.126/0001-86", 20, 30);
+    doc.text("Rua Pamplona, 925 — Jd. Paulista, São Paulo", 20, 38);
+    doc.line(20, 44, 190, 44);
+    doc.setFontSize(13);
+    doc.text("Termo de Consentimento", 20, 54);
+    doc.setFontSize(10);
+    doc.text(`Cliente: ${clientName}`, 20, 65);
+    doc.text(`Procedimento: ${procName}`, 20, 73);
+    const signedDate = term.signed_at ? new Date(term.signed_at).toLocaleDateString("pt-BR") : new Date().toLocaleDateString("pt-BR");
+    doc.text(`Data: ${signedDate}`, 20, 81);
+    doc.line(20, 87, 190, 87);
+    const lines = doc.splitTextToSize(term.term_text, 170);
+    doc.text(lines, 20, 97);
+    if (term.signature_data) {
+      doc.addImage(term.signature_data, "PNG", 20, 200, 80, 25);
+    }
+    doc.text("Assinatura da Cliente", 20, 230);
+    doc.save(`Termo_${clientName.replace(/\s/g, "_")}_${procName.replace(/\s/g, "_")}.pdf`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-xl text-navy">📋 Termo de Consentimento</div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+        </div>
+        {loading ? (
+          <div className="p-8 text-center text-text3">Carregando...</div>
+        ) : !term ? (
+          <div className="p-8 text-center text-danger">Termo não encontrado.</div>
+        ) : (
+          <div className="p-6 space-y-4 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><div className="text-text3 text-xs uppercase">Cliente</div><div className="font-semibold text-navy">{term.clients?.name ?? "—"}</div></div>
+              <div><div className="text-text3 text-xs uppercase">Procedimento</div><div className="font-semibold text-navy">{term.procedures?.name ?? "—"}</div></div>
+              <div><div className="text-text3 text-xs uppercase">Data da assinatura</div><div className="font-semibold text-navy">{term.signed_at ? new Date(term.signed_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}</div></div>
+            </div>
+            <div className="border border-border rounded-lg p-3 bg-bg2/40 max-h-48 overflow-y-auto text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+              {term.term_text}
+            </div>
+            {term.signature_data ? (
+              <div className="border border-border rounded-lg p-3 bg-white flex justify-center">
+                <img src={term.signature_data} alt="Assinatura" className="max-w-full max-h-32" />
+              </div>
+            ) : (
+              <div className="text-text3 italic text-center py-4 text-sm">Sem imagem de assinatura.</div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={downloadPDF} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2 text-sm font-semibold">
+                📄 Baixar PDF
+              </button>
+              <button type="button" onClick={onClose} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 text-sm">
+                Fechar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

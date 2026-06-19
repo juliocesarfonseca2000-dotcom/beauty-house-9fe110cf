@@ -1,3 +1,4 @@
+import { jsPDF } from "jspdf";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -1178,14 +1179,26 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
           data={termModal}
           onCancel={() => { setTermModal(null); setBusy(false); }}
           onSigned={async (signatureData) => {
-            await supabase.from("signed_terms").insert({
-              client_id: termModal.clientId,
-              procedure_id: termModal.procedureId,
-              package_id: termModal.packageId,
-              term_text: termModal.termText,
-              signature_data: signatureData,
-              signed_at: new Date().toISOString(),
-            });
+            const { data: inserted } = await supabase
+              .from("signed_terms")
+              .insert({
+                client_id: termModal.clientId,
+                procedure_id: termModal.procedureId,
+                package_id: termModal.packageId,
+                term_text: termModal.termText,
+                signature_data: signatureData,
+                signed_at: new Date().toISOString(),
+              })
+              .select("id")
+              .single();
+            if ((inserted as { id: string } | null)?.id) {
+              await supabase
+                .from("sessions")
+                .update({ signed_term_id: (inserted as { id: string }).id })
+                .eq("appointment_id", termModal.appointmentId)
+                .eq("status", "pending")
+                .limit(1);
+            }
             setTermModal(null);
             if (termSource === "attendance") {
               await doConfirmAttendance();
@@ -1439,6 +1452,32 @@ function TermConsentModal({
     setHasSigned(false);
   };
 
+  const generateTermPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text("Est. Beauty House Medicina e Estética", 20, 20);
+    doc.setFontSize(11);
+    doc.text("CNPJ: 68.438.126/0001-86", 20, 30);
+    doc.text("Rua Pamplona, 925 — Jd. Paulista, São Paulo", 20, 38);
+    doc.line(20, 44, 190, 44);
+    doc.setFontSize(13);
+    doc.text("Termo de Consentimento", 20, 54);
+    doc.setFontSize(10);
+    doc.text(`Cliente: ${data.clientName}`, 20, 65);
+    doc.text(`Procedimento: ${data.procedureName}`, 20, 73);
+    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 20, 81);
+    doc.line(20, 87, 190, 87);
+    const lines = doc.splitTextToSize(data.termText, 170);
+    doc.text(lines, 20, 97);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const img = canvas.toDataURL("image/png");
+      doc.addImage(img, "PNG", 20, 200, 80, 25);
+    }
+    doc.text("Assinatura da Cliente", 20, 230);
+    doc.save(`Termo_${data.clientName.replace(/\s/g, "_")}_${data.procedureName.replace(/\s/g, "_")}.pdf`);
+  };
+
   const handleSign = async () => {
     if (!hasSigned) return toast.error("Por favor, colete a assinatura da cliente antes de continuar.");
     const canvas = canvasRef.current;
@@ -1512,7 +1551,7 @@ function TermConsentModal({
             ⚠️ <b>Atenção:</b> A cliente não poderá realizar o procedimento sem assinar este termo. A assinatura ficará salva na ficha da cliente.
           </div>
         </div>
-        <div className="px-6 pb-6 flex gap-3">
+        <div className="px-6 pb-6 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={onCancel}
@@ -1520,6 +1559,15 @@ function TermConsentModal({
           >
             Cancelar — não confirmar chegada
           </button>
+          {hasSigned && (
+            <button
+              type="button"
+              onClick={generateTermPDF}
+              className="px-4 py-2.5 rounded-lg border border-border text-text2 hover:bg-bg2 text-sm font-semibold"
+            >
+              📄 Baixar PDF do Termo
+            </button>
+          )}
           <button
             type="button"
             onClick={handleSign}
