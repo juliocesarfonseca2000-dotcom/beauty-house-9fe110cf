@@ -824,6 +824,9 @@ function FechamentoTab() {
   );
   const result = totalIn - totalOut;
 
+  const uniqueClients = useMemo(() => new Set(income.map((i) => i.client_id).filter(Boolean)).size, [income]);
+  const ticketMedio = uniqueClients > 0 ? totalIn / uniqueClients : 0;
+
   const byMethod = useMemo(() => {
     const m = new Map<string, number>();
     income.forEach((i) => {

@@ -178,7 +178,7 @@ function ClosePackagePage() {
 
       const pkgIds = pkgResults.map((r) => r.data!.id);
 
-      // Taxa de cartão — pós-processo do income criado pelo trigger
+      // Taxa de cartão — UPDATE no income já criado pelo trigger
       if (isCard && cardFeePctNum > 0) {
         const feePctNum = cardFeePctNum;
         const feeValueTotal = baseTotal * (feePctNum / 100);
@@ -195,16 +195,6 @@ function ClosePackagePage() {
               description: `Taxa de cartão (${feePctNum}%) — ${client.name}`,
               amount: feeValueTotal,
               category: "Taxas",
-            });
-          } else {
-            await supabase.from("income").insert({
-              client_id: client.id,
-              date: new Date().toISOString().split("T")[0],
-              description: `Taxa de cartão repassada (${feePctNum}%) — ${client.name}`,
-              amount: feeValueTotal,
-              pay_method: payMethodLabel,
-              card_fee_pct: feePctNum,
-              card_fee_payer: cardFeePayer,
             });
           }
         } catch (e) {
