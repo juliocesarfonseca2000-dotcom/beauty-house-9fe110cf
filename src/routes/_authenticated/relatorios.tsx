@@ -322,52 +322,71 @@ function InativosReport() {
     copyWhatsApp(lines.join("\n"));
   }
 
-  const Section = ({ title, days, rows }: { title: string; days: number; rows: InativoRow[] }) => (
-    <div className="space-y-2">
-      <div className="bh-card p-4 flex items-end gap-3 flex-wrap">
-        <div>
-          <div className="font-display text-lg text-navy">{title}</div>
-          <div className="text-xs text-text3 mt-0.5">{rows.length} cliente(s)</div>
+  const Section = ({ title, days, rows, visible, setVisible }: { title: string; days: number; rows: InativoRow[]; visible: number; setVisible: (n: number) => void }) => {
+    const visibleRows = rows.slice(0, visible);
+    return (
+      <div className="space-y-2">
+        <div className="bh-card p-4 flex items-end gap-3 flex-wrap">
+          <div>
+            <div className="font-display text-lg text-navy">{title}</div>
+            <div className="text-xs text-text3 mt-0.5">{rows.length} cliente(s) sem visita há {days}+ dias</div>
+          </div>
+          <div className="flex-1" />
+          <WhatsBtn onClick={() => whats(rows, days)} disabled={rows.length === 0} />
+          <SendAllBtn
+            onClick={() => sendToAll(rows, `Olá {nome}! Sentimos sua falta na Beauty House. Que tal agendar uma visita? 💖`)}
+            disabled={rows.filter((r) => r.phone).length === 0}
+          />
         </div>
-        <div className="flex-1" />
-        <WhatsBtn onClick={() => whats(rows, days)} disabled={rows.length === 0} />
-      </div>
-      <div className="bh-card p-0 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-bg2 text-text3">
-            <tr>
-              <th className="text-left p-3">Cliente</th>
-              <th className="text-left p-3">Último procedimento</th>
-              <th className="text-left p-3">Última visita</th>
-              <th className="text-left p-3">Telefone</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={4} className="p-6 text-center text-text3">Carregando…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={4} className="p-6 text-center text-success">Ninguém nessa faixa.</td></tr>
-            ) : rows.map((r) => (
-              <tr key={r.id} className="border-t border-border">
-                <td className="p-3 font-medium">{r.name}</td>
-                <td className="p-3 text-text2">{r.last_proc ?? "—"}</td>
-                <td className="p-3 text-text2">{r.last ? new Date(r.last).toLocaleDateString("pt-BR") : "nunca"}</td>
-                <td className="p-3 text-text2">{r.phone ?? "—"}</td>
+        <div className="bh-card p-0 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-bg2 text-text3">
+              <tr>
+                <th className="text-left p-3">Cliente</th>
+                <th className="text-left p-3">Último procedimento</th>
+                <th className="text-left p-3">Última visita</th>
+                <th className="text-left p-3">Telefone</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="p-6 text-center text-text3">Carregando…</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={4} className="p-6 text-center text-success">Ninguém nessa faixa.</td></tr>
+              ) : visibleRows.map((r) => (
+                <tr key={r.id} className="border-t border-border">
+                  <td className="p-3 font-medium">{r.name}</td>
+                  <td className="p-3 text-text2">{r.last_proc ?? "—"}</td>
+                  <td className="p-3 text-text2">{r.last ? new Date(r.last).toLocaleDateString("pt-BR") : "nunca"}</td>
+                  <td className="p-3 text-text2">{r.phone ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rows.length > visible && (
+            <div className="p-3 border-t border-border text-center">
+              <button
+                type="button"
+                onClick={() => setVisible(visible + 100)}
+                className="px-4 py-2 rounded-md border border-border text-sm text-text2 hover:bg-bg2"
+              >
+                Carregar mais +100 ({rows.length - visible} restantes)
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
-      <Section title="Sem visita há +30 dias" days={30} rows={r30} />
-      <Section title="Sem visita há +60 dias" days={60} rows={r60} />
+      <Section title="Sem visita há +30 dias" days={30} rows={r30} visible={visible30} setVisible={setVisible30} />
+      <Section title="Sem visita há +60 dias" days={60} rows={r60} visible={visible60} setVisible={setVisible60} />
     </div>
   );
 }
+
 
 // ============= 3. PACOTES A VENCER =============
 function PacotesReport() {
