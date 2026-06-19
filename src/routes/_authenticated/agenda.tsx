@@ -978,7 +978,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     }
   };
 
-  const confirmAttendance = async () => {
+  const doConfirmAttendance = async () => {
     setBusy(true);
     const { error } = await supabase.from("appointments").update({
       attendance_status: "confirmed",
@@ -988,6 +988,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     }).eq("id", appt.id);
     setBusy(false);
     if (error) return toast.error(error.message);
+
     try {
       if (appt.procedure_id) {
         const { data: pkg } = await supabase
