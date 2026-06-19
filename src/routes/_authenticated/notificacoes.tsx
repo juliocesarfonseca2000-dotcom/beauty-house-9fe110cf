@@ -66,6 +66,22 @@ function NotificationsPage() {
     toast.success("Notificações lidas removidas");
     qc.invalidateQueries({ queryKey: ["notifications-all"] });
   };
+  const markAllRead = async () => {
+    const ids = items.filter((n) => !n.is_read).map((n) => n.id);
+    if (!ids.length) {
+      toast.info("Nenhuma notificação não lida");
+      return;
+    }
+    const { error } = await supabase.from("notifications").update({ is_read: true }).in("id", ids);
+    if (error) {
+      toast.error("Erro ao marcar como lidas");
+      return;
+    }
+    toast.success("Todas marcadas como lidas");
+    await qc.invalidateQueries({ queryKey: ["notifications-all"] });
+    await qc.invalidateQueries({ queryKey: ["notifications"] });
+  };
+
   const goTo = async (n: Notif) => {
     if (!n.is_read) await supabase.from("notifications").update({ is_read: true }).eq("id", n.id);
     qc.invalidateQueries({ queryKey: ["notifications-all"] });
