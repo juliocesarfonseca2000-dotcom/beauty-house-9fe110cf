@@ -359,7 +359,7 @@ function PacotesReport() {
             procedure: proc?.name ?? "—",
           };
         })
-        .filter((p) => p.remaining > 0 && p.remaining <= threshold);
+        .filter((p) => Number(p.sess_total ?? 0) > 1 && p.remaining > 0 && p.remaining <= threshold);
 
       // Buscar última sessão done por pacote
       const ids = filtered.map((f) => f.id);
