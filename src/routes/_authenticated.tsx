@@ -33,9 +33,17 @@ function AuthenticatedLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const isKiosk = (user as { is_kiosk?: boolean } | null)?.is_kiosk === true;
+
   useEffect(() => {
     if (!loading && authReady && !user) navigate({ to: "/login", replace: true });
   }, [loading, authReady, user, navigate]);
+
+  useEffect(() => {
+    if (!loading && authReady && user && isKiosk && path !== "/kiosk-ponto") {
+      navigate({ to: "/kiosk-ponto", replace: true });
+    }
+  }, [loading, authReady, user, isKiosk, path, navigate]);
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -58,11 +66,8 @@ function AuthenticatedLayout() {
   }
   if (!user) return null;
 
-  // Modo kiosk: usuário ponto@beautyhouse.com (is_kiosk) → tela exclusiva
-  const isKiosk = (user as { is_kiosk?: boolean }).is_kiosk === true;
   if (isKiosk && path !== "/kiosk-ponto") {
-    navigate({ to: "/kiosk-ponto", replace: true });
-    return null;
+    return <div className="fixed inset-0 bg-navy z-50" />;
   }
   if (isKiosk) {
     return <Outlet />;
