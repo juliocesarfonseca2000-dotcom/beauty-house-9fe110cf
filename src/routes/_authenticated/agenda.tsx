@@ -198,7 +198,7 @@ function AgendaPage() {
             className="ml-2 px-2 py-1.5 rounded-lg border border-border text-sm"
           />
           <div className="hidden sm:block font-display text-lg text-navy ml-2 capitalize">
-            {date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+            {date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", timeZone: "America/Sao_Paulo" })}
           </div>
         </div>
 
@@ -639,7 +639,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       if (recurring && available > 1 && !isLoose) {
         const dayMs = 86400000;
         const [rh, rm] = recTime.split(":").map(Number);
-        let diff = (recWeekday - first.getDay() + 7) % 7;
+        const spFirst = new Date(first.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+        let diff = (recWeekday - spFirst.getDay() + 7) % 7;
         if (diff === 0) diff = 7;
         const cursor = new Date(first.getTime() + diff * dayMs);
         cursor.setHours(rh || 0, rm || 0, 0, 0);

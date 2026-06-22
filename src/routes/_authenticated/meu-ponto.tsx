@@ -119,7 +119,7 @@ function MeuPontoPage() {
     year: "numeric",
   });
 
-  const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const nowHM = now.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">

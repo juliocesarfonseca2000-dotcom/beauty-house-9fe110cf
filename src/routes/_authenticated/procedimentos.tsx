@@ -373,6 +373,7 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
     e.preventDefault();
     if (!name.trim()) return toast.error("Nome obrigatório");
     const pwd = window.prompt("Digite a senha para salvar o procedimento:");
+    // TODO SEGURANÇA: mover validação de admin_password para Edge Function/RPC com hash antes da entrega final
     const { data: pwdData } = await supabase.from("settings").select("admin_password").limit(1);
     const expected = (pwdData as Array<{ admin_password: string }> | null)?.[0]?.admin_password;
     if (!expected) { toast.error("Senha de admin não configurada"); return; }

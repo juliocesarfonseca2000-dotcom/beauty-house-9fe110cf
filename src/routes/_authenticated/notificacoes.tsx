@@ -38,6 +38,7 @@ function NotificationsPage() {
       const { data } = await supabase
         .from("notifications")
         .select("*")
+        .or(`user_id.is.null,user_id.eq.${user!.id}`)
         .order("created_at", { ascending: false })
         .limit(500);
       return ((data as Notif[]) ?? []).filter((n) => !user?.role ? false : n.target_roles.includes(user.role!));
@@ -62,7 +63,7 @@ function NotificationsPage() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
   const clearRead = async () => {
-    await supabase.from("notifications").delete().eq("is_read", true).eq("user_id", user!.id);
+    await supabase.from("notifications").delete().eq("is_read", true).or(`user_id.eq.${user!.id},user_id.is.null`);
     toast.success("Notificações lidas removidas");
     qc.invalidateQueries({ queryKey: ["notifications-all"] });
   };

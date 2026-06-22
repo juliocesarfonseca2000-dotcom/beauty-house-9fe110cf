@@ -1,7 +1,7 @@
 // Sino de notificações consolidado.
 // Tipos: package_low, client_inactive_30, client_inactive_60, appointment_unconfirmed, client_arrived
 // Visível para admin, receptionist e professional (client_arrived).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { IconBell, IconX, IconTrash, IconChecks } from "@tabler/icons-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,22 +44,23 @@ export function NotificationBell() {
   const [avulsoSkipped, setAvulsoSkipped] = useState<{ count: number; names: string[] }>({ count: 0, names: [] });
 
   const canSee = user?.role === "admin" || user?.role === "receptionist";
-  if (!user) return null;
+  const ranRef = useRef(false);
 
   const { data: items = [] } = useQuery({
     queryKey: ["notifications", user?.id],
     enabled: !!user,
     queryFn: async () => {
+      if (!user) return [];
       let query = supabase
         .from("notifications")
         .select("id,type,title,body,action_url,appointment_id,client_id,deep_tab,target_roles,user_id,is_read,created_at")
         .eq("is_read", false)
         .order("created_at", { ascending: false })
         .limit(50);
-      if (user?.role === "professional") {
+      if (user.role === "professional") {
         query = query.eq("user_id", user.id);
       } else {
-        query = query.or(`user_id.is.null,user_id.eq.${user?.id}`);
+        query = query.or(`user_id.is.null,user_id.eq.${user.id}`);
       }
       const { data } = await query;
       return (data as Notif[]) ?? [];
@@ -76,9 +77,10 @@ export function NotificationBell() {
     [items, user?.role, user?.id],
   );
 
-  // Geração automática de alertas (só admin/recepção)
+  // Geração automática de alertas (só admin/recepção) — roda uma vez por montagem
   useEffect(() => {
-    if (!canSee) return;
+    if (!canSee || ranRef.current) return;
+    ranRef.current = true;
     let cancelled = false;
     (async () => {
       const [low] = await Promise.all([genLowPackages(), genInactiveClients(), genUnconfirmed(user)]);
@@ -89,6 +91,8 @@ export function NotificationBell() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSee]);
+
+  if (!user) return null;
 
   const remove = async (id: string) => {
     await supabase.from("notifications").delete().eq("id", id);
@@ -322,12 +326,13 @@ async function genUnconfirmed(user: { id: string } | null | undefined) {
 
   const existingIds = new Set((existing ?? []).map(e => e.reference_id).filter(Boolean));
 
-  const toInsert = appts
+  type ApptRow = { id: string; clients: { name: string } | null; procedures: { name: string } | null };
+  const toInsert = (appts as unknown as ApptRow[])
     .filter(a => !existingIds.has(a.id))
     .map(a => ({
       type: "appointment_unconfirmed",
       title: "⏰ Sessão não confirmada",
-      body: `${(a.clients as any)?.name ?? "Cliente"} — ${(a.procedures as any)?.name ?? "Procedimento"} não foi confirmado`,
+      body: `${a.clients?.name ?? "Cliente"} — ${a.procedures?.name ?? "Procedimento"} não foi confirmado`,
       user_id: user.id,
       reference_id: a.id,
       reference_type: "appointment",

@@ -101,7 +101,7 @@ function KioskPontoPage() {
   if (!user) return null;
 
 
-  const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const nowHM = now.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="fixed inset-0 bg-navy text-white flex flex-col items-center justify-center p-6 z-40">

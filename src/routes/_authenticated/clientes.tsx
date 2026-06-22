@@ -46,7 +46,7 @@ function ClientsPage() {
       return;
     }
     (async () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
       const { data: appts } = await supabase
         .from("appointments")
         .select("client_id")

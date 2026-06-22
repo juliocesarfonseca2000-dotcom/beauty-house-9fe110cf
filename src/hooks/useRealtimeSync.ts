@@ -3,9 +3,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const TABLES = [
-  "clients", "appointments", "sessions", "client_packages",
-  "packages", "products", "financial_entries", "procedures",
+  "clients", "appointments", "sessions",
+  "packages", "products", "procedures",
   "app_users", "staff_absences", "notifications", "income",
+  "expenses", "time_entries", "contracts",
   "procedure_professionals", "message_campaigns",
 ] as const;
 
@@ -18,6 +19,10 @@ const DERIVED: Record<string, string[]> = {
   procedures: ["sidebar-counts"],
   staff_absences: ["absences", "agenda"],
   notifications: ["notifications", "notifications-all"],
+  income: ["income", "fechamento", "dashboard"],
+  expenses: ["expenses", "fechamento", "dashboard"],
+  time_entries: ["ponto", "escala"],
+  contracts: ["contracts"],
 };
 
 export function useRealtimeSync(enabled: boolean) {

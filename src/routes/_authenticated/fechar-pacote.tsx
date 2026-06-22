@@ -109,6 +109,7 @@ function ClosePackagePage() {
   const removeItem = (uid: string) => setCart((c) => c.filter((i) => i.uid !== uid));
 
   const unlockDiscount = async () => {
+    // TODO SEGURANÇA: mover validação de admin_password para Edge Function/RPC com hash antes da entrega final
     const { data } = await supabase.from("settings").select("admin_password").limit(1).maybeSingle();
     const expected = (data as { admin_password: string } | null)?.admin_password;
     if (!expected) { toast.error("Erro ao verificar senha"); return; }

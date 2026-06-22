@@ -11,8 +11,8 @@ import {
   IconFileDownload,
   IconEye,
   IconEyeOff,
+  IconFileText,
 } from "@tabler/icons-react";
-import { IconFileText } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { exportFinanceiroPdf } from "@/lib/pdf-export";
@@ -67,7 +67,7 @@ function fmtMoney(n: number | null | undefined) {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 }
 
 function firstDayOfMonth(d = new Date()) {

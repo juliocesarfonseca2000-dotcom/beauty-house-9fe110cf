@@ -29,7 +29,7 @@ function fmtMoney(n: number | null | undefined) {
   return (n ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 }
 function copyWhatsApp(text: string) {
   navigator.clipboard.writeText(text).then(
