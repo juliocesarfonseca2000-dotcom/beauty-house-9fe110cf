@@ -1,7 +1,7 @@
 // Configurações do sistema (engrenagem do módulo Usuários).
-// Suporta: bônus de indicação, dados da clínica e cláusulas do contrato.
+// Suporta: bônus de indicação, dados da clínica, cláusulas do contrato e segurança.
 import { useEffect, useState } from "react";
-import { IconX } from "@tabler/icons-react";
+import { IconX, IconEye, IconEyeOff } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DEFAULT_CLAUSES, DEFAULT_CLINIC, type ClinicInfo } from "@/lib/contract-pdf";
@@ -17,7 +17,7 @@ export async function getBonusConfig(): Promise<BonusConfig> {
   return { ...DEFAULT_BONUS, ...(data.value as BonusConfig) };
 }
 
-type Tab = "bonus" | "clinica" | "contrato" | "chamados";
+type Tab = "bonus" | "clinica" | "contrato" | "chamados" | "seguranca";
 
 type Ticket = {
   id: string;
@@ -44,6 +44,14 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
 
+  // Segurança — senha mestre
+  const [masterPwdLoaded, setMasterPwdLoaded] = useState(false);
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [savingPwd, setSavingPwd] = useState(false);
+
   const loadTickets = async () => {
     setTicketsLoading(true);
     const { data } = await supabase
@@ -57,7 +65,36 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (tab === "chamados") void loadTickets();
-  }, [tab]);
+    if (tab === "seguranca" && !masterPwdLoaded) setMasterPwdLoaded(true);
+  }, [tab, masterPwdLoaded]);
+
+  const saveMasterPwd = async () => {
+    if (!newPwd.trim() || newPwd.length < 4) {
+      toast.error("A senha deve ter no mínimo 4 caracteres");
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+    setSavingPwd(true);
+    try {
+      const { data: row } = await supabase.from("settings").select("id").limit(1).maybeSingle();
+      if (!row?.id) throw new Error("Linha de configurações não encontrada na tabela settings");
+      const { error } = await supabase
+        .from("settings")
+        .update({ admin_password: newPwd })
+        .eq("id", row.id);
+      if (error) throw error;
+      toast.success("Senha mestre atualizada com sucesso");
+      setNewPwd("");
+      setConfirmPwd("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar senha");
+    } finally {
+      setSavingPwd(false);
+    }
+  };
 
   const markResolved = async (id: string) => {
     const { error } = await supabase
@@ -151,6 +188,7 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
           <TabBtn id="clinica" label="Dados da clínica" />
           <TabBtn id="contrato" label="Cláusulas do contrato" />
           <TabBtn id="chamados" label="Chamados" />
+          <TabBtn id="seguranca" label="Segurança" />
         </div>
 
         <div className="p-6 space-y-5">
@@ -223,6 +261,72 @@ export function SystemSettingsModal({ onClose }: { onClose: () => void }) {
                 <button type="button" onClick={saveClauses} disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
                   {busy ? "Salvando..." : "Salvar cláusulas"}
                 </button>
+              </div>
+            </div>
+          ) : tab === "seguranca" ? (
+            <div className="space-y-5">
+              <div>
+                <div className="font-display text-lg text-navy">Senha mestre do sistema</div>
+                <div className="text-xs text-text2 mt-0.5">Usada para liberar desconto, fechar pacote e editar/excluir procedimentos.</div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Nova senha mestre</label>
+                  <div className="relative">
+                    <input
+                      type={showNew ? "text" : "password"}
+                      value={newPwd}
+                      onChange={(e) => setNewPwd(e.target.value)}
+                      className="w-full px-3 py-2 pr-10 rounded-lg border border-border bg-card text-sm"
+                      placeholder="Nova senha"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNew((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text3 hover:text-navy"
+                      tabIndex={-1}
+                    >
+                      {showNew ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">Confirmar nova senha</label>
+                  <div className="relative">
+                    <input
+                      type={showConfirm ? "text" : "password"}
+                      value={confirmPwd}
+                      onChange={(e) => setConfirmPwd(e.target.value)}
+                      className="w-full px-3 py-2 pr-10 rounded-lg border border-border bg-card text-sm"
+                      placeholder="Repetir senha"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text3 hover:text-navy"
+                      tabIndex={-1}
+                    >
+                      {showConfirm ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={saveMasterPwd}
+                    disabled={savingPwd}
+                    className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50"
+                  >
+                    {savingPwd ? "Salvando..." : "Salvar nova senha"}
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-lg bg-bg2 border border-border px-4 py-3 text-xs text-text2 leading-relaxed">
+                ⚠️ Esta senha vale para todo o sistema. Anote em local seguro.<br />
+                O PIN do módulo Financeiro é separado e pode ser alterado dentro de{" "}
+                <span className="font-semibold">Financeiro › Configurar PIN</span>.
               </div>
             </div>
           ) : (
