@@ -14,8 +14,12 @@ function Dashboard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   useEffect(() => {
-    if (!loading && user && user.role !== "admin") {
-      navigate({ to: "/agenda", replace: true });
+    if (!loading && user) {
+      if (user.role === "receptionist") {
+        navigate({ to: "/agenda", replace: true });
+      } else if (user.role === "professional") {
+        navigate({ to: user.show_in_agenda === true ? "/agenda" : "/meu-ponto", replace: true });
+      }
     }
   }, [loading, user, navigate]);
   const now = new Date();
