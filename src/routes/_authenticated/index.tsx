@@ -25,7 +25,7 @@ function Dashboard() {
       navigate({ to: "/agenda", replace: true });
     } else if (user.role === "professional") {
       const showInAgenda = (user as { show_in_agenda?: boolean | null }).show_in_agenda;
-      navigate({ to: showInAgenda === true ? "/agenda" : "/escala", replace: true });
+      navigate({ to: showInAgenda === true ? "/agenda" : "/meu-ponto", replace: true });
     }
   }, [loading, user, navigate]);
 
