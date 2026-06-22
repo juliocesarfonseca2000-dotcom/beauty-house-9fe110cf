@@ -61,20 +61,24 @@ const DAY_KEYS = ["sunday","monday","tuesday","wednesday","thursday","friday","s
 
 function getProScheduleLabel(pro: Professional, date: Date): string {
   if (!pro.work_schedule) return "";
-  const key = DAY_KEYS[date.getDay()];
+  const spDate = new Date(date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const key = DAY_KEYS[spDate.getDay()];
   const day = pro.work_schedule[key];
   if (!day) return "";
   if (!day.active) return "Folga";
+  if (!day.start || !day.end) return "Folga";
   const fmt = (t: string) => t.replace(/:00$/, "h").replace(/:(\d+)$/, "h$1");
   return `${fmt(day.start)}-${fmt(day.end)}`;
 }
 
 function isOutsideWorkHours(pro: Professional, date: Date, slotH: number, slotM: number): boolean {
   if (!pro.work_schedule) return false;
-  const key = DAY_KEYS[date.getDay()];
+  const spDate = new Date(date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const key = DAY_KEYS[spDate.getDay()];
   const day = pro.work_schedule[key];
   if (!day) return false;
   if (!day.active) return true;
+  if (!day.start || !day.end) return false;
   const slotMin = slotH * 60 + slotM;
   const [sH, sM] = day.start.split(":").map(Number);
   const [eH, eM] = day.end.split(":").map(Number);
