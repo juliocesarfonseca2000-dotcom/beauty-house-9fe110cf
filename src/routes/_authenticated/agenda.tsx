@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/agenda")({
 type DaySchedule = { start: string; end: string; active: boolean };
 type WorkSchedule = Record<string, DaySchedule>;
 type Professional = { id: string; name: string; work_schedule?: WorkSchedule | null };
-type Procedure = { id: string; name: string; duration_min: number | null; resource_id?: string | null };
+type Procedure = { id: string; name: string; duration_min: number | null; duration_min_2?: number | null; resource_id?: string | null; room_id?: string | null };
 type PurchasedProcedure = Procedure & { available: number };
 type Client = { id: string; name: string; record_num: number };
 type Appt = {
@@ -466,10 +466,12 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
   const [procPros, setProcPros] = useState<Record<string, string[]>>({});
+  const [procRoomId, setProcRoomId] = useState<string | null>(null);
+  const [procEquipIds, setProcEquipIds] = useState<string[]>([]);
   const isEditing = !!editingApptId;
 
   useEffect(() => {
-    supabase.from("procedures").select("id,name,duration_min,resource_id").eq("active", true).order("name")
+    supabase.from("procedures").select("id,name,duration_min,duration_min_2,resource_id,room_id").eq("active", true).order("name")
       .then(({ data }) => setAllProcs((data as Procedure[]) ?? []));
     supabase.from("procedure_professionals").select("procedure_id,professional_id")
       .then(({ data }) => {
@@ -489,7 +491,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
     withTimeout(
       supabase
         .from("packages")
-        .select("id,sess_total,sess_done,procedure_id,procedures(id,name,duration_min,resource_id)")
+        .select("id,sess_total,sess_done,procedure_id,procedures(id,name,duration_min,duration_min_2,resource_id,room_id)")
         .eq("client_id", client.id)
         .eq("status", "active")
         .order("created_at", { ascending: false }),
@@ -543,6 +545,11 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       ? procs.find((x) => x.id === procId)
       : allProcs.find((x) => x.id === looseProcId);
     if (proc?.duration_min) setDuration(String(proc.duration_min));
+    setProcRoomId(proc?.room_id ?? null);
+    const id = procId || looseProcId;
+    if (!id) { setProcEquipIds([]); return; }
+    supabase.from("procedure_equipment").select("equipment_id").eq("procedure_id", id)
+      .then(({ data }) => setProcEquipIds((data as { equipment_id: string }[] | null)?.map((x) => x.equipment_id) ?? []));
   }, [procId, looseProcId, procs, allProcs]);
 
 
@@ -702,32 +709,62 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         }
       }
 
-      const procForResource = selectedProc ?? allProcs.find((p) => p.id === effectiveProcId);
-      const resourceId = procForResource?.resource_id ?? null;
-      if (resourceId) {
-        const { data: resData } = await supabase
-          .from("resources").select("name,capacity").eq("id", resourceId).maybeSingle();
-        const capacity = Math.max(1, Number((resData as { capacity?: number } | null)?.capacity ?? 1));
-        const resourceName = (resData as { name?: string } | null)?.name ?? "Recurso";
-        const { data: sameRes } = await supabase
-          .from("appointments")
-          .select("datetime,duration_min,procedures!inner(resource_id)")
-          .eq("procedures.resource_id", resourceId)
-          .neq("status", "cancelled")
-          .gte("datetime", minD.toISOString())
-          .lt("datetime", maxD.toISOString());
-        type ResAppt = { datetime: string; duration_min: number | null };
-        const resList = (sameRes as unknown as ResAppt[] | null) ?? [];
-        for (const dt of targets) {
-          const end = new Date(dt.getTime() + dur * 60_000);
-          const overlap = resList.filter((a) => {
-            const aStart = new Date(a.datetime);
-            const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
-            return aStart < end && aEnd > dt;
-          }).length;
-          if (overlap >= capacity) {
-            toast.error(`${resourceName} sem disponibilidade em ${dt.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})} (capacidade ${capacity}).`);
-            return;
+      // Sala: 1 atendimento por vez por sala
+      if (procRoomId) {
+        const { data: roomMeta } = await supabase.from("rooms").select("name").eq("id", procRoomId).maybeSingle();
+        const roomName = (roomMeta as { name?: string } | null)?.name ?? "Sala";
+        const { data: roomProcData } = await supabase.from("procedures").select("id").eq("room_id", procRoomId);
+        const roomProcIds = (roomProcData as { id: string }[] | null)?.map((x) => x.id) ?? [];
+        if (roomProcIds.length > 0) {
+          const { data: roomAppts } = await supabase
+            .from("appointments")
+            .select("datetime,duration_min")
+            .in("procedure_id", roomProcIds)
+            .neq("status", "cancelled")
+            .gte("datetime", minD.toISOString())
+            .lt("datetime", maxD.toISOString());
+          type RoomAppt = { datetime: string; duration_min: number | null };
+          for (const dt of targets) {
+            const end = new Date(dt.getTime() + dur * 60_000);
+            const conflict = ((roomAppts as unknown as RoomAppt[] | null) ?? []).find((a) => {
+              const aStart = new Date(a.datetime);
+              const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+              return aStart < end && aEnd > dt;
+            });
+            if (conflict) {
+              toast.error(`Sala "${roomName}" ocupada nesse horário.`);
+              return;
+            }
+          }
+        }
+      }
+
+      // Aparelhos: 1 uso por aparelho por vez
+      for (const eqId of procEquipIds) {
+        const { data: eqMeta } = await supabase.from("equipment").select("name").eq("id", eqId).maybeSingle();
+        const eqName = (eqMeta as { name?: string } | null)?.name ?? "Aparelho";
+        const { data: eqProcData } = await supabase.from("procedure_equipment").select("procedure_id").eq("equipment_id", eqId);
+        const eqProcIds = (eqProcData as { procedure_id: string }[] | null)?.map((x) => x.procedure_id) ?? [];
+        if (eqProcIds.length > 0) {
+          const { data: eqAppts } = await supabase
+            .from("appointments")
+            .select("datetime,duration_min")
+            .in("procedure_id", eqProcIds)
+            .neq("status", "cancelled")
+            .gte("datetime", minD.toISOString())
+            .lt("datetime", maxD.toISOString());
+          type EqAppt = { datetime: string; duration_min: number | null };
+          for (const dt of targets) {
+            const end = new Date(dt.getTime() + dur * 60_000);
+            const conflict = ((eqAppts as unknown as EqAppt[] | null) ?? []).find((a) => {
+              const aStart = new Date(a.datetime);
+              const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+              return aStart < end && aEnd > dt;
+            });
+            if (conflict) {
+              toast.error(`Aparelho "${eqName}" em uso nesse horário.`);
+              return;
+            }
           }
         }
       }
@@ -853,7 +890,24 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             )}
             <Field label="Data*"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inp} required /></Field>
             <Field label="Hora*"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inp} required /></Field>
-            <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>
+            {(() => {
+              const proc = procId ? procs.find((x) => x.id === procId) : allProcs.find((x) => x.id === looseProcId);
+              if (proc?.duration_min_2 && proc.duration_min_2 !== proc.duration_min) {
+                return (
+                  <Field label="Duração">
+                    <div className="flex gap-5 pt-1">
+                      {([proc.duration_min, proc.duration_min_2] as number[]).map((d) => (
+                        <label key={d} className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-navy">
+                          <input type="radio" name="dur_choice" value={String(d)} checked={duration === String(d)} onChange={() => setDuration(String(d))} />
+                          {d} min
+                        </label>
+                      ))}
+                    </div>
+                  </Field>
+                );
+              }
+              return <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>;
+            })()}
           </div>
           <Field label="Observações"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inp} /></Field>
 

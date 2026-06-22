@@ -15,6 +15,7 @@ type Proc = {
   id: string;
   name: string;
   duration_min: number | null;
+  duration_min_2: number | null;
   price_single: number | null;
   price_5: number | null;
   price_10: number | null;
@@ -23,16 +24,12 @@ type Proc = {
   requires_term: boolean | null;
   term_text: string | null;
   resource_id: string | null;
+  room_id: string | null;
   session_type: SessionType | null;
 };
 
-type Resource = {
-  id: string;
-  name: string;
-  capacity: number;
-  slot_minutes: number;
-  active: boolean;
-};
+type Room = { id: string; name: string; purpose: string | null; active: boolean };
+type Equipment = { id: string; name: string; active: boolean };
 
 function ProceduresPage() {
   const [view, setView] = useState<"procs" | "resources">("procs");
@@ -51,17 +48,17 @@ function ProceduresPage() {
           onClick={() => setView("resources")}
           className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px ${view === "resources" ? "border-gold text-navy" : "border-transparent text-text2 hover:text-navy"}`}
         >
-          Recursos / Aparelhos
+          Salas & Aparelhos
         </button>
       </div>
-      {view === "procs" ? <ProceduresList /> : <ResourcesList />}
+      {view === "procs" ? <ProceduresList /> : <RoomsEquipmentView />}
     </div>
   );
 }
 
 function ProceduresList() {
   const [rows, setRows] = useState<Proc[]>([]);
-  const [resources, setResources] = useState<Resource[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"active" | "inactive" | "all">("active");
   const [tableTab, setTableTab] = useState<"all" | "sessoes" | "avulso">("all");
@@ -70,13 +67,13 @@ function ProceduresList() {
 
   const load = async () => {
     setLoading(true);
-    const [{ data, error }, { data: res }] = await Promise.all([
+    const [{ data, error }, { data: roomsData }] = await Promise.all([
       supabase.from("procedures").select("*").order("name"),
-      supabase.from("resources").select("*").eq("active", true).order("name"),
+      supabase.from("rooms").select("*").eq("active", true).order("name"),
     ]);
     if (error) toast.error(error.message);
     setRows((data as Proc[]) ?? []);
-    setResources((res as Resource[]) ?? []);
+    setRooms((roomsData as Room[]) ?? []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -113,6 +110,11 @@ function ProceduresList() {
     if (tableTab === "avulso" && !(st === "avulso" || st === "especial" || st === "por_disparo")) return false;
     return true;
   });
+
+  const fmtDur = (p: Proc) =>
+    p.duration_min_2 && p.duration_min_2 !== p.duration_min
+      ? `${p.duration_min}min / ${p.duration_min_2}min`
+      : `${p.duration_min}min`;
 
   return (
     <div className="space-y-4">
@@ -171,7 +173,7 @@ function ProceduresList() {
               <tr>
                 <th className="text-left px-4 py-3 font-semibold">Nome</th>
                 <th className="text-left px-4 py-3 font-semibold">Duração</th>
-                <th className="text-left px-4 py-3 font-semibold">Recurso</th>
+                <th className="text-left px-4 py-3 font-semibold">Sala</th>
                 <th className="text-right px-4 py-3 font-semibold">Avulso</th>
                 <th className="text-right px-4 py-3 font-semibold">5 sess.</th>
                 <th className="text-right px-4 py-3 font-semibold">10 sess.</th>
@@ -184,9 +186,9 @@ function ProceduresList() {
               {visible.map((p, i) => (
                 <tr key={p.id} className={i % 2 ? "bg-bg2/40" : ""}>
                   <td className="px-4 py-3 font-semibold text-navy">{p.name}</td>
-                  <td className="px-4 py-3 text-text2">{p.duration_min}min</td>
+                  <td className="px-4 py-3 text-text2">{fmtDur(p)}</td>
                   <td className="px-4 py-3 text-text2 text-xs">
-                    {resources.find((r) => r.id === p.resource_id)?.name ?? "—"}
+                    {rooms.find((r) => r.id === p.room_id)?.name ?? "—"}
                   </td>
                   <td className="px-4 py-3 text-right text-text2">{fmt(p.price_single)}</td>
                   <td className="px-4 py-3 text-right text-text2">{fmt(p.price_5)}</td>
@@ -222,7 +224,7 @@ function ProceduresList() {
                   <tr key={p.id} className={i % 2 ? "bg-bg2/40" : ""}>
                     <td className="px-4 py-3 font-semibold text-navy">{p.name}</td>
                     <td className="px-4 py-3 text-text2 text-xs">{sessionTypeLabel(st)}</td>
-                    <td className="px-4 py-3 text-text2">{p.duration_min}min</td>
+                    <td className="px-4 py-3 text-text2">{fmtDur(p)}</td>
                     <td className="px-4 py-3 text-right text-text2">
                       {st === "por_disparo" ? "R$ 1,00 / disparo" : fmt(p.price_single)}
                     </td>
@@ -259,7 +261,7 @@ function ProceduresList() {
                   <tr key={p.id} className={i % 2 ? "bg-bg2/40" : ""}>
                     <td className="px-4 py-3 font-semibold text-navy">{p.name}</td>
                     <td className="px-4 py-3 text-text2 text-xs">{sessionTypeLabel(st)}</td>
-                    <td className="px-4 py-3 text-text2">{p.duration_min}min</td>
+                    <td className="px-4 py-3 text-text2">{fmtDur(p)}</td>
                     <td className="px-4 py-3 text-right text-text2 text-xs">
                       {st === "sessoes"
                         ? `${fmt(p.price_single)} / 5: ${fmt(p.price_5)} / 10: ${fmt(p.price_10)} / 20: ${fmt(p.price_20)}`
@@ -286,7 +288,6 @@ function ProceduresList() {
       {(creating || edit) && (
         <ProcModal
           initial={edit}
-          resources={resources}
           onClose={() => { setEdit(null); setCreating(false); }}
           onSaved={() => { setEdit(null); setCreating(false); load(); }}
         />
@@ -331,38 +332,56 @@ function RowActions({
   );
 }
 
-function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | null; resources: Resource[]; onClose: () => void; onSaved: () => void }) {
+function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [duration, setDuration] = useState(initial?.duration_min?.toString() ?? "60");
+  const [duration2, setDuration2] = useState(initial?.duration_min_2?.toString() ?? "");
   const [single, setSingle] = useState(initial?.price_single?.toString() ?? "");
   const [p5, setP5] = useState(initial?.price_5?.toString() ?? "");
   const [p10, setP10] = useState(initial?.price_10?.toString() ?? "");
   const [p20, setP20] = useState(initial?.price_20?.toString() ?? "");
   const [requiresTerm, setRequiresTerm] = useState<boolean>(initial?.requires_term ?? false);
   const [termText, setTermText] = useState(initial?.term_text ?? "");
-  const [resourceId, setResourceId] = useState(initial?.resource_id ?? "");
+  const [roomId, setRoomId] = useState(initial?.room_id ?? "");
   const [sessionType, setSessionType] = useState<SessionType>((initial?.session_type as SessionType) ?? "sessoes");
   const [busy, setBusy] = useState(false);
   const [pros, setPros] = useState<{ id: string; name: string }[]>([]);
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [equipments, setEquipments] = useState<Equipment[]>([]);
+  const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
-      const { data: prosData } = await supabase
-        .from("app_users").select("id,name")
-        .eq("active", true).eq("role", "professional").order("name");
+      const [{ data: prosData }, { data: roomsData }, { data: eqData }] = await Promise.all([
+        supabase.from("app_users").select("id,name").eq("active", true).eq("role", "professional").order("name"),
+        supabase.from("rooms").select("*").eq("active", true).order("name"),
+        supabase.from("equipment").select("*").eq("active", true).order("name"),
+      ]);
       setPros((prosData as { id: string; name: string }[]) ?? []);
+      setRooms((roomsData as Room[]) ?? []);
+      setEquipments((eqData as Equipment[]) ?? []);
       if (initial) {
-        const { data: links } = await supabase
-          .from("procedure_professionals").select("professional_id")
-          .eq("procedure_id", initial.id);
+        const [{ data: links }, { data: eqLinks }] = await Promise.all([
+          supabase.from("procedure_professionals").select("professional_id").eq("procedure_id", initial.id),
+          supabase.from("procedure_equipment").select("equipment_id").eq("procedure_id", initial.id),
+        ]);
         setSelectedPros(new Set(((links as { professional_id: string }[]) ?? []).map((l) => l.professional_id)));
+        setSelectedEquipment(new Set(((eqLinks as { equipment_id: string }[]) ?? []).map((l) => l.equipment_id)));
       }
     })();
   }, [initial]);
 
   const togglePro = (id: string) => {
     setSelectedPros((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleEq = (id: string) => {
+    setSelectedEquipment((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
@@ -385,13 +404,14 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
     const payload = {
       name: name.trim(),
       duration_min: Number(duration) || 60,
+      duration_min_2: duration2 ? Number(duration2) : null,
       price_single: single ? Number(single) : null,
       price_5: p5 ? Number(p5) : null,
       price_10: p10 ? Number(p10) : null,
       price_20: p20 ? Number(p20) : null,
       requires_term: requiresTerm,
       term_text: requiresTerm ? (termText.trim() || null) : null,
-      resource_id: resourceId || null,
+      room_id: roomId || null,
       session_type: sessionType,
     };
     let procId = initial?.id;
@@ -405,12 +425,22 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
     }
     if (procId) {
       const pid = procId;
-      await supabase.from("procedure_professionals").delete().eq("procedure_id", pid);
+      await Promise.all([
+        supabase.from("procedure_professionals").delete().eq("procedure_id", pid),
+        supabase.from("procedure_equipment").delete().eq("procedure_id", pid),
+      ]);
+      const inserts: Promise<unknown>[] = [];
       if (selectedPros.size > 0) {
-        await supabase.from("procedure_professionals").insert(
+        inserts.push(supabase.from("procedure_professionals").insert(
           Array.from(selectedPros).map((proId) => ({ procedure_id: pid, professional_id: proId })),
-        );
+        ));
       }
+      if (selectedEquipment.size > 0) {
+        inserts.push(supabase.from("procedure_equipment").insert(
+          Array.from(selectedEquipment).map((eqId) => ({ procedure_id: pid, equipment_id: eqId })),
+        ));
+      }
+      await Promise.all(inserts);
     }
     setBusy(false);
     toast.success(initial ? "Atualizado!" : "Criado!");
@@ -427,9 +457,6 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
         <form onSubmit={save} className="p-6 space-y-4">
           <FieldRow>
             <Field label="Nome*"><input value={name} onChange={(e) => setName(e.target.value)} className={inp} required /></Field>
-            <Field label="Duração (min)"><input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} /></Field>
-          </FieldRow>
-          <FieldRow>
             <Field label="Tipo de tabela / cobrança">
               <select value={sessionType} onChange={(e) => setSessionType(e.target.value as SessionType)} className={inp}>
                 <option value="sessoes">Tabela 1 — Sessões (5/10/20)</option>
@@ -438,7 +465,14 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
                 <option value="por_disparo">Por disparo (R$ 1,00)</option>
               </select>
             </Field>
-            <div />
+          </FieldRow>
+          <FieldRow>
+            <Field label="Duração (min)*">
+              <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} required />
+            </Field>
+            <Field label="Duração alternativa (min) — opcional">
+              <input type="number" value={duration2} onChange={(e) => setDuration2(e.target.value)} className={inp} placeholder="Ex.: 90" />
+            </Field>
           </FieldRow>
           <FieldRow>
             <Field label="Preço avulso (R$)"><input type="number" step="0.01" value={single} onChange={(e) => setSingle(e.target.value)} className={inp} /></Field>
@@ -448,14 +482,37 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
             <Field label="Pacote 10x (R$)"><input type="number" step="0.01" value={p10} onChange={(e) => setP10(e.target.value)} className={inp} /></Field>
             <Field label="Pacote 20x (R$)"><input type="number" step="0.01" value={p20} onChange={(e) => setP20(e.target.value)} className={inp} /></Field>
           </FieldRow>
-          <Field label="Recurso / Aparelho vinculado (opcional)">
-            <select value={resourceId} onChange={(e) => setResourceId(e.target.value)} className={inp}>
-              <option value="">— Nenhum —</option>
-              {resources.map((r) => (
-                <option key={r.id} value={r.id}>{r.name} (cap. {r.capacity}, slot {r.slot_minutes}min)</option>
+
+          {/* Sala vinculada */}
+          <Field label="Sala vinculada (opcional)">
+            <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inp}>
+              <option value="">— Nenhuma —</option>
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}{r.purpose ? ` — ${r.purpose}` : ""}</option>
               ))}
             </select>
           </Field>
+
+          {/* Aparelhos utilizados */}
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">
+              Aparelhos utilizados (opcional)
+            </label>
+            {equipments.length === 0 ? (
+              <div className="text-xs text-text3">Nenhum aparelho cadastrado. Cadastre em Salas & Aparelhos.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto p-2 bg-bg2/40 rounded-lg border border-border">
+                {equipments.map((eq) => (
+                  <label key={eq.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-bg2 px-2 py-1 rounded">
+                    <input type="checkbox" checked={selectedEquipment.has(eq.id)} onChange={() => toggleEq(eq.id)} />
+                    {eq.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Profissionais habilitadas */}
           <div>
             <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">
               Profissionais habilitadas
@@ -472,6 +529,7 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
               ))}
             </div>
           </div>
+
           <div className="border-t pt-4 space-y-3">
             <label className="flex items-center gap-2 text-sm font-semibold text-navy">
               <input type="checkbox" checked={requiresTerm} onChange={(e) => setRequiresTerm(e.target.checked)} />
@@ -501,24 +559,54 @@ function ProcModal({ initial, resources, onClose, onSaved }: { initial: Proc | n
   );
 }
 
-function ResourcesList() {
-  const [rows, setRows] = useState<Resource[]>([]);
+// ──────────────────────────────────────────────────
+// Salas & Aparelhos view
+// ──────────────────────────────────────────────────
+
+function RoomsEquipmentView() {
+  const [subTab, setSubTab] = useState<"salas" | "aparelhos">("salas");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 border-b border-border/60">
+        <button
+          type="button"
+          onClick={() => setSubTab("salas")}
+          className={`px-3 py-2 text-sm font-semibold border-b-2 -mb-px ${subTab === "salas" ? "border-gold text-navy" : "border-transparent text-text2 hover:text-navy"}`}
+        >
+          Salas
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("aparelhos")}
+          className={`px-3 py-2 text-sm font-semibold border-b-2 -mb-px ${subTab === "aparelhos" ? "border-gold text-navy" : "border-transparent text-text2 hover:text-navy"}`}
+        >
+          Aparelhos
+        </button>
+      </div>
+      {subTab === "salas" ? <RoomsList /> : <EquipmentList />}
+    </div>
+  );
+}
+
+function RoomsList() {
+  const [rows, setRows] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
-  const [edit, setEdit] = useState<Resource | null>(null);
+  const [edit, setEdit] = useState<Room | null>(null);
   const [creating, setCreating] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("resources").select("*").order("name");
+    const { data, error } = await supabase.from("rooms").select("*").order("name");
     if (error) toast.error(error.message);
-    setRows((data as Resource[]) ?? []);
+    setRows((data as Room[]) ?? []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
-  const toggleActive = async (r: Resource) => {
-    const { error } = await supabase.from("resources").update({ active: !r.active }).eq("id", r.id);
+  const toggleActive = async (r: Room) => {
+    const { error } = await supabase.from("rooms").update({ active: !r.active }).eq("id", r.id);
     if (error) return toast.error(error.message);
+    toast.success(r.active ? "Inativada" : "Reativada");
     load();
   };
 
@@ -530,21 +618,20 @@ function ResourcesList() {
           onClick={() => setCreating(true)}
           className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
         >
-          <IconPlus size={18} /> Novo recurso
+          <IconPlus size={18} /> Nova sala
         </button>
       </div>
       <div className="bh-card overflow-x-auto">
         {loading ? (
-          <TableSkeleton rows={4} cols={4} />
+          <TableSkeleton rows={3} cols={4} />
         ) : rows.length === 0 ? (
-          <div className="p-12 text-center text-text3">Nenhum recurso cadastrado.</div>
+          <div className="p-12 text-center text-text3">Nenhuma sala cadastrada.</div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-bg2 text-text2">
               <tr>
                 <th className="text-left px-4 py-3 font-semibold">Nome</th>
-                <th className="text-right px-4 py-3 font-semibold">Capacidade</th>
-                <th className="text-right px-4 py-3 font-semibold">Slot (min)</th>
+                <th className="text-left px-4 py-3 font-semibold">Finalidade</th>
                 <th className="text-right px-4 py-3 font-semibold">Status</th>
                 <th className="text-right px-4 py-3 font-semibold">Ações</th>
               </tr>
@@ -553,11 +640,10 @@ function ResourcesList() {
               {rows.map((r, i) => (
                 <tr key={r.id} className={i % 2 ? "bg-bg2/40" : ""}>
                   <td className="px-4 py-3 font-semibold text-navy">{r.name}</td>
-                  <td className="px-4 py-3 text-right">{r.capacity}</td>
-                  <td className="px-4 py-3 text-right">{r.slot_minutes}</td>
+                  <td className="px-4 py-3 text-text2 text-xs">{r.purpose ?? "—"}</td>
                   <td className="px-4 py-3 text-right">
                     <span className={`bh-badge ${r.active ? "bg-success/10 text-success" : "bg-text3/15 text-text3"}`}>
-                      {r.active ? "Ativo" : "Inativo"}
+                      {r.active ? "Ativa" : "Inativa"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -573,7 +659,7 @@ function ResourcesList() {
         )}
       </div>
       {(creating || edit) && (
-        <ResourceModal
+        <RoomModal
           initial={edit}
           onClose={() => { setEdit(null); setCreating(false); }}
           onSaved={() => { setEdit(null); setCreating(false); load(); }}
@@ -583,24 +669,142 @@ function ResourcesList() {
   );
 }
 
-function ResourceModal({ initial, onClose, onSaved }: { initial: Resource | null; onClose: () => void; onSaved: () => void }) {
+function RoomModal({ initial, onClose, onSaved }: { initial: Room | null; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [capacity, setCapacity] = useState(initial?.capacity?.toString() ?? "1");
-  const [slot, setSlot] = useState(initial?.slot_minutes?.toString() ?? "60");
+  const [purpose, setPurpose] = useState(initial?.purpose ?? "");
   const [busy, setBusy] = useState(false);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Nome obrigatório");
     setBusy(true);
-    const payload = {
-      name: name.trim(),
-      capacity: Math.max(1, Number(capacity) || 1),
-      slot_minutes: Math.max(5, Number(slot) || 60),
-    };
+    const payload = { name: name.trim(), purpose: purpose.trim() || null };
     const { error } = initial
-      ? await supabase.from("resources").update(payload).eq("id", initial.id)
-      : await supabase.from("resources").insert({ ...payload, active: true });
+      ? await supabase.from("rooms").update(payload).eq("id", initial.id)
+      : await supabase.from("rooms").insert({ ...payload, active: true });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success(initial ? "Atualizada!" : "Criada!");
+    onSaved();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-md my-8">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-display text-2xl text-navy">{initial ? "Editar sala" : "Nova sala"}</div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
+        </div>
+        <form onSubmit={save} className="p-6 space-y-4">
+          <Field label="Nome*">
+            <input value={name} onChange={(e) => setName(e.target.value)} className={inp} required placeholder="Ex.: Sala 1 — Laser" />
+          </Field>
+          <Field label="Finalidade (opcional)">
+            <input value={purpose} onChange={(e) => setPurpose(e.target.value)} className={inp} placeholder="Ex.: Estética facial, Depilação" />
+          </Field>
+          <div className="text-xs text-text3">Uma sala comporta 1 atendimento por vez. Ao vincular um procedimento a uma sala, a agenda impedirá sobreposição de horários nessa sala.</div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
+            <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">
+              {busy ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EquipmentList() {
+  const [rows, setRows] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [edit, setEdit] = useState<Equipment | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("equipment").select("*").order("name");
+    if (error) toast.error(error.message);
+    setRows((data as Equipment[]) ?? []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const toggleActive = async (eq: Equipment) => {
+    const { error } = await supabase.from("equipment").update({ active: !eq.active }).eq("id", eq.id);
+    if (error) return toast.error(error.message);
+    toast.success(eq.active ? "Inativado" : "Reativado");
+    load();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
+        >
+          <IconPlus size={18} /> Novo aparelho
+        </button>
+      </div>
+      <div className="bh-card overflow-x-auto">
+        {loading ? (
+          <TableSkeleton rows={3} cols={3} />
+        ) : rows.length === 0 ? (
+          <div className="p-12 text-center text-text3">Nenhum aparelho cadastrado.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-bg2 text-text2">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold">Nome</th>
+                <th className="text-right px-4 py-3 font-semibold">Status</th>
+                <th className="text-right px-4 py-3 font-semibold">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((eq, i) => (
+                <tr key={eq.id} className={i % 2 ? "bg-bg2/40" : ""}>
+                  <td className="px-4 py-3 font-semibold text-navy">{eq.name}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`bh-badge ${eq.active ? "bg-success/10 text-success" : "bg-text3/15 text-text3"}`}>
+                      {eq.active ? "Ativo" : "Inativo"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button type="button" onClick={() => setEdit(eq)} className="p-1.5 rounded-md hover:bg-bg2 text-navy"><IconEdit size={16} /></button>
+                    <button type="button" onClick={() => toggleActive(eq)} className="p-1.5 rounded-md hover:bg-bg2 text-text2">
+                      {eq.active ? <IconArchive size={16} /> : <IconArchiveOff size={16} />}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      {(creating || edit) && (
+        <EquipmentModal
+          initial={edit}
+          onClose={() => { setEdit(null); setCreating(false); }}
+          onSaved={() => { setEdit(null); setCreating(false); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EquipmentModal({ initial, onClose, onSaved }: { initial: Equipment | null; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [busy, setBusy] = useState(false);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return toast.error("Nome obrigatório");
+    setBusy(true);
+    const { error } = initial
+      ? await supabase.from("equipment").update({ name: name.trim() }).eq("id", initial.id)
+      : await supabase.from("equipment").insert({ name: name.trim(), active: true });
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success(initial ? "Atualizado!" : "Criado!");
@@ -609,20 +813,16 @@ function ResourceModal({ initial, onClose, onSaved }: { initial: Resource | null
 
   return (
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-start justify-center p-4 overflow-y-auto">
-      <div className="bg-card rounded-xl shadow-xl w-full max-w-md my-8">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-sm my-8">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div className="font-display text-2xl text-navy">{initial ? "Editar recurso" : "Novo recurso"}</div>
+          <div className="font-display text-2xl text-navy">{initial ? "Editar aparelho" : "Novo aparelho"}</div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2 text-text2"><IconX size={18} /></button>
         </div>
         <form onSubmit={save} className="p-6 space-y-4">
-          <Field label="Nome*"><input value={name} onChange={(e) => setName(e.target.value)} className={inp} required /></Field>
-          <FieldRow>
-            <Field label="Capacidade*"><input type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} className={inp} required /></Field>
-            <Field label="Duração do slot (min)*"><input type="number" min={5} value={slot} onChange={(e) => setSlot(e.target.value)} className={inp} required /></Field>
-          </FieldRow>
-          <div className="text-xs text-text3">
-            Ex.: Sala de Massagem cap. 3, slot 60. Aparelho Ecos cap. 1, slot 20.
-          </div>
+          <Field label="Nome*">
+            <input value={name} onChange={(e) => setName(e.target.value)} className={inp} required placeholder="Ex.: Laser Lavieen, Criofrequência" />
+          </Field>
+          <div className="text-xs text-text3">Ao vincular um aparelho a procedimentos, a agenda impedirá uso simultâneo em horários sobrepostos.</div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
             <button type="submit" disabled={busy} className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy2 disabled:opacity-50">

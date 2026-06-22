@@ -66,8 +66,9 @@ function AuthenticatedLayout() {
   }
   if (!user) return null;
 
+  // Overlay cobre qualquer flash enquanto a navegação do kiosk não completa
   if (isKiosk && path !== "/kiosk-ponto") {
-    return <div className="fixed inset-0 bg-navy z-50" />;
+    return <div className="fixed inset-0 bg-navy z-[9999]" />;
   }
   if (isKiosk) {
     return <Outlet />;

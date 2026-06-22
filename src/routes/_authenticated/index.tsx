@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { IconUserPlus, IconClipboardHeart, IconPackage, IconCoin, IconBoxSeam } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,15 +13,22 @@ export const Route = createFileRoute("/_authenticated/")({
 function Dashboard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [redirecting, setRedirecting] = useState(false);
+
   useEffect(() => {
-    if (!loading && user) {
-      if (user.role === "receptionist") {
-        navigate({ to: "/agenda", replace: true });
-      } else if (user.role === "professional") {
-        navigate({ to: user.show_in_agenda === true ? "/agenda" : "/meu-ponto", replace: true });
-      }
+    if (loading || !user) return;
+    const isKiosk = (user as { is_kiosk?: boolean }).is_kiosk === true;
+    if (isKiosk) return; // _authenticated.tsx handles kiosk
+    if (user.role === "admin") return; // stays on dashboard
+    setRedirecting(true);
+    if (user.role === "receptionist") {
+      navigate({ to: "/agenda", replace: true });
+    } else if (user.role === "professional") {
+      const showInAgenda = (user as { show_in_agenda?: boolean | null }).show_in_agenda;
+      navigate({ to: showInAgenda === true ? "/agenda" : "/escala", replace: true });
     }
   }, [loading, user, navigate]);
+
   const now = new Date();
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
@@ -53,6 +60,10 @@ function Dashboard() {
       };
     },
   });
+  if (redirecting) {
+    return <div className="fixed inset-0 bg-bg z-50" />;
+  }
+
   const fmt = now.toLocaleDateString("pt-BR", {
     weekday: "long", day: "2-digit", month: "long", year: "numeric",
   });
