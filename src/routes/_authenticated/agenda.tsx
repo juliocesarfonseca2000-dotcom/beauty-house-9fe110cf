@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { generateTermPdf } from "@/lib/term-pdf";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -154,6 +155,15 @@ function AgendaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dayStart.getTime(), dayEnd.getTime(), dayYmd, isProfessional, me?.id]);
 
+  useEffect(() => {
+    const channel = supabase.channel("agenda-realtime");
+    const ch = channel as unknown as { on: (...args: unknown[]) => unknown };
+    ch.on("postgres_changes", { event: "*", schema: "public", table: "appointments" }, () => load());
+    ch.on("postgres_changes", { event: "*", schema: "public", table: "staff_absences" }, () => load());
+    channel.subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayStart.getTime(), dayEnd.getTime(), dayYmd, isProfessional, me?.id]);
 
   const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 
@@ -1257,6 +1267,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
           data={termModal}
           onCancel={() => { setTermModal(null); setBusy(false); }}
           onSigned={async (signatureData) => {
+            const signedAt = new Date().toISOString();
             const { data: inserted } = await supabase
               .from("signed_terms")
               .insert({
@@ -1265,17 +1276,30 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                 package_id: termModal.packageId,
                 term_text: termModal.termText,
                 signature_data: signatureData,
-                signed_at: new Date().toISOString(),
+                signed_at: signedAt,
               })
               .select("id")
               .single();
-            if ((inserted as { id: string } | null)?.id) {
+            const termId = (inserted as { id: string } | null)?.id;
+            if (termId) {
               await supabase
                 .from("sessions")
-                .update({ signed_term_id: (inserted as { id: string }).id })
+                .update({ signed_term_id: termId })
                 .eq("appointment_id", termModal.appointmentId)
                 .eq("status", "pending")
                 .limit(1);
+              // Arquiva PDF no storage (não bloqueia o fluxo se falhar)
+              try {
+                const blob = await generateTermPdf({ clientName: termModal.clientName, procName: termModal.procedureName, termText: termModal.termText, signatureDataUrl: signatureData, signedAt });
+                const path = `${termModal.clientId}/${termId}.pdf`;
+                const { error: upErr } = await supabase.storage.from("signed-terms").upload(path, blob, { contentType: "application/pdf", upsert: true });
+                if (!upErr) {
+                  const { data: urlData } = supabase.storage.from("signed-terms").getPublicUrl(path);
+                  await supabase.from("signed_terms").update({ pdf_url: urlData.publicUrl }).eq("id", termId);
+                }
+              } catch (pdfErr) {
+                console.warn("[term-pdf] upload falhou:", pdfErr);
+              }
             }
             setTermModal(null);
             if (termSource === "attendance") {

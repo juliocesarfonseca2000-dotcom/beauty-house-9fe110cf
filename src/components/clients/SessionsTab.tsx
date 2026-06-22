@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { generateTermPdf } from "@/lib/term-pdf";
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -70,6 +71,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const { user: me } = useAuth();
   const isAdmin = me?.role === "admin";
   const [choosing, setChoosing] = useState<{ pkg: Package; session: Session } | null>(null);
+  const [termAsking, setTermAsking] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signingTerm, setSigningTerm] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signing, setSigning] = useState<{ pkg: Package; session: Session } | null>(null);
   const [missing, setMissing] = useState<{ pkg: Package; session: Session } | null>(null);
@@ -385,14 +387,46 @@ export function SessionsTab({ clientId }: { clientId: string }) {
             const c = choosing;
             setChoosing(null);
             if (c.pkg.procedures?.requires_term) {
-              setSigningTerm(c);
+              setTermAsking(c);
             } else {
               setSigning(c);
             }
-
           }}
           onMiss={() => { const c = choosing; setChoosing(null); setMissing(c); }}
         />
+      )}
+      {termAsking && (
+        <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="font-display text-xl text-navy mb-2">Termo de Consentimento</div>
+            <div className="text-sm text-text2 mb-5">
+              A cliente já assinou o termo de consentimento para <strong className="text-navy">{termAsking.pkg.procedures?.name}</strong>?
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => { const c = termAsking; setTermAsking(null); setSigning(c); }}
+                className="w-full px-3 py-2 rounded-md bg-success text-white text-sm font-bold hover:bg-success/90"
+              >
+                ✅ Sim, já assinou
+              </button>
+              <button
+                type="button"
+                onClick={() => { const c = termAsking; setTermAsking(null); setSigningTerm(c); }}
+                className="w-full px-3 py-2 rounded-md bg-gold/15 text-navy border border-gold text-sm font-bold hover:bg-gold/25"
+              >
+                📋 Não, assinar agora
+              </button>
+              <button
+                type="button"
+                onClick={() => setTermAsking(null)}
+                className="w-full px-3 py-2 rounded-md text-text2 text-xs hover:bg-bg2"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {signingTerm && (
         <TermSignModal
@@ -465,16 +499,33 @@ function TermSignModal({ clientId, pkg, session, onClose, onSigned }: {
     setBusy(true);
     try {
       const dataUrl = sigRef.current!.getCanvas().toDataURL("image/png");
-      const { error } = await supabase.from("signed_terms").insert({
+      const signedAt = new Date().toISOString();
+      const { data: inserted, error } = await supabase.from("signed_terms").insert({
         package_id: pkg.id,
         client_id: clientId,
         procedure_id: pkg.procedure_id,
         session_id: session.id,
         term_text: termText,
         signature_data: dataUrl,
-      });
+        signed_at: signedAt,
+      }).select("id").single();
       if (error) throw error;
       toast.success("Termo assinado");
+      // Arquiva PDF no storage (não bloqueia o fluxo se falhar)
+      const termId = (inserted as { id: string }).id;
+      try {
+        const { data: cli } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
+        const clientName = (cli as { name?: string } | null)?.name ?? "Cliente";
+        const blob = await generateTermPdf({ clientName, procName: pkg.procedures?.name ?? "Procedimento", termText, signatureDataUrl: dataUrl, signedAt });
+        const path = `${clientId}/${termId}.pdf`;
+        const { error: upErr } = await supabase.storage.from("signed-terms").upload(path, blob, { contentType: "application/pdf", upsert: true });
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from("signed-terms").getPublicUrl(path);
+          await supabase.from("signed_terms").update({ pdf_url: urlData.publicUrl }).eq("id", termId);
+        }
+      } catch (pdfErr) {
+        console.warn("[term-pdf] upload falhou:", pdfErr);
+      }
       onSigned();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar termo");
@@ -1016,6 +1067,7 @@ function SignedTermViewModal({ signedTermId, onClose }: { signedTermId: string; 
     term_text: string;
     signature_data: string | null;
     signed_at: string | null;
+    pdf_url: string | null;
     clients: { name: string } | null;
     procedures: { name: string } | null;
   } | null>(null);
@@ -1024,7 +1076,7 @@ function SignedTermViewModal({ signedTermId, onClose }: { signedTermId: string; 
   useEffect(() => {
     supabase
       .from("signed_terms")
-      .select("term_text,signature_data,signed_at,clients(name),procedures(name)")
+      .select("term_text,signature_data,signed_at,pdf_url,clients(name),procedures(name)")
       .eq("id", signedTermId)
       .single()
       .then(({ data }) => {
@@ -1035,6 +1087,11 @@ function SignedTermViewModal({ signedTermId, onClose }: { signedTermId: string; 
 
   const downloadPDF = () => {
     if (!term) return;
+    // Usa o PDF arquivado se disponível; regera para termos antigos (fallback)
+    if (term.pdf_url) {
+      window.open(term.pdf_url, "_blank");
+      return;
+    }
     const clientName = term.clients?.name ?? "Cliente";
     const procName = term.procedures?.name ?? "Procedimento";
     const doc = new jsPDF();
