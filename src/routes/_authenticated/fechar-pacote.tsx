@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { IconSearch, IconPackage, IconTrash, IconPlus, IconLock, IconFileText } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +10,10 @@ import { PasswordInput } from "@/components/ui/password-input";
 
 export const Route = createFileRoute("/_authenticated/fechar-pacote")({
   component: ClosePackagePage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    clientId: typeof search.clientId === "string" ? search.clientId : undefined,
+    procedureId: typeof search.procedureId === "string" ? search.procedureId : undefined,
+  }),
 });
 
 
@@ -32,6 +37,8 @@ const INSTALLMENT_METHODS = ["Cartão Crédito", "Cheque"];
 
 function ClosePackagePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { clientId: prefillClientId, procedureId: prefillProcId } = Route.useSearch();
   const [client, setClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Client[]>([]);
@@ -64,6 +71,19 @@ function ClosePackagePage() {
 
     })();
   }, []);
+
+  // Pré-seleciona cliente quando a página é aberta via redirect da agenda (avulso)
+  useEffect(() => {
+    if (!prefillClientId || client) return;
+    supabase.from("clients").select("id,name,record_num,phone").eq("id", prefillClientId).maybeSingle()
+      .then(({ data }) => { if (data) setClient(data as Client); });
+  }, [prefillClientId, client]);
+
+  // Pré-seleciona procedimento no dropdown assim que procs carregarem e o cliente estiver definido
+  useEffect(() => {
+    if (!prefillProcId || !procs.length || !client) return;
+    setProcId(prefillProcId);
+  }, [prefillProcId, procs, client]);
 
   useEffect(() => {
     if (search.length < 2 || client) { setResults([]); return; }
@@ -209,6 +229,8 @@ function ClosePackagePage() {
         unit_price: it.price * (1 - discountPct / 100) / it.sessions,
         total: it.price * (1 - discountPct / 100),
       }));
+      // Invalida imediatamente para que a aba Sessões reflita o novo pacote sem aguardar o realtime
+      queryClient.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && ["client-sessions", "packages", "sessions", "income", "dashboard"].includes(String(q.queryKey[0])) });
       toast.success(`Pacote fechado! ${cart.length} item(s) adicionado(s).`);
       setContractInput({
         clientId: client.id,

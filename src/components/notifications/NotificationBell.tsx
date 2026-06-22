@@ -227,6 +227,7 @@ async function genLowPackages(): Promise<{ count: number; names: string[] }> {
 
   const toInsert: Array<Record<string, unknown>> = [];
   for (const c of candidates) {
+    if (c.sess_total <= 1) continue; // belt-and-suspenders: avulso nunca notifica
     const body = `⚠️ ${c.cliName ?? "Cliente"} — ${c.procName ?? "Procedimento"} com ${c.remaining} sessão(ões) restante(s)`;
     const ex = byRef.get(c.id);
     if (ex) {

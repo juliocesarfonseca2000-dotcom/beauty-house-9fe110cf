@@ -322,10 +322,11 @@ function AgendaPage() {
                     return (
                       <div
                         key={i}
-                        className={`pointer-events-none w-full ${outOfHours ? "bg-gray-50 opacity-50" : ""}`}
+                        className={`pointer-events-none w-full ${outOfHours ? "bg-gray-300/70" : ""}`}
                         style={{
                           height: SLOT_PX,
                           borderTop: isHour ? "1.5px solid #94a3b8" : "1px solid #cbd5e1",
+                          backgroundImage: outOfHours ? "repeating-linear-gradient(45deg, rgba(100,116,139,0.15) 0, rgba(100,116,139,0.15) 6px, transparent 6px, transparent 12px)" : undefined,
                         }}
                       />
                     );
@@ -974,6 +975,7 @@ type TermModalData = {
 
 function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: Professional[]; onClose: () => void; onChanged: () => void }) {
   const { user: me } = useAuth();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [termModal, setTermModal] = useState<TermModalData | null>(null);
@@ -1112,6 +1114,20 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
       await doConfirmAttendance();
       return;
     }
+    // Verifica pacote ativo — avulso (sem pacote) bloqueia assinatura e redireciona para fechar venda
+    const { data: pkg } = await supabase
+      .from("packages").select("id")
+      .eq("client_id", appt.client_id)
+      .eq("procedure_id", appt.procedure_id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1).maybeSingle();
+    if (!pkg?.id) {
+      toast.info("Sessão avulsa: finalize o pagamento no Fechar Pacote para liberar a assinatura.");
+      navigate({ to: "/fechar-pacote", search: { clientId: appt.client_id, procedureId: appt.procedure_id } });
+      onClose();
+      return;
+    }
     const { data: proc } = await supabase
       .from("procedures")
       .select("requires_term, term_text, name")
@@ -1121,15 +1137,6 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
       await doConfirmAttendance();
       return;
     }
-    const { data: pkg } = await supabase
-      .from("packages")
-      .select("id")
-      .eq("client_id", appt.client_id)
-      .eq("procedure_id", appt.procedure_id)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
     setTermAsk({
       clientName: appt.clients?.name ?? "Cliente",
       clientId: appt.client_id,
@@ -1137,7 +1144,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
       procedureName: proc.name,
       termText: proc.term_text,
       appointmentId: appt.id,
-      packageId: pkg?.id ?? null,
+      packageId: pkg.id,
     });
   };
 

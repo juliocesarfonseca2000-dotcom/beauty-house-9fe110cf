@@ -123,6 +123,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       const { data: cli } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
       const clientName = (cli as { name?: string } | null)?.name ?? "Cliente";
       for (const pkg of packages) {
+        if ((pkg.sess_total ?? 0) <= 1) continue; // avulso: nunca gera "Pacote vencendo"
         const pkgSess = sessions.filter((s) => s.package_id === pkg.id);
         const done = pkgSess.filter((s) => s.status === "done").length;
         const remaining = pkgSess.length - done;
