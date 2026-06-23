@@ -434,6 +434,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           pkg={signingTerm.pkg}
           session={signingTerm.session}
           onClose={() => setSigningTerm(null)}
+          onRefresh={() => { queryClient.invalidateQueries({ queryKey: ["client-sessions", clientId] }); refetch(); }}
           onSigned={() => { const c = signingTerm; setSigningTerm(null); reload(); if (c) setSigning(c); }}
         />
       )}
@@ -486,8 +487,8 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   );
 }
 
-function TermSignModal({ clientId, pkg, session, onClose, onSigned }: {
-  clientId: string; pkg: Package; session: Session; onClose: () => void; onSigned: () => void;
+function TermSignModal({ clientId, pkg, session, onClose, onRefresh, onSigned }: {
+  clientId: string; pkg: Package; session: Session; onClose: () => void; onRefresh: () => void; onSigned: () => void;
 }) {
   const sigRef = useRef<SignatureCanvas | null>(null);
   const [hasInk, setHasInk] = useState(false);
@@ -513,6 +514,7 @@ function TermSignModal({ clientId, pkg, session, onClose, onSigned }: {
       const termId = (inserted as { id: string }).id;
       // Vincula o termo à sessão para o botão "Ver termo" aparecer
       await supabase.from("sessions").update({ signed_term_id: termId }).eq("id", session.id);
+      onRefresh();
       toast.success("Termo assinado");
       // Arquiva PDF no storage (não bloqueia o fluxo se falhar)
       try {
