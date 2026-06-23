@@ -434,7 +434,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           pkg={signingTerm.pkg}
           session={signingTerm.session}
           onClose={() => setSigningTerm(null)}
-          onSigned={() => { const c = signingTerm; setSigningTerm(null); if (c) setSigning(c); }}
+          onSigned={() => { const c = signingTerm; setSigningTerm(null); reload(); if (c) setSigning(c); }}
         />
       )}
 
@@ -510,9 +510,11 @@ function TermSignModal({ clientId, pkg, session, onClose, onSigned }: {
         signed_at: signedAt,
       }).select("id").single();
       if (error) throw error;
+      const termId = (inserted as { id: string }).id;
+      // Vincula o termo à sessão para o botão "Ver termo" aparecer
+      await supabase.from("sessions").update({ signed_term_id: termId }).eq("id", session.id);
       toast.success("Termo assinado");
       // Arquiva PDF no storage (não bloqueia o fluxo se falhar)
-      const termId = (inserted as { id: string }).id;
       try {
         const { data: cli } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
         const clientName = (cli as { name?: string } | null)?.name ?? "Cliente";

@@ -85,6 +85,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
 
         {SECTIONS.map((sec, si) => {
           const visible = sec.items.filter((i) => {
+            // Recepção sempre tem acesso a Procedimentos (proteção real é a senha na hora de editar)
+            if (i.key === "procedimentos" && user.role === "receptionist") return true;
             if (!user.permissions[i.key]) return false;
             if (i.key === "estoque" && user.role === "professional") return false;
             return true;

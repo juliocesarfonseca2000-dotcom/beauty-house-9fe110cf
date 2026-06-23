@@ -103,6 +103,7 @@ function AgendaPage() {
   const navigate = useNavigate();
   const canManage = me?.role === "admin" || me?.role === "receptionist";
   const isProfessional = me?.role === "professional";
+  const isProWithoutAgenda = me?.role === "professional" && (me as { show_in_agenda?: boolean | null }).show_in_agenda !== true;
 
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
@@ -165,6 +166,10 @@ function AgendaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dayStart.getTime(), dayEnd.getTime(), dayYmd, isProfessional, me?.id]);
 
+  useEffect(() => {
+    if (isProWithoutAgenda) navigate({ to: "/meu-ponto", replace: true });
+  }, [isProWithoutAgenda, navigate]);
+
   const visiblePros = proFilter === "all" ? pros : pros.filter((p) => p.id === proFilter);
 
   const apptsByPro = useMemo(() => {
@@ -181,6 +186,8 @@ function AgendaPage() {
     const totalMin = START_HOUR * 60 + i * SLOT_MIN;
     return { h: Math.floor(totalMin / 60), m: totalMin % 60 };
   });
+
+  if (isProWithoutAgenda) return <div className="fixed inset-0 bg-bg z-50" />;
 
   return (
     <div className="space-y-4">
@@ -1120,11 +1127,20 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
   };
 
   const confirmAttendance = async () => {
+    // Avulso: sem cliente cadastrado ou sem procedimento → redireciona para fechar pacote
     if (!appt.client_id || !appt.procedure_id) {
-      await doConfirmAttendance();
+      toast.info("Sessão avulsa: selecione/finalize no Fechar Pacote para liberar a assinatura.");
+      navigate({
+        to: "/fechar-pacote",
+        search: {
+          clientId: appt.client_id || undefined,
+          procedureId: appt.procedure_id || undefined,
+        },
+      });
+      onClose();
       return;
     }
-    // Verifica pacote ativo — avulso (sem pacote) bloqueia assinatura e redireciona para fechar venda
+    // Verifica pacote ativo — sem pacote → avulso, redireciona para fechar venda
     const { data: pkg } = await supabase
       .from("packages").select("id")
       .eq("client_id", appt.client_id)
