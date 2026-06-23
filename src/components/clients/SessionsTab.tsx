@@ -230,6 +230,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       <div className="flex justify-end">{headerAddButton}</div>
       {packages.map((pkg) => {
         const pkgSess = sessions.filter((s) => s.package_id === pkg.id).sort((a, b) => a.session_num - b.session_num);
+        const firstTermId = pkgSess.find((s) => s.signed_term_id)?.signed_term_id ?? null;
         const done = pkgSess.filter((s) => s.status === "done").length;
         const remaining = pkgSess.length - done;
         const nextIdx = pkgSess.findIndex((s) => s.status === "pending");
@@ -279,6 +280,16 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                   title="Ver contrato assinado"
                 >
                   <IconFileText size={14} /> Ver contrato
+                </button>
+              )}
+              {firstTermId && (
+                <button
+                  type="button"
+                  onClick={() => setViewSignedTerm(firstTermId)}
+                  className="px-3 py-1.5 rounded-lg border border-border text-text2 text-xs font-semibold hover:bg-bg2 flex items-center gap-1"
+                  title="Ver termo de consentimento assinado"
+                >
+                  <IconFileText size={14} /> Ver termo
                 </button>
               )}
               {isAdmin && (

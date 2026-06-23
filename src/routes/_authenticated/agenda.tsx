@@ -881,8 +881,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Procedimento">
-              <select value={procId} onChange={(e) => setProcId(e.target.value)} className={inp} disabled={!client}>
-                <option value="">{client ? "Avulso (definir no fechamento)" : "Selecione a cliente primeiro"}</option>
+              <select value={procId} onChange={(e) => setProcId(e.target.value)} className={inp} disabled={!client && !useGuestName}>
+                <option value="">{(client || useGuestName) ? "Avulso (definir no fechamento)" : "Selecione a cliente primeiro"}</option>
                 {procs.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.available} sessão(ões)</option>)}
               </select>
               {client && procs.length === 0 && <div className="text-xs text-danger mt-1">Esta cliente não tem pacote ativo com sessões disponíveis.</div>}
@@ -896,7 +896,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                 <div className="text-[11px] text-text3 mt-1">Mostrando apenas profissionais habilitadas para este procedimento.</div>
               )}
             </Field>
-            {client && !procId && (
+            {(!procId && (client || useGuestName)) && (
               <div className="md:col-span-2">
                 <Field label="Qual procedimento será realizado? (avulso)*">
                   <select value={looseProcId} onChange={(e) => setLooseProcId(e.target.value)} className={inp} required>
