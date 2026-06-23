@@ -1309,9 +1309,9 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                 const blob = await generateTermPdf({ clientName: termModal.clientName, procName: termModal.procedureName, termText: termModal.termText, signatureDataUrl: signatureData, signedAt });
                 const path = `${termModal.clientId}/${termId}.pdf`;
                 const { error: upErr } = await supabase.storage.from("signed-terms").upload(path, blob, { contentType: "application/pdf", upsert: true });
+                // Salva o PATH (não a URL) — signed URL é gerada na hora de abrir
                 if (!upErr) {
-                  const { data: urlData } = supabase.storage.from("signed-terms").getPublicUrl(path);
-                  await supabase.from("signed_terms").update({ pdf_url: urlData.publicUrl }).eq("id", termId);
+                  await supabase.from("signed_terms").update({ pdf_url: path }).eq("id", termId);
                 }
               } catch (pdfErr) {
                 console.warn("[term-pdf] upload falhou:", pdfErr);

@@ -66,11 +66,11 @@ export function PhotosTab({ clientId }: { clientId: string }) {
         const path = `${clientId}/${photoId}.jpg`;
         const up = await withTimeout(supabase.storage.from(BUCKET).upload(path, file, { upsert: false }), 12000, "Upload da foto");
         if (up.error) throw up.error;
-        const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
         const ins = await withTimeout(supabase.from("client_photos").insert({
           id: photoId,
           client_id: clientId,
-          url: pub.publicUrl,
+          url: signed?.signedUrl ?? path,
           category,
           procedure_id: procedureId || null,
           date: new Date().toISOString().split("T")[0],

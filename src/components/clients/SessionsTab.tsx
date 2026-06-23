@@ -534,9 +534,9 @@ function TermSignModal({ clientId, pkg, session, onClose, onRefresh, onSigned }:
         const blob = await generateTermPdf({ clientName, procName: pkg.procedures?.name ?? "Procedimento", termText, signatureDataUrl: dataUrl, signedAt });
         const path = `${clientId}/${termId}.pdf`;
         const { error: upErr } = await supabase.storage.from("signed-terms").upload(path, blob, { contentType: "application/pdf", upsert: true });
+        // Salva o PATH (não a URL) — signed URL é gerada na hora de abrir, pois não expira
         if (!upErr) {
-          const { data: urlData } = supabase.storage.from("signed-terms").getPublicUrl(path);
-          await supabase.from("signed_terms").update({ pdf_url: urlData.publicUrl }).eq("id", termId);
+          await supabase.from("signed_terms").update({ pdf_url: path }).eq("id", termId);
         }
       } catch (pdfErr) {
         console.warn("[term-pdf] upload falhou:", pdfErr);
@@ -702,8 +702,8 @@ function AttachSignatureModal({ session, onClose, onSaved }: {
           upsert: true,
         });
         if (!upErr) {
-          const { data: pub } = supabase.storage.from("signatures").getPublicUrl(path);
-          publicUrl = pub?.publicUrl ?? null;
+          const { data: sigData } = await supabase.storage.from("signatures").createSignedUrl(path, 3600);
+          publicUrl = sigData?.signedUrl ?? null;
         }
       } catch {
         // bucket pode não existir — ignoramos e seguimos com dataURL
@@ -1100,11 +1100,16 @@ function SignedTermViewModal({ signedTermId, onClose }: { signedTermId: string; 
       });
   }, [signedTermId]);
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (!term) return;
     // Usa o PDF arquivado se disponível; regera para termos antigos (fallback)
     if (term.pdf_url) {
-      window.open(term.pdf_url, "_blank");
+      // pdf_url pode ser PATH (novo) ou URL completa (legado) — normaliza para path
+      const pdfPath = term.pdf_url.startsWith("http")
+        ? term.pdf_url.split("/signed-terms/").pop() ?? term.pdf_url
+        : term.pdf_url;
+      const { data: sig } = await supabase.storage.from("signed-terms").createSignedUrl(pdfPath, 3600);
+      window.open(sig?.signedUrl ?? pdfPath, "_blank");
       return;
     }
     const clientName = term.clients?.name ?? "Cliente";
