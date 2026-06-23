@@ -103,7 +103,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
               {visible.map((i) => {
                 const active = path === i.to || (i.to !== "/" && path.startsWith(i.to));
                 const count = countMap[i.key];
-                const to = user.role === "professional" && i.key === "meu_ponto" ? "/escala" : i.to;
+                const to = i.to;
                 return (
                   <Link
                     key={i.to}

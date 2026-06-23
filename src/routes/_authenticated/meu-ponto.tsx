@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/meu-ponto")({
 
 function MeuPontoPage() {
   const { user: me } = useAuth();
-  const allowed = !!me?.permissions?.meu_ponto;
+  const allowed = me?.role === "professional" || !!me?.permissions?.meu_ponto;
 
   const [today, setToday] = useState<TimeEntry | null>(null);
   const [history, setHistory] = useState<TimeEntry[]>([]);
