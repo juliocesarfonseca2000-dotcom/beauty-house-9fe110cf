@@ -188,10 +188,12 @@ export function SessionsTab({ clientId }: { clientId: string }) {
         await supabase.from("contracts").delete().eq("id", c.id);
       }
       // 2) Income, sessões, pacote
-      await supabase.from("income").delete().eq("package_id", pkg.id);
-      await supabase.from("sessions").delete().eq("package_id", pkg.id);
-      const { error } = await supabase.from("packages").delete().eq("id", pkg.id);
-      if (error) throw error;
+      const incomeRes = await supabase.from("income").delete().eq("package_id", pkg.id);
+      if (incomeRes.error) throw new Error(`Erro ao remover receita: ${incomeRes.error.message}`);
+      const sessRes = await supabase.from("sessions").delete().eq("package_id", pkg.id);
+      if (sessRes.error) throw new Error(`Erro ao remover sessões: ${sessRes.error.message}`);
+      const pkgRes = await supabase.from("packages").delete().eq("id", pkg.id);
+      if (pkgRes.error) throw new Error(`Erro ao remover pacote: ${pkgRes.error.message}`);
       toast.success("Venda cancelada");
       reload();
     } catch (err) {
@@ -416,7 +418,26 @@ export function SessionsTab({ clientId }: { clientId: string }) {
             <div className="flex flex-col gap-2">
               <button
                 type="button"
-                onClick={() => { const c = termAsking; setTermAsking(null); setSigning(c); }}
+                onClick={async () => {
+                  const c = termAsking;
+                  setTermAsking(null);
+                  // Busca o signed_term_id de qualquer sessão anterior do mesmo pacote
+                  const { data: prevSess } = await supabase
+                    .from("sessions")
+                    .select("signed_term_id")
+                    .eq("package_id", c.pkg.id)
+                    .not("signed_term_id", "is", null)
+                    .limit(1)
+                    .maybeSingle();
+                  if (prevSess?.signed_term_id) {
+                    // Vincula o mesmo termo à sessão atual
+                    await supabase
+                      .from("sessions")
+                      .update({ signed_term_id: prevSess.signed_term_id })
+                      .eq("id", c.session.id);
+                  }
+                  setSigning(c);
+                }}
                 className="w-full px-3 py-2 rounded-md bg-success text-white text-sm font-bold hover:bg-success/90"
               >
                 ✅ Sim, já assinou
