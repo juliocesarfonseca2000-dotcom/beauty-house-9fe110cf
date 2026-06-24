@@ -20,10 +20,8 @@ function Dashboard() {
     const isKiosk = (user as { is_kiosk?: boolean }).is_kiosk === true;
     if (isKiosk) return; // _authenticated.tsx handles kiosk
     if (user.role === "admin") return; // stays on dashboard
-    setRedirecting(true);
-    if (user.role === "receptionist") {
-      navigate({ to: "/agenda", replace: true });
-    } else if (user.role === "professional") {
+    if (user.role === "professional") {
+      setRedirecting(true);
       const showInAgenda = (user as { show_in_agenda?: boolean | null }).show_in_agenda;
       navigate({ to: showInAgenda === true ? "/agenda" : "/meu-ponto", replace: true });
     }

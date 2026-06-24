@@ -39,25 +39,6 @@ function ClientsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const canEdit = user?.role === "admin" || user?.role === "receptionist" || user?.is_evaluator === true;
-  const [todayIds, setTodayIds] = useState<string[] | undefined>(undefined);
-
-  useEffect(() => {
-    if (user?.role !== "professional") {
-      setTodayIds(undefined);
-      return;
-    }
-    (async () => {
-      const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-      const { data: appts } = await supabase
-        .from("appointments")
-        .select("client_id")
-        .eq("professional_id", user.id)
-        .gte("datetime", `${today}T00:00:00-03:00`)
-        .lt("datetime", `${today}T23:59:59-03:00`);
-      const ids = (appts ?? []).map((a: any) => a.client_id).filter(Boolean) as string[];
-      setTodayIds(ids);
-    })();
-  }, [user?.role, user?.id]);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["clients", filter, q, user?.role, user?.id],
@@ -77,7 +58,7 @@ function ClientsPage() {
       }
       if (filter === "active") query = query.eq("active", true);
       if (filter === "inactive") query = query.eq("active", false);
-      if (user?.role !== "professional") query = query.limit(50);
+      query = query.limit(50);
       query = query.order("name");
       const { data, error } = await withTimeout(query, 10000, "Carregamento de clientes");
       if (error) throw error;
