@@ -405,6 +405,8 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           onConfirm={() => {
             const c = choosing;
             setChoosing(null);
+            console.log("[TERMO DEBUG] pkg.procedures:", JSON.stringify(c.pkg.procedures));
+            console.log("[TERMO DEBUG] requires_term:", c.pkg.procedures?.requires_term);
             if (c.pkg.procedures?.requires_term) {
               setTermAsking(c);
             } else {
