@@ -69,7 +69,7 @@ type Professional = { id: string; name: string };
 
 export function SessionsTab({ clientId }: { clientId: string }) {
   const { user: me } = useAuth();
-  const isAdmin = me?.role === "admin";
+  const canEdit = me?.role === "admin" || me?.role === "receptionist" || me?.is_evaluator === true;
   const [choosing, setChoosing] = useState<{ pkg: Package; session: Session } | null>(null);
   const [termAsking, setTermAsking] = useState<{ pkg: Package; session: Session } | null>(null);
   const [signingTerm, setSigningTerm] = useState<{ pkg: Package; session: Session } | null>(null);
@@ -292,7 +292,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                   <IconFileText size={14} /> Ver termo
                 </button>
               )}
-              {isAdmin && (
+              {canEdit && (
                 <button
                   type="button"
                   onClick={() => cancelSale(pkg)}

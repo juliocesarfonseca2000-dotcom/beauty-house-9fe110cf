@@ -38,6 +38,7 @@ function ClientsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const canEdit = user?.role === "admin" || user?.role === "receptionist" || user?.is_evaluator === true;
   const [todayIds, setTodayIds] = useState<string[] | undefined>(undefined);
 
   useEffect(() => {
@@ -244,18 +245,22 @@ function ClientsPage() {
         >
           <IconDownload size={18} /> Exportar
         </button>
-        <button
-          onClick={() => setOpenScan(true)}
-          className="px-4 py-2.5 rounded-lg border-2 border-gold text-gold font-semibold hover:bg-gold/10 flex items-center gap-2"
-        >
-          <IconCamera size={18} /> Escanear ficha
-        </button>
-        <button
-          onClick={() => setOpenNew(true)}
-          className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
-        >
-          <IconPlus size={18} /> Nova cliente
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setOpenScan(true)}
+            className="px-4 py-2.5 rounded-lg border-2 border-gold text-gold font-semibold hover:bg-gold/10 flex items-center gap-2"
+          >
+            <IconCamera size={18} /> Escanear ficha
+          </button>
+        )}
+        {canEdit && (
+          <button
+            onClick={() => setOpenNew(true)}
+            className="px-4 py-2.5 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2"
+          >
+            <IconPlus size={18} /> Nova cliente
+          </button>
+        )}
       </div>
 
       <div className="bh-card overflow-hidden">
@@ -323,21 +328,25 @@ function ClientsPage() {
                           <IconBrandWhatsapp size={16} />
                         </a>
                       )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleActive(r); }}
-                        className="p-1.5 rounded-md hover:bg-bg2 text-text2"
-                        title={r.active ? "Inativar" : "Reativar"}
-                      >
-                        {r.active ? <IconUserOff size={16} /> : <IconUserCheck size={16} />}
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); deleteClient(r); }}
-                        disabled={deleteMutation.isPending}
-                        className="p-1.5 rounded-md hover:bg-danger/10 text-danger disabled:opacity-40"
-                        title="Excluir cliente"
-                      >
-                        <IconTrash size={16} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleActive(r); }}
+                          className="p-1.5 rounded-md hover:bg-bg2 text-text2"
+                          title={r.active ? "Inativar" : "Reativar"}
+                        >
+                          {r.active ? <IconUserOff size={16} /> : <IconUserCheck size={16} />}
+                        </button>
+                      )}
+                      {canEdit && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteClient(r); }}
+                          disabled={deleteMutation.isPending}
+                          className="p-1.5 rounded-md hover:bg-danger/10 text-danger disabled:opacity-40"
+                          title="Excluir cliente"
+                        >
+                          <IconTrash size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

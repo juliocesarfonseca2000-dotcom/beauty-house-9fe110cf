@@ -18,6 +18,23 @@ export const Route = createFileRoute("/_authenticated/usuarios")({
   component: UsersPage,
 });
 
+async function fixProfessionalPerms() {
+  const { data } = await supabase
+    .from("app_users")
+    .select("id, permissions")
+    .eq("role", "professional");
+  if (!data) return;
+  for (const u of data) {
+    const perms = u.permissions as Record<string, boolean>;
+    if (!perms.clientes || !perms.ficha) {
+      await supabase
+        .from("app_users")
+        .update({ permissions: { ...perms, clientes: true, ficha: true } })
+        .eq("id", u.id);
+    }
+  }
+}
+
 const PERM_LABELS: Array<[keyof Permissions, string]> = [
   ["dash", "Dashboard"],
   ["agenda", "Agenda"],
@@ -64,7 +81,10 @@ function UsersPage() {
     setRows((data as AppUser[]) ?? []);
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    if (me?.role === "admin") void fixProfessionalPerms();
+  }, []);
 
   if (me?.role !== "admin") {
     return <div className="bh-card p-12 text-center text-text3">Apenas administradores podem gerenciar usuários.</div>;

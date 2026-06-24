@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconArrowLeft, IconEdit, IconCheck } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
@@ -159,6 +160,8 @@ export function ClientRecordContent({ id, backTo = "/clientes", initialTab }: { 
 
 
 function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) {
+  const { user: me } = useAuth();
+  const canEdit = me?.role === "admin" || me?.role === "receptionist" || me?.is_evaluator === true;
   const [edit, setEdit] = useState(false);
   const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
   const [f, setF] = useState({
@@ -193,11 +196,11 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
   return (
     <div className="bh-card p-6 space-y-4">
       <div className="flex justify-end">
-        {edit ? (
+        {canEdit && (edit ? (
           <button onClick={save} className="px-4 py-2 rounded-lg bg-success text-white text-sm font-semibold flex items-center gap-2"><IconCheck size={16} /> Salvar</button>
         ) : (
           <button onClick={() => setEdit(true)} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2 text-sm flex items-center gap-2"><IconEdit size={16} /> Editar</button>
-        )}
+        ))}
       </div>
       <Grid>
         <RO label="Número da ficha" v={f.record_num} edit={edit} type="number" onChange={(v) => setF({ ...f, record_num: v })} />

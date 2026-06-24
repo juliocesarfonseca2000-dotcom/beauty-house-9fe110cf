@@ -21,6 +21,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export function ProntuarioTab({ clientId }: { clientId: string }) {
   const { user } = useAuth();
+  const canEdit = user?.role === "admin" || user?.role === "receptionist" || user?.is_evaluator === true;
   const [notes, setNotes] = useState<Note[]>([]);
   const [procs, setProcs] = useState<Proc[]>([]);
   const [editing, setEditing] = useState<Note | null>(null);
@@ -61,13 +62,15 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button onClick={() => setCreating(true)} className="px-4 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2">
-          <IconPlus size={16} /> Adicionar registro
-        </button>
-      </div>
+      {canEdit && (
+        <div className="flex justify-end">
+          <button onClick={() => setCreating(true)} className="px-4 py-2 rounded-lg bg-gold text-white font-semibold hover:bg-gold2 flex items-center gap-2">
+            <IconPlus size={16} /> Adicionar registro
+          </button>
+        </div>
+      )}
 
-      {creating && (
+      {canEdit && creating && (
         <NoteForm
           clientId={clientId}
           procs={procs}
@@ -84,7 +87,7 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
         <div className="bh-card p-10 text-center text-text3 text-sm">Nenhum registro de prontuário ainda.</div>
       ) : (
         notes.map((n) => (
-          editing?.id === n.id ? (
+          canEdit && editing?.id === n.id ? (
             <NoteForm
               key={n.id}
               clientId={clientId}
@@ -102,10 +105,12 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
                   <div className="text-xs text-text3">{new Date(n.date).toLocaleDateString("pt-BR")}</div>
                   <div className="font-display text-lg text-navy">{n.procedures?.name ?? "Procedimento"}</div>
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => setEditing(n)} className="p-1.5 rounded-md hover:bg-bg2 text-navy"><IconEdit size={14} /></button>
-                  <button onClick={() => remove(n.id)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger"><IconTrash size={14} /></button>
-                </div>
+                {canEdit && (
+                  <div className="flex gap-1">
+                    <button onClick={() => setEditing(n)} className="p-1.5 rounded-md hover:bg-bg2 text-navy"><IconEdit size={14} /></button>
+                    <button onClick={() => remove(n.id)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger"><IconTrash size={14} /></button>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
                 {n.equipment && <div><span className="text-text3 text-xs uppercase">Aparelho:</span> <span className="text-text2">{n.equipment}</span></div>}

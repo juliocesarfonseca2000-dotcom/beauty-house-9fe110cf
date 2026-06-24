@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconUpload, IconTrash, IconArrowsExchange, IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
@@ -20,6 +21,8 @@ type Procedure = { id: string; name: string };
 const BUCKET = "client-photos";
 
 export function PhotosTab({ clientId }: { clientId: string }) {
+  const { user: me } = useAuth();
+  const canEdit = me?.role === "admin" || me?.role === "receptionist" || me?.is_evaluator === true;
   const [uploading, setUploading] = useState(false);
   const [category, setCategory] = useState<"antes" | "depois" | "evolucao">("antes");
   const [procedureId, setProcedureId] = useState("");
@@ -138,19 +141,21 @@ export function PhotosTab({ clientId }: { clientId: string }) {
               </button>
             ))}
           </div>
-          <label className="px-4 py-2 rounded-lg bg-gold text-navy font-semibold text-sm flex items-center gap-2 cursor-pointer hover:bg-gold/90">
-            <IconUpload size={16} />
-            {uploading ? "Enviando..." : "Enviar fotos"}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              className="hidden"
-              onChange={onUpload}
-              disabled={uploading}
-            />
-          </label>
+          {canEdit && (
+            <label className="px-4 py-2 rounded-lg bg-gold text-navy font-semibold text-sm flex items-center gap-2 cursor-pointer hover:bg-gold/90">
+              <IconUpload size={16} />
+              {uploading ? "Enviando..." : "Enviar fotos"}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="hidden"
+                onChange={onUpload}
+                disabled={uploading}
+              />
+            </label>
+          )}
           <select value={procedureId} onChange={(e) => setProcedureId(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-card text-sm">
             <option value="">Sem procedimento</option>
             {procedures.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -208,12 +213,14 @@ export function PhotosTab({ clientId }: { clientId: string }) {
                       <div className="absolute bottom-1 left-1 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
                         {new Date(p.date).toLocaleDateString("pt-BR")} · {p.procedures?.name ?? categoryLabel[cat]}
                       </div>
-                      <button
-                        onClick={() => remove(p)}
-                        className="absolute top-1 right-1 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-danger"
-                      >
-                        <IconTrash size={12} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => remove(p)}
+                          className="absolute top-1 right-1 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-danger"
+                        >
+                          <IconTrash size={12} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
