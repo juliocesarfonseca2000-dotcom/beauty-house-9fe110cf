@@ -119,6 +119,11 @@ function MeuPontoPage() {
 
   const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   if (!me) return null;
+  if (!me.permissions?.meu_ponto) return (
+    <div className="flex items-center justify-center h-64 text-text2 text-sm">
+      Você não tem permissão para acessar esta página.
+    </div>
+  );
 
   return (
     <div className="space-y-5">
