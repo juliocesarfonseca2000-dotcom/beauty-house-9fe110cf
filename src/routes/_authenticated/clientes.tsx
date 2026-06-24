@@ -10,6 +10,11 @@ import { ScanClientCardModal } from "@/components/clients/ScanClientCardModal";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
 
+// SUPABASE RLS: a política SELECT da tabela "clients" deve permitir role=professional.
+// Se profissionais virem lista vazia, verifique em Supabase > Authentication > Policies > clients
+// e garanta que a política de SELECT inclua: auth.jwt() ->> 'role' IN ('admin','receptionist','professional')
+// ou use uma função RLS que verifica o campo role na tabela app_users.
+
 export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientsPage,
 });
@@ -62,6 +67,9 @@ function ClientsPage() {
       query = query.order("name");
       const { data, error } = await withTimeout(query, 10000, "Carregamento de clientes");
       if (error) throw error;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[clientes] rows:', data?.length, 'role:', user?.role, 'error:', error);
+      }
       return (data as Row[]) ?? [];
     },
     staleTime: 60_000,

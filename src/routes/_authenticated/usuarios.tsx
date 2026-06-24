@@ -26,10 +26,20 @@ async function fixProfessionalPerms() {
   if (!data) return;
   for (const u of data) {
     const perms = u.permissions as Record<string, boolean>;
-    if (!perms.clientes || !perms.ficha) {
+    const needsFix = !perms.clientes || !perms.ficha || !perms.meu_ponto || !perms.dash || !perms.agenda;
+    if (needsFix) {
       await supabase
         .from("app_users")
-        .update({ permissions: { ...perms, clientes: true, ficha: true } })
+        .update({
+          permissions: {
+            ...perms,
+            clientes: true,
+            ficha: true,
+            meu_ponto: true,
+            dash: true,
+            agenda: true,
+          },
+        })
         .eq("id", u.id);
     }
   }

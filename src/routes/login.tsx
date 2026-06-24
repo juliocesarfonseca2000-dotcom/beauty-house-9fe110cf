@@ -16,11 +16,18 @@ function LoginPage() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const landingFor = (role?: string | null): "/" | "/agenda" =>
-    role === "admin" ? "/" : "/agenda";
+  const authUser = user;
+  const landingFor = (u: typeof authUser): "/" | "/agenda" | "/kiosk-ponto" | "/meu-ponto" => {
+    if (!u) return "/agenda";
+    const isKiosk = (u as { is_kiosk?: boolean }).is_kiosk === true;
+    if (isKiosk) return "/kiosk-ponto";
+    if (u.role === "admin" || u.role === "receptionist") return "/";
+    const showInAgenda = (u as { show_in_agenda?: boolean | null }).show_in_agenda;
+    return showInAgenda === true ? "/agenda" : "/meu-ponto";
+  };
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: landingFor(user.role), replace: true });
+    if (!loading && user) navigate({ to: landingFor(user) as string, replace: true });
   }, [loading, user, navigate]);
 
   const submit = async (e: React.FormEvent) => {
