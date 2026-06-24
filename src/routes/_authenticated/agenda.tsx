@@ -1338,6 +1338,25 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                 type="button"
                 onClick={async () => {
                   setTermAsk(null);
+                  // Busca termo já assinado anteriormente para o mesmo pacote
+                  if (termAsk?.packageId) {
+                    const { data: prevSess } = await supabase
+                      .from("sessions")
+                      .select("id, signed_term_id")
+                      .eq("package_id", termAsk.packageId)
+                      .not("signed_term_id", "is", null)
+                      .limit(1)
+                      .maybeSingle();
+                    // Vincula o termo existente à sessão atual
+                    if (prevSess?.signed_term_id) {
+                      await supabase
+                        .from("sessions")
+                        .update({ signed_term_id: prevSess.signed_term_id })
+                        .eq("appointment_id", termAsk.appointmentId)
+                        .eq("status", "pending")
+                        .limit(1);
+                    }
+                  }
                   await doConfirmAttendance();
                 }}
                 className="w-full px-3 py-2 rounded-md bg-success text-white text-sm font-bold hover:bg-success/90"
