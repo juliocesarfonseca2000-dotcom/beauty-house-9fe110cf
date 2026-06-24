@@ -18,33 +18,6 @@ export const Route = createFileRoute("/_authenticated/usuarios")({
   component: UsersPage,
 });
 
-async function fixProfessionalPerms() {
-  const { data } = await supabase
-    .from("app_users")
-    .select("id, permissions")
-    .eq("role", "professional");
-  if (!data) return;
-  for (const u of data) {
-    const perms = u.permissions as Record<string, boolean>;
-    const needsFix = !perms.clientes || !perms.ficha || !perms.meu_ponto || !perms.dash || !perms.agenda;
-    if (needsFix) {
-      await supabase
-        .from("app_users")
-        .update({
-          permissions: {
-            ...perms,
-            clientes: true,
-            ficha: true,
-            meu_ponto: true,
-            dash: true,
-            agenda: true,
-          },
-        })
-        .eq("id", u.id);
-    }
-  }
-}
-
 const PERM_LABELS: Array<[keyof Permissions, string]> = [
   ["dash", "Dashboard"],
   ["agenda", "Agenda"],
@@ -93,7 +66,6 @@ function UsersPage() {
   };
   useEffect(() => {
     load();
-    if (me?.role === "admin") void fixProfessionalPerms();
   }, []);
 
   if (me?.role !== "admin") {
