@@ -330,7 +330,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                     <button
                       type="button"
                       disabled={!isNext && s.status === "pending"}
-                      onClick={() => {
+                      onClick={async () => {
                         if (s.status === "done") {
                           if (isImported) {
                             setAttachingSig({ pkg, session: s });
@@ -339,7 +339,13 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                           }
                         } else if (isNext) {
                           if (s.appointment_id) {
-                            const st = attendanceMap[s.appointment_id];
+                            // Busca o status atual direto do banco (não usa cache do attendanceMap)
+                            const { data: apptData } = await supabase
+                              .from("appointments")
+                              .select("attendance_status")
+                              .eq("id", s.appointment_id)
+                              .maybeSingle();
+                            const st = apptData?.attendance_status;
                             if (st === "no_show") {
                               toast.error("Cliente marcado como FALTA na agenda — não é possível assinar a sessão.");
                               return;
