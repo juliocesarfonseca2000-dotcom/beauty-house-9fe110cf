@@ -1310,6 +1310,16 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                 .update({ signed_term_id: termId })
                 .eq("appointment_id", termModal.appointmentId)
                 .limit(1);
+              // Fallback: vincula à próxima sessão pendente do pacote sem appointment_id
+              if (termModal.packageId) {
+                await supabase
+                  .from("sessions")
+                  .update({ signed_term_id: termId })
+                  .eq("package_id", termModal.packageId)
+                  .eq("status", "pending")
+                  .is("signed_term_id", null)
+                  .limit(1);
+              }
               // Arquiva PDF no storage (não bloqueia o fluxo se falhar)
               try {
                 const clinic = await getClinicInfo();
@@ -1373,6 +1383,14 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                         .update({ signed_term_id: prevSess.signed_term_id })
                         .eq("appointment_id", termAsk.appointmentId)
                         .limit(1);
+                      // Fallback por package_id (sessão sem appointment_id)
+                      await supabase
+                        .from("sessions")
+                        .update({ signed_term_id: prevSess.signed_term_id })
+                        .eq("package_id", termAsk.packageId)
+                        .eq("status", "pending")
+                        .is("signed_term_id", null)
+                        .limit(1);
                     } else {
                       // Primeira sessão do pacote — cria registro de termo sem assinatura digital
                       const signedAt = new Date().toISOString();
@@ -1393,6 +1411,14 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                           .from("sessions")
                           .update({ signed_term_id: newTerm.id })
                           .eq("appointment_id", termAsk.appointmentId)
+                          .limit(1);
+                        // Fallback por package_id (sessão sem appointment_id)
+                        await supabase
+                          .from("sessions")
+                          .update({ signed_term_id: newTerm.id })
+                          .eq("package_id", termAsk.packageId)
+                          .eq("status", "pending")
+                          .is("signed_term_id", null)
                           .limit(1);
                       }
                     }

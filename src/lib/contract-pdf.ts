@@ -90,8 +90,8 @@ export async function generateContractPdf(p: ContractPayload): Promise<Blob> {
 
   doc.setFontSize(9);
   doc.setTextColor(90);
-  doc.text(`Emitido em: ${dateStr}`, pageWidth - 14, 18, { align: "right" });
-  if (p.contractNum != null) doc.text(`Contrato #${p.contractNum}`, pageWidth - 14, 23, { align: "right" });
+  doc.text(`Emitido em: ${dateStr}`, pageWidth - 14, 32, { align: "right" });
+  if (p.contractNum != null) doc.text(`Contrato #${p.contractNum}`, pageWidth - 14, 37, { align: "right" });
   doc.setTextColor(0);
 
   // Logo no canto superior direito (via canvas para evitar CORS)
@@ -109,7 +109,7 @@ export async function generateContractPdf(p: ContractPayload): Promise<Blob> {
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         canvas.getContext("2d")!.drawImage(img, 0, 0);
-        doc.addImage(canvas.toDataURL("image/png"), "PNG", pageWidth - 35, 6, 22, 22);
+        doc.addImage(canvas.toDataURL("image/png"), "PNG", pageWidth - 35, 4, 20, 20);
       }
     } catch { /* ignora se falhar */ }
   }
