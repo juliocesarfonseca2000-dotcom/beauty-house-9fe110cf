@@ -1357,7 +1357,6 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                 type="button"
                 onClick={async () => {
                   setTermAsk(null);
-                  // Busca termo já assinado anteriormente para o mesmo pacote
                   if (termAsk?.packageId) {
                     const { data: prevSess } = await supabase
                       .from("sessions")
@@ -1366,13 +1365,36 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                       .not("signed_term_id", "is", null)
                       .limit(1)
                       .maybeSingle();
-                    // Vincula o termo existente à sessão atual
+
                     if (prevSess?.signed_term_id) {
+                      // Sessão subsequente — vincula o termo existente
                       await supabase
                         .from("sessions")
                         .update({ signed_term_id: prevSess.signed_term_id })
                         .eq("appointment_id", termAsk.appointmentId)
                         .limit(1);
+                    } else {
+                      // Primeira sessão do pacote — cria registro de termo sem assinatura digital
+                      const signedAt = new Date().toISOString();
+                      const { data: newTerm } = await supabase
+                        .from("signed_terms")
+                        .insert({
+                          client_id: termAsk.clientId,
+                          procedure_id: termAsk.procedureId,
+                          package_id: termAsk.packageId,
+                          term_text: termAsk.termText,
+                          signature_data: null,
+                          signed_at: signedAt,
+                        })
+                        .select("id")
+                        .single();
+                      if (newTerm?.id) {
+                        await supabase
+                          .from("sessions")
+                          .update({ signed_term_id: newTerm.id })
+                          .eq("appointment_id", termAsk.appointmentId)
+                          .limit(1);
+                      }
                     }
                   }
                   await doConfirmAttendance();
