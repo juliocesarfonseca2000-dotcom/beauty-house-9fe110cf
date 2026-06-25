@@ -14,66 +14,91 @@ export async function generateTermPdf(opts: {
   clinicCnpj?: string;
 }): Promise<Blob> {
   const doc = new jsPDF();
+  const pageH = doc.internal.pageSize.getHeight(); // 297mm
+  const pageW = doc.internal.pageSize.getWidth();  // 210mm
 
-  // Logo no canto superior direito (via canvas para evitar CORS)
+  // ── Logo via canvas (sem CORS) ──────────────────────────────────────────
   if (opts.logoUrl) {
     try {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve) => {
         img.onload = () => resolve();
-        img.onerror = () => reject();
-        img.src = opts.logoUrl + "?_=" + Date.now();
+        img.onerror = () => resolve(); // ignora erro — continua sem logo
+        img.src = opts.logoUrl!;
       });
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0);
-      const base64 = canvas.toDataURL("image/png");
-      doc.addImage(base64, "PNG", 160, 8, 22, 22);
+      if (img.naturalWidth > 0) {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext("2d")!.drawImage(img, 0, 0);
+        doc.addImage(canvas.toDataURL("image/png"), "PNG", pageW - 35, 6, 22, 22);
+      }
     } catch { /* ignora */ }
   }
 
-  // Cabeçalho clínica
+  // ── Cabeçalho clínica ───────────────────────────────────────────────────
   doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.text(opts.clinicName || "Est. Beauty House Medicina e Estética", 20, 18);
+  doc.text(opts.clinicName || "Est. Beauty House Medicina e Estética", 20, 16);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(`CNPJ: ${opts.clinicCnpj || "68.438.126/0001-86"}`, 20, 25);
-  doc.text(opts.clinicAddress || "Rua Pamplona, 925 — Jd. Paulista, São Paulo", 20, 31);
-  doc.line(20, 36, 190, 36);
+  doc.setTextColor(80);
+  doc.text(`CNPJ: ${opts.clinicCnpj || "68.438.126/0001-86"}`, 20, 23);
+  doc.text(opts.clinicAddress || "Rua Pamplona, 925 — Jd. Paulista, São Paulo", 20, 29);
+  doc.setTextColor(0);
+  doc.line(20, 33, 190, 33);
 
-  // Dados do cliente
-  doc.setFontSize(11);
+  // ── Título e dados do cliente ───────────────────────────────────────────
+  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Termo de Consentimento Informado", 20, 44);
+  doc.text("Termo de Consentimento Informado", 20, 41);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(`Cliente: ${opts.clientName}`, 20, 52);
-  if (opts.clientCpf) doc.text(`CPF: ${opts.clientCpf}`, 20, 58);
-  if (opts.clientPhone) doc.text(`Telefone: ${opts.clientPhone}`, 20, 64);
-  doc.text(`Procedimento: ${opts.procName}`, 20, 70);
-  doc.text(`Data: ${new Date(opts.signedAt).toLocaleDateString("pt-BR")}`, 20, 76);
-  doc.line(20, 80, 190, 80);
+  let cy = 49;
+  doc.text(`Cliente: ${opts.clientName}`, 20, cy);
+  if (opts.clientCpf)   { cy += 6; doc.text(`CPF: ${opts.clientCpf}`, 20, cy); }
+  if (opts.clientPhone) { cy += 6; doc.text(`Telefone: ${opts.clientPhone}`, 20, cy); }
+  cy += 6; doc.text(`Procedimento: ${opts.procName}`, 20, cy);
+  cy += 6; doc.text(`Data: ${new Date(opts.signedAt).toLocaleDateString("pt-BR")}`, 20, cy);
+  cy += 4; doc.line(20, cy, 190, cy);
 
-  // Texto do termo
-  const lines = doc.splitTextToSize(opts.termText, 170);
-  let yPos = 88;
-  doc.text(lines, 20, yPos);
-  yPos += lines.length * 5 + 15;
+  // ── Texto do termo (com paginação automática) ───────────────────────────
+  const lineHeight = 5;
+  const marginBottom = 50; // reserva 50mm no rodapé para a assinatura
+  const usableH = pageH - marginBottom;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
 
-  // Assinatura: sempre na parte inferior da última página (mínimo Y=230)
-  const sigY = Math.max(yPos + 10, 230);
-  if (sigY > 270) { doc.addPage(); }
-  const finalSigY = sigY > 270 ? 230 : sigY;
+  const allLines = doc.splitTextToSize(opts.termText, 170) as string[];
+  let y = cy + 8;
 
-  doc.line(20, finalSigY, 100, finalSigY);
-  doc.text("Assinatura da Cliente", 20, finalSigY + 6);
-  if (opts.signatureDataUrl) {
-    doc.addImage(opts.signatureDataUrl, "PNG", 20, finalSigY - 26, 80, 18);
+  for (const line of allLines) {
+    if (y + lineHeight > usableH) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.text(line, 20, y);
+    y += lineHeight;
   }
+
+  // ── Assinatura — sempre no rodapé da última página ──────────────────────
+  if (y > pageH - 48) {
+    doc.addPage();
+    y = 20;
+  }
+
+  const sigAreaTop = pageH - 44; // 44mm do fundo
+  const sigImgTop  = sigAreaTop - 2;
+  const sigLineY   = sigImgTop + 22;
+  const sigLabelY  = sigLineY + 6;
+
+  if (opts.signatureDataUrl) {
+    doc.addImage(opts.signatureDataUrl, "PNG", 20, sigImgTop, 80, 20);
+  }
+  doc.line(20, sigLineY, 110, sigLineY);
+  doc.setFontSize(9);
+  doc.text("Assinatura da Cliente", 20, sigLabelY);
 
   return doc.output("blob");
 }

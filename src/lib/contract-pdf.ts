@@ -99,18 +99,18 @@ export async function generateContractPdf(p: ContractPayload): Promise<Blob> {
     try {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve) => {
         img.onload = () => resolve();
-        img.onerror = () => reject();
-        img.src = p.clinic.logo_url + "?_=" + Date.now();
+        img.onerror = () => resolve();
+        img.src = p.clinic.logo_url!;
       });
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0);
-      const base64 = canvas.toDataURL("image/png");
-      doc.addImage(base64, "PNG", pageWidth - 35, 8, 22, 22);
+      if (img.naturalWidth > 0) {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext("2d")!.drawImage(img, 0, 0);
+        doc.addImage(canvas.toDataURL("image/png"), "PNG", pageWidth - 35, 6, 22, 22);
+      }
     } catch { /* ignora se falhar */ }
   }
 
