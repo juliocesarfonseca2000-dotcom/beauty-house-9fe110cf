@@ -1302,7 +1302,6 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                 .from("sessions")
                 .update({ signed_term_id: termId })
                 .eq("appointment_id", termModal.appointmentId)
-                .eq("status", "pending")
                 .limit(1);
               // Arquiva PDF no storage (não bloqueia o fluxo se falhar)
               try {
@@ -1353,7 +1352,6 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                         .from("sessions")
                         .update({ signed_term_id: prevSess.signed_term_id })
                         .eq("appointment_id", termAsk.appointmentId)
-                        .eq("status", "pending")
                         .limit(1);
                     }
                   }
