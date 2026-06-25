@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { generateTermPdf } from "@/lib/term-pdf";
+import { getClinicInfo } from "@/lib/contract-pdf";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -35,7 +36,7 @@ type Appt = {
   is_first_visit: boolean | null;
   client_arrived_at: string | null;
   client_arrived_notified: boolean | null;
-  clients: { name: string } | null;
+  clients: { name: string; cpf: string | null; phone: string | null } | null;
   procedures: { name: string } | null;
 };
 type Absence = { id: string; user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; date_start: string; date_end: string; };
@@ -133,7 +134,7 @@ function AgendaPage() {
 
 
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,clients(name),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,clients(name,cpf,phone),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
@@ -983,6 +984,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 type TermModalData = {
   clientName: string;
   clientId: string;
+  clientCpf?: string | null;
+  clientPhone?: string | null;
   procedureId: string;
   procedureName: string;
   termText: string;
@@ -1068,6 +1071,8 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
           setTermModal({
             clientName: appt.clients?.name ?? "Cliente",
             clientId: appt.client_id,
+            clientCpf: appt.clients?.cpf ?? null,
+            clientPhone: appt.clients?.phone ?? null,
             procedureId: appt.procedure_id,
             procedureName: proc.name,
             termText: proc.term_text,
@@ -1166,6 +1171,8 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     setTermAsk({
       clientName: appt.clients?.name ?? "Cliente",
       clientId: appt.client_id,
+      clientCpf: appt.clients?.cpf ?? null,
+      clientPhone: appt.clients?.phone ?? null,
       procedureId: appt.procedure_id,
       procedureName: proc.name,
       termText: proc.term_text,
@@ -1305,7 +1312,20 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                 .limit(1);
               // Arquiva PDF no storage (não bloqueia o fluxo se falhar)
               try {
-                const blob = await generateTermPdf({ clientName: termModal.clientName, procName: termModal.procedureName, termText: termModal.termText, signatureDataUrl: signatureData, signedAt });
+                const clinic = await getClinicInfo();
+                const blob = await generateTermPdf({
+                  clientName: termModal.clientName,
+                  clientCpf: termModal.clientCpf ?? null,
+                  clientPhone: termModal.clientPhone ?? null,
+                  procName: termModal.procedureName,
+                  termText: termModal.termText,
+                  signatureDataUrl: signatureData,
+                  signedAt,
+                  logoUrl: clinic.logo_url,
+                  clinicName: clinic.name,
+                  clinicAddress: clinic.address,
+                  clinicCnpj: clinic.cnpj,
+                });
                 const path = `${termModal.clientId}/${termId}.pdf`;
                 const { error: upErr } = await supabase.storage.from("signed-terms").upload(path, blob, { contentType: "application/pdf", upsert: true });
                 // Salva o PATH (não a URL) — signed URL é gerada na hora de abrir

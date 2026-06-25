@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { generateTermPdf } from "@/lib/term-pdf";
+import { decrementContractNumber } from "@/lib/contract-pdf";
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -186,6 +187,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
           await supabase.storage.from("contracts").remove([c.pdf_path]);
         }
         await supabase.from("contracts").delete().eq("id", c.id);
+        await decrementContractNumber();
       }
       // 2) Income, sessões, pacote
       const incomeRes = await supabase.from("income").delete().eq("package_id", pkg.id);

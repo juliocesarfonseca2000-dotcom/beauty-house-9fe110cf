@@ -8,6 +8,7 @@ import {
   generateContractPdf,
   getClinicInfo,
   getContractClauses,
+  getNextContractNumber,
   type ContractItem,
   type ContractPayload,
   type ClinicInfo,
@@ -112,10 +113,11 @@ export function ContractModal({
     setSigningWho(null);
   };
 
-  const buildPayload = (): ContractPayload | null => {
+  const buildPayload = (contractNum?: number | null): ContractPayload | null => {
     if (!client || !clinic) return null;
     return {
       recordNum: client.record_num,
+      contractNum: contractNum ?? null,
       client: { name: client.name, cpf: client.cpf, phone: client.phone, address: client.address },
       clinic,
       items: input?.items ?? (existing?.items ?? []),
@@ -163,7 +165,8 @@ export function ContractModal({
 
     setBusy(true);
     try {
-      const payload = buildPayload();
+      const contractNum = await getNextContractNumber();
+      const payload = buildPayload(contractNum);
       if (!payload) throw new Error("Dados incompletos");
       const blob = await generateContractPdf(payload);
 
@@ -201,6 +204,7 @@ export function ContractModal({
         pro_user_name: me?.name ?? null,
         signed_at: new Date().toISOString(),
         created_by: me?.id ?? null,
+        contract_number: contractNum,
       });
       if (error) {
         console.error("Erro ao inserir contrato:", error);

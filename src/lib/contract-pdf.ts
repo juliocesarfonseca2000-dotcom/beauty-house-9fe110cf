@@ -54,6 +54,7 @@ export type ContractItem = {
 
 export type ContractPayload = {
   recordNum?: number | string | null;
+  contractNum?: number | null;
   client: { name: string; cpf?: string | null; phone?: string | null; address?: string | null };
   clinic: ClinicInfo;
   items: ContractItem[];
@@ -90,8 +91,22 @@ export async function generateContractPdf(p: ContractPayload): Promise<Blob> {
   doc.setFontSize(9);
   doc.setTextColor(90);
   doc.text(`Emitido em: ${dateStr}`, pageWidth - 14, 18, { align: "right" });
-  if (p.recordNum != null) doc.text(`Ficha #${p.recordNum}`, pageWidth - 14, 23, { align: "right" });
+  if (p.contractNum != null) doc.text(`Contrato #${p.contractNum}`, pageWidth - 14, 23, { align: "right" });
   doc.setTextColor(0);
+
+  // Logo no canto superior direito
+  if (p.clinic.logo_url) {
+    try {
+      const response = await fetch(p.clinic.logo_url);
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+      doc.addImage(base64, "PNG", pageWidth - 35, 8, 22, 22);
+    } catch { /* ignora se falhar */ }
+  }
 
   // Dados da clínica
   let y = 36;
@@ -183,7 +198,35 @@ export async function generateContractPdf(p: ContractPayload): Promise<Blob> {
   const footY = doc.internal.pageSize.getHeight() - 10;
   doc.setFontSize(8);
   doc.setTextColor(120);
-  doc.text(`${p.clinic.name || "Beauty House"} — ${dateStr}${p.recordNum != null ? ` — Ficha #${p.recordNum}` : ""}`, pageWidth / 2, footY, { align: "center" });
+  doc.text(`${p.clinic.name || "Beauty House"} — ${dateStr}${p.contractNum != null ? ` — Contrato #${p.contractNum}` : ""}`, pageWidth / 2, footY, { align: "center" });
 
   return doc.output("blob");
+}
+
+export async function getNextContractNumber(): Promise<number> {
+  const { data } = await supabase
+    .from("system_settings")
+    .select("value")
+    .eq("key", "contract_counter")
+    .maybeSingle();
+  const current = (data?.value as { num?: number } | null)?.num ?? 44626;
+  const next = current + 1;
+  await supabase
+    .from("system_settings")
+    .upsert({ key: "contract_counter", value: { num: next } });
+  return next;
+}
+
+export async function decrementContractNumber(): Promise<void> {
+  const { data } = await supabase
+    .from("system_settings")
+    .select("value")
+    .eq("key", "contract_counter")
+    .maybeSingle();
+  const current = (data?.value as { num?: number } | null)?.num ?? 44627;
+  if (current > 44627) {
+    await supabase
+      .from("system_settings")
+      .upsert({ key: "contract_counter", value: { num: current - 1 } });
+  }
 }
