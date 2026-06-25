@@ -9,6 +9,7 @@ import {
   getClinicInfo,
   getContractClauses,
   getNextContractNumber,
+  peekNextContractNumber,
   type ContractItem,
   type ContractPayload,
   type ClinicInfo,
@@ -140,6 +141,8 @@ export function ContractModal({
         .eq("id", existingContractId)
         .maybeSingle();
       contractNum = (data as { contract_number?: number | null } | null)?.contract_number ?? null;
+    } else {
+      contractNum = await peekNextContractNumber();
     }
     const payload = buildPayload(contractNum);
     if (!payload) return;

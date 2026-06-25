@@ -15,16 +15,22 @@ export async function generateTermPdf(opts: {
 }): Promise<Blob> {
   const doc = new jsPDF();
 
-  // Logo no canto superior direito
+  // Logo no canto superior direito (via canvas para evitar CORS)
   if (opts.logoUrl) {
     try {
-      const response = await fetch(opts.logoUrl);
-      const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject();
+        img.src = opts.logoUrl + "?_=" + Date.now();
       });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const base64 = canvas.toDataURL("image/png");
       doc.addImage(base64, "PNG", 160, 8, 22, 22);
     } catch { /* ignora */ }
   }
@@ -66,7 +72,7 @@ export async function generateTermPdf(opts: {
   doc.line(20, finalSigY, 100, finalSigY);
   doc.text("Assinatura da Cliente", 20, finalSigY + 6);
   if (opts.signatureDataUrl) {
-    doc.addImage(opts.signatureDataUrl, "PNG", 20, finalSigY - 20, 80, 18);
+    doc.addImage(opts.signatureDataUrl, "PNG", 20, finalSigY - 26, 80, 18);
   }
 
   return doc.output("blob");

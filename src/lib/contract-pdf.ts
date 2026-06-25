@@ -94,16 +94,22 @@ export async function generateContractPdf(p: ContractPayload): Promise<Blob> {
   if (p.contractNum != null) doc.text(`Contrato #${p.contractNum}`, pageWidth - 14, 23, { align: "right" });
   doc.setTextColor(0);
 
-  // Logo no canto superior direito
+  // Logo no canto superior direito (via canvas para evitar CORS)
   if (p.clinic.logo_url) {
     try {
-      const response = await fetch(p.clinic.logo_url);
-      const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject();
+        img.src = p.clinic.logo_url + "?_=" + Date.now();
       });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const base64 = canvas.toDataURL("image/png");
       doc.addImage(base64, "PNG", pageWidth - 35, 8, 22, 22);
     } catch { /* ignora se falhar */ }
   }
@@ -201,6 +207,16 @@ export async function generateContractPdf(p: ContractPayload): Promise<Blob> {
   doc.text(`${p.clinic.name || "Beauty House"} — ${dateStr}${p.contractNum != null ? ` — Contrato #${p.contractNum}` : ""}`, pageWidth / 2, footY, { align: "center" });
 
   return doc.output("blob");
+}
+
+export async function peekNextContractNumber(): Promise<number> {
+  const { data } = await supabase
+    .from("system_settings")
+    .select("value")
+    .eq("key", "contract_counter")
+    .maybeSingle();
+  const current = (data?.value as { num?: number } | null)?.num ?? 44626;
+  return current + 1;
 }
 
 export async function getNextContractNumber(): Promise<number> {

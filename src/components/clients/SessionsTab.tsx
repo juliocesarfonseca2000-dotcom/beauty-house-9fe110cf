@@ -112,6 +112,8 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       if (sessError) throw sessError;
       return { packages: list, sessions: (sess as Session[]) ?? [] };
     },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
   const { packages, sessions } = data;
   const reload = () => {
