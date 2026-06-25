@@ -13,6 +13,7 @@ const SessionsTab = lazy(() => import("@/components/clients/SessionsTab").then((
 const PhotosTab = lazy(() => import("@/components/clients/PhotosTab").then((m) => ({ default: m.PhotosTab })));
 const ProntuarioTab = lazy(() => import("@/components/clients/ProntuarioTab").then((m) => ({ default: m.ProntuarioTab })));
 const AnamneseTab = lazy(() => import("@/components/clients/AnamneseTab").then((m) => ({ default: m.AnamneseTab })));
+const FichaAntigaTab = lazy(() => import("@/components/clients/FichaAntigaTab").then((m) => ({ default: m.FichaAntigaTab })));
 
 export const Route = createFileRoute("/_authenticated/clientes/$id")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -40,7 +41,7 @@ type Client = {
   created_at: string;
 };
 
-type Tab = "dados" | "anamnese" | "prontuario" | "sessoes" | "fotos" | "historico";
+type Tab = "dados" | "anamnese" | "prontuario" | "sessoes" | "fotos" | "ficha_antiga" | "historico";
 type Evaluator = { id: string; name: string; is_evaluator?: boolean };
 
 function ClientDetailPage() {
@@ -118,6 +119,7 @@ export function ClientRecordContent({ id, backTo = "/clientes", initialTab }: { 
           ["prontuario", "Prontuário"],
           ["sessoes", "Sessões"],
           ["fotos", "Fotos"],
+          ["ficha_antiga", "Ficha Antiga"],
           ["historico", "Histórico"],
         ] as [Tab, string][]).map(([k, l]) => (
           <button
@@ -151,6 +153,11 @@ export function ClientRecordContent({ id, backTo = "/clientes", initialTab }: { 
       {tab === "fotos" && (
         <Suspense fallback={<TableSkeleton rows={4} cols={3} />}>
           <PhotosTab clientId={client.id} />
+        </Suspense>
+      )}
+      {tab === "ficha_antiga" && (
+        <Suspense fallback={<TableSkeleton rows={4} cols={3} />}>
+          <FichaAntigaTab clientId={client.id} />
         </Suspense>
       )}
       {tab === "historico" && <HistoricoTab clientId={client.id} />}
