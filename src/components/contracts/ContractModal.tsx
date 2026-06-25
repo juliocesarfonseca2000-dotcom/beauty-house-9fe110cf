@@ -132,7 +132,16 @@ export function ContractModal({
   };
 
   const previewPdf = async () => {
-    const payload = buildPayload();
+    let contractNum: number | null = null;
+    if (existingContractId) {
+      const { data } = await supabase
+        .from("contracts")
+        .select("contract_number")
+        .eq("id", existingContractId)
+        .maybeSingle();
+      contractNum = (data as { contract_number?: number | null } | null)?.contract_number ?? null;
+    }
+    const payload = buildPayload(contractNum);
     if (!payload) return;
     const blob = await generateContractPdf(payload);
     const url = URL.createObjectURL(blob);
@@ -148,8 +157,14 @@ export function ContractModal({
         return;
       }
     }
-    // Regerar a partir do snapshot
-    const payload = buildPayload();
+    // Regerar com número do contrato
+    const { data: contractData } = await supabase
+      .from("contracts")
+      .select("contract_number")
+      .eq("id", existingContractId ?? "")
+      .maybeSingle();
+    const contractNum = (contractData as { contract_number?: number | null } | null)?.contract_number ?? null;
+    const payload = buildPayload(contractNum);
     if (!payload) return;
     const blob = await generateContractPdf(payload);
     const url = URL.createObjectURL(blob);

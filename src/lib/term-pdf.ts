@@ -58,13 +58,16 @@ export async function generateTermPdf(opts: {
   doc.text(lines, 20, yPos);
   yPos += lines.length * 5 + 15;
 
-  // Assinatura abaixo do texto (não em posição fixa)
-  if (yPos > 230) { doc.addPage(); yPos = 20; }
+  // Assinatura: sempre na parte inferior da última página (mínimo Y=230)
+  const sigY = Math.max(yPos + 10, 230);
+  if (sigY > 270) { doc.addPage(); }
+  const finalSigY = sigY > 270 ? 230 : sigY;
+
+  doc.line(20, finalSigY, 100, finalSigY);
+  doc.text("Assinatura da Cliente", 20, finalSigY + 6);
   if (opts.signatureDataUrl) {
-    doc.addImage(opts.signatureDataUrl, "PNG", 20, yPos - 22, 80, 20);
+    doc.addImage(opts.signatureDataUrl, "PNG", 20, finalSigY - 20, 80, 18);
   }
-  doc.line(20, yPos, 100, yPos);
-  doc.text("Assinatura da Cliente", 20, yPos + 6);
 
   return doc.output("blob");
 }
