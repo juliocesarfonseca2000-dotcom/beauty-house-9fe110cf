@@ -29,6 +29,7 @@ type CartItem = {
   procedure: Procedure;
   sessions: number;
   price: number;
+  is_courtesy?: boolean;
 };
 
 
@@ -108,7 +109,7 @@ function ClosePackagePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAvulso]);
 
-  const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price, 0), [cart]);
+  const subtotal = useMemo(() => cart.reduce((s, i) => s + (i.is_courtesy ? 0 : i.price), 0), [cart]);
   const discountVal = (subtotal * discountPct) / 100;
   const baseTotal = subtotal - discountVal;
   const cardFeeVal = isCard && cardFeePctNum > 0 ? baseTotal * (cardFeePctNum / 100) : 0;
@@ -152,6 +153,26 @@ function ClosePackagePage() {
       const pkgResults = await withTimeout<Array<{ data: { id: string } | null; error: { message: string } | null }>>(
         Promise.all(
           cart.map((item) => {
+            if (item.is_courtesy) {
+              return supabase
+                .from("packages")
+                .insert({
+                  client_id: client.id,
+                  procedure_id: item.procedure.id,
+                  sess_total: item.sessions,
+                  sess_done: 0,
+                  price_full: 0,
+                  price_paid: 0,
+                  discount_pct: 100,
+                  pay_method: "Cortesia",
+                  status: "active",
+                  is_bonus: true,
+                  bonus_validated: true,
+                  bonus_validated_at: new Date().toISOString(),
+                })
+                .select("id")
+                .single();
+            }
             const itemFull = item.price;
             const itemPaid = itemFull * (1 - discountPct / 100);
             return supabase
@@ -198,17 +219,18 @@ function ClosePackagePage() {
       if (sErr) throw sErr;
 
       const pkgIds = pkgResults.map((r) => r.data!.id);
+      const paidPkgIds = pkgResults.filter((_, idx) => !cart[idx].is_courtesy).map((r) => r.data!.id);
 
-      // Taxa de cartão — UPDATE no income já criado pelo trigger
+      // Taxa de cartão — UPDATE no income já criado pelo trigger (apenas itens pagos)
       if (isCard && cardFeePctNum > 0) {
         const feePctNum = cardFeePctNum;
         const feeValueTotal = baseTotal * (feePctNum / 100);
         try {
-          if (pkgIds.length > 0) {
+          if (paidPkgIds.length > 0) {
             const { error: feeError } = await supabase
               .from("income")
               .update({ card_fee_pct: feePctNum, card_fee_payer: cardFeePayer })
-              .in("package_id", pkgIds);
+              .in("package_id", paidPkgIds);
             if (feeError) console.error("Erro ao salvar taxa de cartão:", feeError);
           }
           if (cardFeePayer === "empresa") {
@@ -226,8 +248,8 @@ function ClosePackagePage() {
       const items = cart.map((it) => ({
         procedure_name: it.procedure.name,
         sessions: it.sessions,
-        unit_price: it.price * (1 - discountPct / 100) / it.sessions,
-        total: it.price * (1 - discountPct / 100),
+        unit_price: it.is_courtesy ? 0 : it.price * (1 - discountPct / 100) / it.sessions,
+        total: it.is_courtesy ? 0 : it.price * (1 - discountPct / 100),
       }));
       // Invalida imediatamente para que a aba Sessões reflita o novo pacote sem aguardar o realtime
       queryClient.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && ["client-sessions", "packages", "sessions", "income", "dashboard"].includes(String(q.queryKey[0])) });
@@ -349,6 +371,25 @@ function ClosePackagePage() {
           >
             <IconPlus size={18} /> Adicionar ao pacote
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!currentProc) return toast.error("Selecione um procedimento");
+              const item: CartItem = {
+                uid: crypto.randomUUID(),
+                procedure: currentProc,
+                sessions: isAvulso ? 1 : sessions,
+                price: 0,
+                is_courtesy: true,
+              };
+              setCart((c) => [...c, item]);
+              toast.success(`Cortesia adicionada: ${currentProc.name}`);
+            }}
+            disabled={!currentProc}
+            className="w-full px-4 py-2 rounded-lg border border-dashed border-gold text-gold text-sm font-semibold hover:bg-gold/10 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+          >
+            🎁 Adicionar como cortesia (R$ 0,00)
+          </button>
         </div>
 
         {/* Pagamento */}
@@ -425,10 +466,17 @@ function ClosePackagePage() {
               {cart.map((it) => (
                 <div key={it.uid} className="flex items-start gap-2 bg-bg2 rounded-lg p-3">
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-navy text-sm truncate">{it.procedure.name}</div>
+                    <div className="font-semibold text-navy text-sm flex items-center gap-1.5 flex-wrap">
+                      {it.procedure.name}
+                      {it.is_courtesy && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">CORTESIA</span>
+                      )}
+                    </div>
                     <div className="text-text3 text-xs">{it.sessions} sessões</div>
                     <div className="text-gold font-semibold text-sm mt-0.5">
-                      {it.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      {it.is_courtesy
+                        ? "R$ 0,00"
+                        : it.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </div>
                   </div>
                   <button onClick={() => removeItem(it.uid)} className="p-1 rounded text-text2 hover:text-danger" title="Remover">
