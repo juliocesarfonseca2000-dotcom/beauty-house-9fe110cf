@@ -3,6 +3,7 @@ import { IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
+import { getNextFichaNumber } from "@/lib/contract-pdf";
 
 type Evaluator = { id: string; name: string; is_evaluator?: boolean };
 
@@ -84,7 +85,9 @@ export function ClientFormModal({
     }
     setBusy(true);
     try {
+      const recordNumToSave = await getNextFichaNumber();
       const payload = {
+        record_num: recordNumToSave,
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim() || null,

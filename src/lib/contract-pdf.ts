@@ -209,6 +209,29 @@ export async function generateContractPdf(p: ContractPayload): Promise<Blob> {
   return doc.output("blob");
 }
 
+export async function getNextFichaNumber(): Promise<number> {
+  const [counterRes, maxRes] = await Promise.all([
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "ficha_counter")
+      .maybeSingle(),
+    supabase
+      .from("clients")
+      .select("record_num")
+      .order("record_num", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const counterVal = (counterRes.data?.value as { num?: number } | null)?.num ?? 44611;
+  const maxRecord = (maxRes.data as { record_num?: number | null } | null)?.record_num ?? 0;
+  const finalNext = Math.max(counterVal, maxRecord, 44611) + 1;
+  await supabase
+    .from("system_settings")
+    .upsert({ key: "ficha_counter", value: { num: finalNext } });
+  return finalNext;
+}
+
 export async function peekNextContractNumber(): Promise<number> {
   const { data } = await supabase
     .from("system_settings")

@@ -5,6 +5,7 @@ import { scanClientCard, type ProcedureHistoryItem } from "@/lib/scan-card.funct
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { withTimeout } from "@/lib/with-timeout";
+import { getNextFichaNumber } from "@/lib/contract-pdf";
 
 type Evaluator = { id: string; name: string; is_evaluator?: boolean; role?: string };
 type Procedure = { id: string; name: string };
@@ -165,6 +166,10 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
         if (!existing) {
           recordNumToUse = num;
         }
+      }
+      // Se o número lido já existe ou não foi lido, gera automaticamente
+      if (recordNumToUse == null) {
+        recordNumToUse = await getNextFichaNumber();
       }
 
       console.log("[SCAN] iniciando insert de cliente, evaluatorId:", form.evaluatorId);
