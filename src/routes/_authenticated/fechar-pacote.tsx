@@ -337,7 +337,23 @@ function ClosePackagePage() {
               <div className="text-[10px] text-text3 uppercase mt-1">Procedimento avulso</div>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {/* Botão Avulso */}
+              <button
+                type="button"
+                onClick={() => setSessions(1)}
+                className={`p-3 rounded-lg border-2 transition ${
+                  sessions === 1 ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
+                }`}
+              >
+                <div className="font-display text-base text-navy">1</div>
+                <div className="text-[10px] text-text2 uppercase">avulso</div>
+                <div className="text-xs font-semibold text-gold mt-1">
+                  {currentProc?.price_single
+                    ? currentProc.price_single.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                    : "—"}
+                </div>
+              </button>
               {([5, 10, 20] as const).map((n) => {
                 const price = currentProc ? (n === 5 ? currentProc.price_5 : n === 10 ? currentProc.price_10 : currentProc.price_20) : null;
                 const disabled = price == null;
