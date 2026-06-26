@@ -121,6 +121,8 @@ function ClientsPage() {
         await supabase.from("sessions").delete().in("package_id", pkgIds);
       }
       await supabase.from("appointments").delete().eq("client_id", r.id);
+      await supabase.from("signed_terms").delete().eq("client_id", r.id);
+      await supabase.from("contracts").delete().eq("client_id", r.id);
       await supabase.from("packages").delete().eq("client_id", r.id);
       const { error } = await withTimeout(
         supabase.from("clients").delete().eq("id", r.id),
