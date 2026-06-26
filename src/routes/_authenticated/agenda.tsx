@@ -128,7 +128,7 @@ function AgendaPage() {
       ? supabase.from("app_users").select("id,name,work_schedule").eq("active", true)
           .eq("role", "professional").eq("id", me.id).order("name")
       : supabase.from("app_users").select("id,name,work_schedule").eq("active", true)
-          .eq("role", "professional").eq("show_in_agenda", true).order("name");
+          .eq("role", "professional").eq("show_in_agenda", true).order("agenda_order", { ascending: true }).order("name");
     const [{ data: pdata, error: pErr }, { data: adata, error: aErr }, { data: absData, error: absErr }] = await Promise.all([
       prosQuery,
 

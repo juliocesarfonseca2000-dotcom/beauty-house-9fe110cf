@@ -182,6 +182,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
   const [isEval, setIsEval] = useState(initial?.is_evaluator ?? false);
   const [active, setActive] = useState(initial?.active ?? true);
   const [showInAgenda, setShowInAgenda] = useState<boolean>(initial?.show_in_agenda ?? true);
+  const [agendaOrder, setAgendaOrder] = useState<number>(initial?.agenda_order ?? 999);
   const [perms, setPerms] = useState<Permissions>(initial?.permissions ?? DEFAULT_PERMS_BY_ROLE.professional);
   const [workSchedule, setWorkSchedule] = useState<WorkSchedule>(
     (initial as AppUser & { work_schedule?: WorkSchedule })?.work_schedule ?? DEFAULT_SCHEDULE
@@ -213,7 +214,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token,
             id: initial.id,
-            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda, work_schedule: workSchedule },
+            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda, agenda_order: agendaOrder, work_schedule: workSchedule },
             password: password || undefined,
           },
         });
@@ -222,7 +223,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token, email, password, name,
             role, cargo: cargo || null, is_evaluator: isEval, permissions: perms,
-            show_in_agenda: showInAgenda, work_schedule: workSchedule,
+            show_in_agenda: showInAgenda, agenda_order: agendaOrder, work_schedule: workSchedule,
           },
         });
       }
@@ -314,6 +315,32 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
                 <div className="text-xs text-text3">Desmarque para colaboradoras que não fazem atendimento (limpeza, suporte)</div>
               </div>
             </label>
+          )}
+
+          {role === "professional" && showInAgenda && (
+            <div className="p-3 bg-bg2 rounded-lg border border-border">
+              <div className="text-sm font-semibold text-navy mb-2">Ordem na agenda</div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAgendaOrder((o) => Math.max(1, o - 1))}
+                  className="px-3 py-2 rounded-lg border border-border hover:bg-bg3 font-bold"
+                >
+                  ←
+                </button>
+                <span className="px-4 py-2 rounded-lg border border-border bg-card min-w-[60px] text-center font-semibold">
+                  {agendaOrder}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAgendaOrder((o) => o + 1)}
+                  className="px-3 py-2 rounded-lg border border-border hover:bg-bg3 font-bold"
+                >
+                  →
+                </button>
+              </div>
+              <div className="text-xs text-text3 mt-1">Menor número = mais à esquerda na agenda</div>
+            </div>
           )}
 
           {role === "professional" && (

@@ -39,5 +39,6 @@ export type AppUser = {
   permissions: Permissions;
   active: boolean;
   show_in_agenda?: boolean | null;
+  agenda_order?: number | null;
 };
 
