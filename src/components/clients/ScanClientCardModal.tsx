@@ -152,6 +152,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
     setBusy(true);
     try {
       const notes = [form.notes, form.phone_commercial ? `Tel. comercial: ${form.phone_commercial}` : ""].filter(Boolean).join("\n");
+      console.log("[SCAN] iniciando insert de cliente, evaluatorId:", form.evaluatorId);
       const { data, error } = await withTimeout(supabase.from("clients").insert({
         ...(form.recordNum.trim() ? { record_num: Number(form.recordNum) } : {}),
         name: form.name.trim(),
@@ -159,8 +160,12 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
         evaluator_id: form.evaluatorId || null,
         notes: notes || null,
       }).select("id").single(), 12000, "Cadastro da cliente");
-      if (error) throw error;
+      if (error) {
+        console.error("[SCAN] erro no insert clients:", error);
+        throw error;
+      }
       const clientId = (data as { id: string }).id;
+      console.log("[SCAN] cliente criada:", clientId);
 
       if (!skipHistory) {
         const valid = history.filter((h) => h.procedure_id && h.sessions_total > 0);
@@ -216,7 +221,9 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
       toast.success("Cliente cadastrada!");
       onCreated(clientId);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error("[SCAN SAVE ERROR]", err);
+      toast.error(msg || "Erro ao salvar");
     } finally {
       setBusy(false);
     }
