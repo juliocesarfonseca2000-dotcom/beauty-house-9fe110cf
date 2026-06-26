@@ -152,20 +152,39 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
     setBusy(true);
     try {
       const notes = [form.notes, form.phone_commercial ? `Tel. comercial: ${form.phone_commercial}` : ""].filter(Boolean).join("\n");
+
+      // Verifica se o record_num já existe antes de inserir
+      let recordNumToUse: number | undefined = undefined;
+      if (form.recordNum.trim()) {
+        const num = Number(form.recordNum);
+        const { data: existing } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("record_num", num)
+          .maybeSingle();
+        if (!existing) {
+          recordNumToUse = num;
+        }
+      }
+
       console.log("[SCAN] iniciando insert de cliente, evaluatorId:", form.evaluatorId);
-      const { data, error } = await withTimeout(supabase.from("clients").insert({
-        ...(form.recordNum.trim() ? { record_num: Number(form.recordNum) } : {}),
-        name: form.name.trim(),
-        phone: form.phone.trim(),
-        evaluator_id: form.evaluatorId || null,
-        notes: notes || null,
-      }).select("id").single(), 12000, "Cadastro da cliente");
+      const { data, error } = await withTimeout(
+        supabase.from("clients").insert({
+          ...(recordNumToUse != null ? { record_num: recordNumToUse } : {}),
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          evaluator_id: form.evaluatorId || null,
+          notes: notes || null,
+        }).select("id").single(),
+        12000,
+        "Cadastro da cliente"
+      );
       if (error) {
         console.error("[SCAN] erro no insert clients:", error);
         throw error;
       }
+      console.log("[SCAN] cliente criada:", (data as { id: string }).id);
       const clientId = (data as { id: string }).id;
-      console.log("[SCAN] cliente criada:", clientId);
 
       if (!skipHistory) {
         const valid = history.filter((h) => h.procedure_id && h.sessions_total > 0);
