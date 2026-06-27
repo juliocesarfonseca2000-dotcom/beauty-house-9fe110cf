@@ -82,6 +82,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [viewContract, setViewContract] = useState<string | null>(null);
   const [viewSignedTerm, setViewSignedTerm] = useState<string | null>(null);
   const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
+  const [contractNumByPkg, setContractNumByPkg] = useState<Record<string, number | null>>({});
   const [addingExisting, setAddingExisting] = useState(false);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
@@ -150,16 +151,21 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   useEffect(() => {
     (async () => {
       const { data } = await supabase
-        .from("contracts").select("id,package_ids")
+        .from("contracts").select("id,package_ids,contract_number")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false });
       const map: Record<string, string> = {};
-      for (const c of (data ?? []) as Array<{ id: string; package_ids: string[] | null }>) {
+      const numMap: Record<string, number | null> = {};
+      for (const c of (data ?? []) as Array<{ id: string; package_ids: string[] | null; contract_number?: number | null }>) {
         for (const pid of c.package_ids ?? []) {
-          if (!map[pid]) map[pid] = c.id;
+          if (!map[pid]) {
+            map[pid] = c.id;
+            numMap[pid] = c.contract_number ?? null;
+          }
         }
       }
       setContractsByPkg(map);
+      setContractNumByPkg(numMap);
     })();
   }, [clientId, packages.length]);
 
@@ -265,6 +271,11 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                     </span>
                   )}
                 </div>
+                {contractNumByPkg[pkg.id] && (
+                  <div className="text-xs text-text3 mt-0.5">
+                    Contrato <span className="font-semibold text-gold">#{contractNumByPkg[pkg.id]}</span>
+                  </div>
+                )}
                 <div className="text-text2 text-sm">{done} de {pkgSess.length} realizadas</div>
                 {lowAlert && (
                   <div className="text-xs text-danger font-semibold mt-1">⚠️ {remaining} sessão(ões) restante(s)</div>
@@ -624,6 +635,7 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
   const [tipo, setTipo] = useState<"pacote" | "avulso" | "cortesia">("pacote");
   const [total, setTotal] = useState(10);
   const [done, setDone] = useState(0);
+  const [contractNumInput, setContractNumInput] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -664,6 +676,16 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
       }));
       const { error: sErr } = await supabase.from("sessions").insert(rows);
       if (sErr) throw sErr;
+      if (contractNumInput.trim()) {
+        await supabase.from("contracts").insert({
+          client_id: clientId,
+          package_ids: [pkgId],
+          contract_number: Number(contractNumInput.trim()),
+          pay_method: "importado",
+          status: "signed",
+          created_at: new Date().toISOString(),
+        });
+      }
       toast.success("Procedimento adicionado");
       onSaved();
     } catch (e) {
@@ -719,6 +741,19 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
               <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">Já realizadas</label>
               <input type="number" min={0} max={total} value={done} onChange={(e) => setDone(Number(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">
+              Número do contrato <span className="text-text3 font-normal normal-case">(opcional)</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={contractNumInput}
+              onChange={(e) => setContractNumInput(e.target.value)}
+              placeholder="Ex: 44627"
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm"
+            />
           </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
