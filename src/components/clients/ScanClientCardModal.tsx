@@ -157,6 +157,9 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
       let recordNumToUse: number | undefined = undefined;
       if (form.recordNum.trim()) {
         const num = Number(form.recordNum);
+        if (isNaN(num) || num <= 0 || num > 999999) {
+          recordNumToUse = await getNextFichaNumber();
+        } else {
         const { data: existing } = await supabase
           .from("clients")
           .select("id, name")
@@ -171,12 +174,12 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
           setBusy(false);
           return;
         }
+        } // fecha else do range check
       } else {
         // Sem número lido pela IA — gera automático
         recordNumToUse = await getNextFichaNumber();
       }
 
-      console.log("[SCAN] iniciando insert de cliente, evaluatorId:", form.evaluatorId);
       const { data, error } = await withTimeout(
         supabase.from("clients").insert({
           ...(recordNumToUse != null ? { record_num: recordNumToUse } : {}),
@@ -192,7 +195,6 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
         console.error("[SCAN] erro no insert clients:", error);
         throw error;
       }
-      console.log("[SCAN] cliente criada:", (data as { id: string }).id);
       const clientId = (data as { id: string }).id;
 
       if (!skipHistory) {

@@ -1316,7 +1316,6 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                   .from("sessions")
                   .update({ signed_term_id: termId })
                   .eq("package_id", termModal.packageId)
-                  .eq("status", "pending")
                   .is("signed_term_id", null)
                   .limit(1);
               }
@@ -1388,7 +1387,6 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                         .from("sessions")
                         .update({ signed_term_id: prevSess.signed_term_id })
                         .eq("package_id", termAsk.packageId)
-                        .eq("status", "pending")
                         .is("signed_term_id", null)
                         .limit(1);
                     } else {
@@ -1417,7 +1415,6 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
                           .from("sessions")
                           .update({ signed_term_id: newTerm.id })
                           .eq("package_id", termAsk.packageId)
-                          .eq("status", "pending")
                           .is("signed_term_id", null)
                           .limit(1);
                       }
