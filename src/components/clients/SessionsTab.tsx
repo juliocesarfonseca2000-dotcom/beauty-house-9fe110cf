@@ -621,6 +621,7 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
 }) {
   const [procs, setProcs] = useState<Array<{ id: string; name: string }>>([]);
   const [procId, setProcId] = useState("");
+  const [tipo, setTipo] = useState<"pacote" | "avulso" | "cortesia">("pacote");
   const [total, setTotal] = useState(10);
   const [done, setDone] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -639,14 +640,17 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
       const { data: pkg, error } = await supabase.from("packages").insert({
         client_id: clientId,
         procedure_id: procId,
-        sess_total: total,
+        sess_total: tipo === "avulso" ? 1 : total,
         sess_done: done,
         price_full: 0,
         price_paid: 0,
-        discount_pct: 0,
-        pay_method: "importado",
+        discount_pct: tipo === "cortesia" ? 100 : 0,
+        pay_method: tipo === "avulso" ? "Avulso" : tipo === "cortesia" ? "Cortesia" : "importado",
         status: "active",
         origin: "ficha_importada",
+        is_bonus: tipo === "cortesia",
+        bonus_validated: tipo === "cortesia",
+        bonus_validated_at: tipo === "cortesia" ? new Date().toISOString() : null,
       }).select("id").single();
       if (error) throw error;
       const pkgId = (pkg as { id: string }).id;
@@ -679,6 +683,27 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
         <div className="p-6 space-y-4">
           <div className="text-xs text-text3">Sem cobrança no financeiro — apenas registra o histórico.</div>
           <div>
+            <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">Tipo</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["pacote", "avulso", "cortesia"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setTipo(t);
+                    if (t === "avulso") setTotal(1);
+                    if (t === "cortesia") setTotal(1);
+                  }}
+                  className={`py-2 rounded-lg border-2 text-sm font-semibold capitalize transition ${
+                    tipo === t ? "border-gold bg-gold/10 text-navy" : "border-border text-text2 hover:border-gold/40"
+                  }`}
+                >
+                  {t === "pacote" ? "📦 Pacote" : t === "avulso" ? "1️⃣ Avulso" : "🎁 Cortesia"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">Procedimento</label>
             <select value={procId} onChange={(e) => setProcId(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border text-sm">
               <option value="">Selecionar...</option>
@@ -688,7 +713,7 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">Total de sessões</label>
-              <input type="number" min={1} value={total} onChange={(e) => setTotal(Number(e.target.value) || 1)} className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+              <input type="number" min={1} value={total} onChange={(e) => setTotal(Number(e.target.value) || 1)} disabled={tipo === "avulso" || tipo === "cortesia"} className="w-full px-3 py-2 rounded-lg border border-border text-sm disabled:bg-bg2 disabled:text-text3" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">Já realizadas</label>
