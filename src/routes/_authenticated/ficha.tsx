@@ -24,7 +24,7 @@ function FichaSearchPage() {
         .from("clients")
         .select("id,name,phone,record_num")
         .eq("active", true)
-        .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+        .or(`name.ilike.%${q}%,record_num.eq.${isNaN(Number(q)) ? 0 : Number(q)}`)
         .limit(8);
       setResults((data as never) ?? []);
     }, 250);
@@ -39,7 +39,7 @@ function FichaSearchPage() {
     <div className="max-w-xl mx-auto mt-10 space-y-4">
       <div className="text-center">
         <div className="font-display text-3xl text-navy">Buscar ficha</div>
-        <div className="text-text2 text-sm mt-1">Digite nome ou telefone da cliente</div>
+        <div className="text-text2 text-sm mt-1">Digite nome ou número da ficha</div>
       </div>
       <div className="relative">
         <IconSearch size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text3" />

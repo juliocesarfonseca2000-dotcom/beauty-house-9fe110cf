@@ -92,6 +92,18 @@ export function ClientFormModal({
       } else {
         recordNumToSave = await getNextFichaNumber();
       }
+
+      const { data: existing } = await supabase
+        .from("clients")
+        .select("id,name")
+        .eq("record_num", recordNumToSave)
+        .maybeSingle();
+      if (existing) {
+        toast.error(`Ficha #${recordNumToSave} já pertence a ${(existing as { name: string }).name}`);
+        setBusy(false);
+        return;
+      }
+
       const payload = {
         record_num: recordNumToSave,
         name: name.trim(),
