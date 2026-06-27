@@ -154,21 +154,25 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
     try {
       const notes = [form.notes, form.phone_commercial ? `Tel. comercial: ${form.phone_commercial}` : ""].filter(Boolean).join("\n");
 
-      // Verifica se o record_num já existe antes de inserir
       let recordNumToUse: number | undefined = undefined;
       if (form.recordNum.trim()) {
         const num = Number(form.recordNum);
         const { data: existing } = await supabase
           .from("clients")
-          .select("id")
+          .select("id, name")
           .eq("record_num", num)
           .maybeSingle();
         if (!existing) {
           recordNumToUse = num;
+        } else {
+          // Ficha duplicada — avisa e bloqueia
+          const existingName = (existing as { name?: string }).name ?? "outra cliente";
+          toast.error(`Ficha #${num} já pertence a ${existingName}. Verifique se esta cliente já está cadastrada.`);
+          setBusy(false);
+          return;
         }
-      }
-      // Se o número lido já existe ou não foi lido, gera automaticamente
-      if (recordNumToUse == null) {
+      } else {
+        // Sem número lido pela IA — gera automático
         recordNumToUse = await getNextFichaNumber();
       }
 
