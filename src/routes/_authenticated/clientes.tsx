@@ -72,7 +72,8 @@ function ClientsPage() {
       }
       return (data as Row[]) ?? [];
     },
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const filtered = q.trim()

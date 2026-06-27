@@ -16,6 +16,6 @@ export function useSidebarCounts() {
         products:   products.status   === "fulfilled" ? (products.value.count   ?? 0) : 0,
       };
     },
-    staleTime: 60_000,
+    staleTime: 0,
   });
 }
