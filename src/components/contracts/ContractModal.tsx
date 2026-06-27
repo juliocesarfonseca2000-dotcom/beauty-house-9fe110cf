@@ -71,6 +71,12 @@ export function ContractModal({
   const [proSigData, setProSigData] = useState<string | null>(null);
   const [signingWho, setSigningWho] = useState<"client" | "pro" | null>(null);
   const sigRef = useRef<SignatureCanvas | null>(null);
+  const [contractNumManual, setContractNumManual] = useState<string>("");
+  const [peekedNum, setPeekedNum] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!existingContractId) peekNextContractNumber().then(setPeekedNum);
+  }, [existingContractId]);
 
   useEffect(() => {
     (async () => {
@@ -183,7 +189,9 @@ export function ContractModal({
 
     setBusy(true);
     try {
-      const contractNum = await getNextContractNumber();
+      const contractNum = contractNumManual.trim()
+        ? Number(contractNumManual.trim())
+        : await getNextContractNumber();
       const payload = buildPayload(contractNum);
       if (!payload) throw new Error("Dados incompletos");
       const blob = await generateContractPdf(payload);
@@ -297,6 +305,22 @@ export function ContractModal({
               </tbody>
             </table>
           </div>
+
+          {!isReadonly && (
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">
+                Número do contrato <span className="text-text3 font-normal normal-case">(opcional — sequencial automático se vazio)</span>
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={contractNumManual}
+                onChange={(e) => setContractNumManual(e.target.value)}
+                placeholder={peekedNum != null ? `Próximo: ${peekedNum}` : "..."}
+                className="w-full px-3 py-2 rounded-lg border border-border text-sm bg-card focus:outline-none focus:ring-2 focus:ring-gold/40"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <SignatureBox

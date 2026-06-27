@@ -14,6 +14,7 @@ export function ClientFormModal({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
+  const [fichaNumManual, setFichaNumManual] = useState<string>("");
   const [name, setName] = useState("");
 
   const [phone, setPhone] = useState("");
@@ -85,7 +86,12 @@ export function ClientFormModal({
     }
     setBusy(true);
     try {
-      const recordNumToSave = await getNextFichaNumber();
+      let recordNumToSave: number;
+      if (fichaNumManual.trim()) {
+        recordNumToSave = Number(fichaNumManual.trim());
+      } else {
+        recordNumToSave = await getNextFichaNumber();
+      }
       const payload = {
         record_num: recordNumToSave,
         name: name.trim(),
@@ -187,6 +193,19 @@ export function ClientFormModal({
           </button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">
+              Número da ficha <span className="text-text3 font-normal normal-case">(opcional — gerado automaticamente se vazio)</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={fichaNumManual}
+              onChange={(e) => setFichaNumManual(e.target.value)}
+              placeholder="Ex: 44612"
+              className={input}
+            />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Nome*"><input value={name} onChange={(e) => setName(e.target.value)} className={input} required /></Field>
             <Field label="WhatsApp*"><input value={phone} onChange={(e) => setPhone(e.target.value)} className={input} required placeholder="11999999999" /></Field>
