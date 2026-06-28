@@ -205,7 +205,6 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
         for (const row of valid) {
           const done = Math.max(0, Math.min(row.sessions_done, row.sessions_total));
           const total = row.sessions_total;
-          const completed = done >= total;
           const { data: pkg, error: pkgErr } = await supabase
             .from("packages")
             .insert({
@@ -217,7 +216,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
               price_paid: 0,
               discount_pct: 0,
               pay_method: "importado",
-              status: completed ? "completed" : "active",
+              status: "active",
               is_bonus: false,
               origin: "ficha_importada",
             })
