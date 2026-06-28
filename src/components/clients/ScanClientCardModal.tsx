@@ -15,6 +15,7 @@ type HistoryRow = {
   procedure_name_raw: string;
   sessions_done: number;
   sessions_total: number;
+  contract_num: string;
 };
 
 async function fileToBase64(file: File): Promise<string> {
@@ -125,6 +126,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
           procedure_name_raw: h.procedure_name,
           sessions_done: done,
           sessions_total: total,
+          contract_num: "",
         };
       });
       setHistory(rows);
@@ -143,7 +145,7 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
   };
 
   const addHistoryRow = () => {
-    setHistory((h) => [...h, { procedure_id: "", procedure_name_raw: "", sessions_done: 0, sessions_total: 10 }]);
+    setHistory((h) => [...h, { procedure_id: "", procedure_name_raw: "", sessions_done: 0, sessions_total: 10, contract_num: "" }]);
   };
   const removeHistoryRow = (i: number) => setHistory((h) => h.filter((_, idx) => idx !== i));
   const updateHistoryRow = (i: number, patch: Partial<HistoryRow>) =>
@@ -244,6 +246,16 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
             console.warn("Erro ao importar sessões:", sessErr.message);
             failedCount += 1;
             continue;
+          }
+          // Vincula contrato se número foi informado
+          if (row.contract_num?.trim()) {
+            await supabase.from("contracts").insert({
+              client_id: clientId,
+              package_ids: [pkgId],
+              contract_number: Number(row.contract_num.trim()),
+              pay_method: "importado",
+              status: "signed",
+            });
           }
         }
       }
@@ -360,6 +372,18 @@ export function ScanClientCardModal({ onClose, onCreated }: { onClose: () => voi
                         value={row.sessions_done}
                         onChange={(e) => updateHistoryRow(i, { sessions_done: Math.max(0, Number(e.target.value) || 0) })}
                         className={inp}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-semibold text-text2 uppercase tracking-wide mb-1">
+                        Nº Contrato <span className="text-text3 font-normal">(opcional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={row.contract_num}
+                        onChange={(e) => updateHistoryRow(i, { contract_num: e.target.value })}
+                        placeholder="Ex: 44627"
+                        className="w-full px-2 py-1.5 rounded-md border border-border text-sm bg-bg"
                       />
                     </div>
                     <div className="md:col-span-2">
