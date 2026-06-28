@@ -13,7 +13,7 @@ const TABLES = [
 const DERIVED: Record<string, string[]> = {
   sessions: ["client-sessions"],
   packages: ["client-sessions", "low-packages", "dashboard"],
-  clients: ["client", "clients-list", "dashboard", "sidebar-counts"],
+  clients: ["client", "clients", "clients-list", "dashboard", "sidebar-counts"],
   appointments: ["appointments", "dashboard"],
   products: ["dashboard", "stock", "sidebar-counts"],
   procedures: ["sidebar-counts"],
