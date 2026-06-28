@@ -51,13 +51,11 @@ function ClientsPage() {
       const term = q.trim();
       let query = supabase.from("clients").select("id,record_num,name,phone,cpf,active,created_at");
       if (term) {
-        const hasCpfFormat = /[.\-/]/.test(term);
-        const isNumericOnly = /^\d+$/.test(term);
-        if (hasCpfFormat) {
-          query = query.ilike("cpf", `%${term}%`);
-        } else if (isNumericOnly) {
-          query = query.or(`record_num.eq.${parseInt(term, 10)},phone.ilike.%${term}%`);
+        if (/^\d+$/.test(term)) {
+          // Número — busca por número da ficha
+          query = query.eq("record_num", parseInt(term, 10));
         } else {
+          // Texto — busca por nome
           query = query.ilike("name", `%${term}%`);
         }
       }
@@ -81,8 +79,6 @@ function ClientsPage() {
         const term = q.trim().toLowerCase();
         return (
           r.name.toLowerCase().includes(term) ||
-          (r.phone ?? "").includes(term) ||
-          (r.cpf ?? "").includes(term) ||
           String(r.record_num).includes(term)
         );
       })
@@ -212,7 +208,7 @@ function ClientsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nome, nº ficha, telefone ou CPF..."
+            placeholder="Buscar por nome ou nº da ficha..."
             className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-gold/40"
           />
         </div>
