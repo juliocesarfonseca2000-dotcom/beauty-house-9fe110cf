@@ -6,7 +6,6 @@ import { Topbar } from "@/components/layout/Topbar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { ReportProblemFAB } from "@/components/support/ReportProblemFAB";
 import { IconX } from "@tabler/icons-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 const TITLES: Record<string, string> = {
@@ -51,11 +50,6 @@ function AuthenticatedLayout() {
 
   useRealtimeSync(!!user);
 
-  useEffect(() => () => {
-    supabase.getChannels().forEach((channel) => {
-      supabase.removeChannel(channel);
-    });
-  }, []);
 
   if (loading) {
     return (
