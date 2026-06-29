@@ -83,13 +83,13 @@ function AuthenticatedLayout() {
   return (
     <div className="min-h-screen flex w-full bg-background">
       {/* Desktop sidebar */}
-      <div className="hidden md:block">
+      <div className="hidden sm:block">
         <Sidebar />
       </div>
 
       {/* Mobile drawer */}
       {drawerOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
+        <div className="sm:hidden fixed inset-0 z-40 flex">
           <div
             className="absolute inset-0 bg-navy/60 backdrop-blur-sm"
             onClick={() => setDrawerOpen(false)}
@@ -109,7 +109,7 @@ function AuthenticatedLayout() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar title={title} onMenuClick={() => setDrawerOpen(true)} />
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 overflow-x-hidden">
+        <main className="flex-1 p-4 sm:p-6 pb-20 sm:pb-6 overflow-x-hidden">
           <Outlet />
         </main>
       </div>
