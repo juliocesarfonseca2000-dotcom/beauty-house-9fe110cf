@@ -684,7 +684,7 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
         client_id: clientId,
         procedure_id: procId,
         sess_total: tipo === "avulso" ? 1 : total,
-        sess_done: done,
+        sess_done: tipo === "avulso" ? 0 : done,
         price_full: 0,
         price_paid: 0,
         discount_pct: tipo === "cortesia" ? 100 : 0,
@@ -744,8 +744,8 @@ function AddExistingPackageModal({ clientId, onClose, onSaved }: {
                   type="button"
                   onClick={() => {
                     setTipo(t);
-                    if (t === "avulso") setTotal(1);
-                    if (t === "cortesia") setTotal(1);
+                    if (t === "avulso") { setTotal(1); setDone(0); }
+                    if (t === "cortesia") { setTotal(1); setDone(0); }
                   }}
                   className={`py-2 rounded-lg border-2 text-sm font-semibold capitalize transition ${
                     tipo === t ? "border-gold bg-gold/10 text-navy" : "border-border text-text2 hover:border-gold/40"
