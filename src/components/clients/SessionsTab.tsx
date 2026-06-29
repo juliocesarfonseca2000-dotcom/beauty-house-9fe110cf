@@ -4,7 +4,7 @@ import { decrementContractNumber } from "@/lib/contract-pdf";
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift, IconFileText, IconCamera, IconUpload } from "@tabler/icons-react";
+import { IconX, IconLock, IconCheck, IconUserOff, IconCalendarOff, IconGift, IconFileText, IconCamera, IconUpload, IconPencil } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -84,6 +84,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   const [contractsByPkg, setContractsByPkg] = useState<Record<string, string>>({});
   const [contractNumByPkg, setContractNumByPkg] = useState<Record<string, number | null>>({});
   const [addingExisting, setAddingExisting] = useState(false);
+  const [editingSession, setEditingSession] = useState<{ pkg: Package; session: Session } | null>(null);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
@@ -395,6 +396,16 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                         <span className="absolute inset-0 flex items-center justify-center text-white text-lg">✗</span>
                       )}
                     </button>
+                    {s.status === "done" && !isImported && canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingSession({ pkg, session: s })}
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gold/90 text-white flex items-center justify-center hover:bg-gold z-10"
+                        title="Editar sessão"
+                      >
+                        <IconPencil size={9} />
+                      </button>
+                    )}
                     {s.signed_term_id && (
                       <button
                         type="button"
@@ -535,6 +546,15 @@ export function SessionsTab({ clientId }: { clientId: string }) {
       )}
       {addingExisting && (
         <AddExistingPackageModal clientId={clientId} onClose={() => setAddingExisting(false)} onSaved={() => { setAddingExisting(false); reload(); }} />
+      )}
+      {editingSession && (
+        <EditSessionModal
+          pkg={editingSession.pkg}
+          session={editingSession.session}
+          clientId={clientId}
+          onClose={() => setEditingSession(null)}
+          onSaved={() => { setEditingSession(null); reload(); }}
+        />
       )}
     </div>
   );
@@ -1267,6 +1287,94 @@ function SignedTermViewModal({ signedTermId, onClose }: { signedTermId: string; 
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function EditSessionModal({
+  session,
+  onClose,
+  onSaved,
+}: {
+  pkg: Package;
+  session: Session;
+  clientId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [doneAt, setDoneAt] = useState(
+    session.done_at ? new Date(session.done_at).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
+  );
+  const [notes, setNotes] = useState(session.notes ?? "");
+  const [status, setStatus] = useState<"done" | "pending">(session.status === "done" ? "done" : "pending");
+  const [contractNum, setContractNum] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    await supabase.from("sessions").update({
+      done_at: status === "done" ? new Date(doneAt).toISOString() : null,
+      notes: notes || null,
+      status,
+      session_status: status === "done" ? "confirmed" : "pending",
+    }).eq("id", session.id);
+    onSaved();
+    setBusy(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-card rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+        <div className="font-display text-lg text-navy">Editar Sessão #{session.session_num}</div>
+
+        <div>
+          <label className="block text-xs font-semibold text-text2 uppercase mb-1">Status</label>
+          <div className="flex gap-2">
+            <button type="button"
+              onClick={() => setStatus("done")}
+              className={`flex-1 py-2 rounded-lg border-2 text-sm font-semibold transition ${status === "done" ? "border-success bg-success/10 text-success" : "border-border text-text2"}`}
+            >✅ Realizada</button>
+            <button type="button"
+              onClick={() => setStatus("pending")}
+              className={`flex-1 py-2 rounded-lg border-2 text-sm font-semibold transition ${status === "pending" ? "border-gold bg-gold/10 text-gold" : "border-border text-text2"}`}
+            >🔄 Voltar para pendente</button>
+          </div>
+        </div>
+
+        {status === "done" && (
+          <div>
+            <label className="block text-xs font-semibold text-text2 uppercase mb-1">Data de realização</label>
+            <input type="date" value={doneAt} onChange={(e) => setDoneAt(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-semibold text-text2 uppercase mb-1">Observações</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
+            className="w-full px-3 py-2 rounded-lg border border-border text-sm resize-none" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-text2 uppercase mb-1">
+            Nº do contrato <span className="text-text3 font-normal normal-case">(opcional — para corrigir)</span>
+          </label>
+          <input type="number" value={contractNum} onChange={(e) => setContractNum(e.target.value)}
+            placeholder="Ex: 44627"
+            className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button type="button" onClick={onClose}
+            className="flex-1 py-2 rounded-lg border border-border text-sm text-text2 hover:bg-bg2">
+            Cancelar
+          </button>
+          <button type="button" onClick={save} disabled={busy}
+            className="flex-1 py-2 rounded-lg bg-navy text-white text-sm font-semibold hover:bg-navy/90 disabled:opacity-50">
+            {busy ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
       </div>
     </div>
   );
