@@ -310,6 +310,19 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                   <IconFileText size={14} /> Ver termo
                 </button>
               )}
+              {canEdit && pkgSess.some((s) => s.status === "done") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const lastDone = [...pkgSess].reverse().find((s) => s.status === "done");
+                    if (lastDone) setEditingSession({ pkg, session: lastDone });
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-border text-text2 text-xs font-semibold hover:bg-bg2 flex items-center gap-1"
+                  title="Editar última sessão realizada"
+                >
+                  <IconPencil size={14} /> Editar sessão
+                </button>
+              )}
               {canEdit && (
                 <button
                   type="button"
