@@ -396,7 +396,7 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                         <span className="absolute inset-0 flex items-center justify-center text-white text-lg">✗</span>
                       )}
                     </button>
-                    {s.status === "done" && !isImported && canEdit && (
+                    {s.status === "done" && canEdit && (
                       <button
                         type="button"
                         onClick={() => setEditingSession({ pkg, session: s })}
