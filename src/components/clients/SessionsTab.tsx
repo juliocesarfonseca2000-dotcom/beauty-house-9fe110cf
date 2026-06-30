@@ -403,10 +403,10 @@ export function SessionsTab({ clientId }: { clientId: string }) {
                     >
                       {s.session_num}
                       {s.status === "done" && !isImported && (
-                        <IconLock size={9} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-px" />
+                        <IconLock size={9} className="absolute -top-1 -left-1 bg-gold text-white rounded-full p-px" />
                       )}
                       {s.status === "done" && isImported && (
-                        <IconCamera size={10} className="absolute -top-1 -right-1 bg-gold text-white rounded-full p-0.5" />
+                        <IconCamera size={10} className="absolute -top-1 -left-1 bg-gold text-white rounded-full p-0.5" />
                       )}
                       {(s.status === "missed" || isMissedJ) && (
                         <span className="absolute inset-0 flex items-center justify-center text-white text-lg">✗</span>
