@@ -1309,6 +1309,7 @@ function SignedTermViewModal({ signedTermId, onClose }: { signedTermId: string; 
 }
 
 function EditSessionModal({
+  pkg,
   session,
   onClose,
   onSaved,
@@ -1329,14 +1330,28 @@ function EditSessionModal({
 
   const save = async () => {
     setBusy(true);
-    await supabase.from("sessions").update({
-      done_at: status === "done" ? new Date(doneAt).toISOString() : null,
-      notes: notes || null,
-      status,
-      session_status: status === "done" ? "confirmed" : "pending",
-    }).eq("id", session.id);
-    onSaved();
-    setBusy(false);
+    try {
+      await supabase.from("sessions").update({
+        done_at: status === "done" ? new Date(doneAt).toISOString() : null,
+        notes: notes || null,
+        status,
+        session_status: status === "done" ? "confirmed" : "pending",
+      }).eq("id", session.id);
+
+      // Recalcula sess_done do pacote com base na contagem real de sessões realizadas
+      const { count } = await supabase
+        .from("sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("package_id", pkg.id)
+        .eq("status", "done");
+      await supabase
+        .from("packages")
+        .update({ sess_done: count ?? 0 })
+        .eq("id", pkg.id);
+    } finally {
+      onSaved();
+      setBusy(false);
+    }
   };
 
   return (
