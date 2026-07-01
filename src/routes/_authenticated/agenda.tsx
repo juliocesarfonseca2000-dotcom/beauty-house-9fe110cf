@@ -370,9 +370,9 @@ function AgendaPage() {
                       } else if (a.client_confirmed_at) {
                         fillClass = "bg-gold/20 text-navy border-l-gold";                   // Confirmado com cliente = dourado
                       } else if (a.attendance_status === "confirmed") {
-                        fillClass = "bg-success/20 text-navy border-l-success";             // Presença confirmada = verde (mesmo do Realizado)
+                        fillClass = "bg-emerald-50 text-emerald-800 border-l-emerald-400";  // Presença confirmada = verde (mesmo do Realizado)
                       } else {
-                        fillClass = "bg-amber-50 text-navy border-l-amber-400";             // Pendente/Normal = amarelo
+                        fillClass = "bg-pink-50 text-navy border-l-pink-400";               // Pendente/Normal = rosa
                       }
                     }
 
@@ -422,7 +422,7 @@ function AgendaPage() {
 
       <div className="bh-card p-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text2">
         <span className="font-semibold text-navy uppercase tracking-wide text-[10px]">Legenda:</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border-l-2 border-amber-400" /> Normal</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-pink-50 border-l-2 border-pink-400" /> Normal</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 ring-2 ring-gold" /> ⭐ Preferência da cliente</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 outline outline-2 outline-blue-400" /> 🆕 Primeira vez</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-200 ring-2 ring-blue-400" /> 🏠 Cliente chegou</span>
