@@ -393,8 +393,7 @@ function AgendaPage() {
                       >
                         {a.status === "blocked" ? (
                           <div className="font-semibold truncate text-[11px] flex items-center gap-1">
-                            <IconLock size={11} /> {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · Bloqueado
-                            {a.notes && <span className="font-normal opacity-80"> — {a.notes}</span>}
+                            <IconLock size={11} /> {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.notes?.trim() ? a.notes : "Bloqueado"}
                           </div>
                         ) : (
                           <>
