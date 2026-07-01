@@ -1028,59 +1028,54 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
               {extraProcs.length === 0 && (
                 <div className="text-[11px] text-text3">Agende vários procedimentos seguidos (ex: massagem + botox). O horário de cada um começa quando o anterior termina.</div>
               )}
-              {extraProcs.map((ex, idx) => (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2 items-end bg-bg2 rounded-lg p-2">
-                  <div>
-                    <label className="block text-[10px] text-text2 uppercase mb-1">Procedimento</label>
+              {extraProcs.map((ex, idx) => {
+                // Calcula o horário de início deste extra: principal + soma das durações anteriores
+                const baseMin = (() => {
+                  const [hh, mm] = time.split(":").map(Number);
+                  return (hh || 0) * 60 + (mm || 0);
+                })();
+                const mainDur = Number(duration) || 60;
+                const prevExtrasDur = extraProcs.slice(0, idx).reduce((s, e) => s + (Number(e.duration) || 60), 0);
+                const startMin = baseMin + mainDur + prevExtrasDur;
+                const startLabel = `${String(Math.floor(startMin / 60) % 24).padStart(2, "0")}:${String(startMin % 60).padStart(2, "0")}`;
+                return (
+                  <div key={idx} className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[11px] font-mono text-gold w-11 shrink-0">{startLabel}</span>
                     <select
                       value={ex.procId}
                       onChange={(e) => {
                         const v = e.target.value;
-                        const p = allProcs.find((ap) => ap.id === v);
+                        const p = procs.find((ap) => ap.id === v);
                         setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, procId: v, duration: p?.duration_min ? String(p.duration_min) : it.duration } : it));
                       }}
-                      className={inp}
+                      className={`${inp} flex-1`}
                     >
-                      <option value="">Selecionar...</option>
-                      {allProcs.map((p) => <option key={p.id} value={p.id}>{p.name}{p.duration_min ? ` · ${p.duration_min} min` : ""}</option>)}
+                      <option value="">Procedimento...</option>
+                      {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-text2 uppercase mb-1">Profissional</label>
                     <select
                       value={ex.proId}
                       onChange={(e) => { const v = e.target.value; setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, proId: v } : it)); }}
-                      className={inp}
+                      className={`${inp} flex-1`}
                     >
-                      <option value="">Selecionar...</option>
+                      <option value="">Profissional...</option>
                       {(() => {
                         const allowed = ex.procId ? procPros[ex.procId] : null;
                         const list = (allowed && allowed.length > 0) ? pros.filter((p) => allowed.includes(p.id)) : pros;
                         return list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>);
                       })()}
                     </select>
-                  </div>
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <label className="block text-[10px] text-text2 uppercase mb-1">Duração (min)</label>
-                      <input
-                        type="number" min="1"
-                        value={ex.duration}
-                        onChange={(e) => { const v = e.target.value; setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, duration: v } : it)); }}
-                        className={inp}
-                      />
-                    </div>
                     <button
                       type="button"
                       onClick={() => setExtraProcs((l) => l.filter((_, i) => i !== idx))}
-                      className="px-2 py-2 rounded-lg text-danger hover:bg-danger/10 shrink-0"
+                      className="p-1.5 rounded text-danger hover:bg-danger/10 shrink-0"
                       title="Remover"
                     >
-                      <IconTrash size={16} />
+                      <IconTrash size={15} />
                     </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
