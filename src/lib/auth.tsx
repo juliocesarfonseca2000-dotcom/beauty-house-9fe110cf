@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthReady(true);
         return;
       }
+      void supabase.realtime.setAuth(data.session.access_token ?? null);
       const cached = getCachedUser(data.session.user.id);
       if (cached) {
         setAuthUser(cached);
@@ -90,6 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted) setLoading(false);
     })();
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // Mantém o Realtime autenticado com o token atual (senão o RLS bloqueia os eventos após o refresh do token)
+      void supabase.realtime.setAuth(session?.access_token ?? null);
       if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
       if (event === "SIGNED_OUT") {
         if (mounted) setAuthUser(null);
