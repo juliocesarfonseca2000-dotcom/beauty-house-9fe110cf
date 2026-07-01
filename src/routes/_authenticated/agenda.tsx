@@ -247,7 +247,7 @@ function AgendaPage() {
           <div className="p-8 text-center text-text3">Nenhum profissional ativo.</div>
         ) : (
           <div style={{ minWidth: `${64 + visiblePros.length * 100}px` }}>
-            <div className="grid sticky top-0 bg-card z-10 border-b" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(96px, 160px))` }}>
+            <div className="grid sticky top-14 bg-card z-10 border-b shadow-sm" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(96px, 160px))` }}>
               <div className="px-2 py-3 bg-bg2 border-r" />
               {visiblePros.map((p) => {
                 const proAbsence = absences.find((a) => a.user_id === p.id);
