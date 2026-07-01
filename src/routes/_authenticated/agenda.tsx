@@ -862,7 +862,40 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
 
       const { error } = await withTimeout(supabase.from("appointments").insert(rows), 12000, "Criação do agendamento");
       if (error) throw error;
-      toast.success(rows.length > 1 ? `${rows.length} agendamentos criados!` : "Agendamento criado!");
+
+      // Procedimentos extras em sequência (só no fluxo normal, não recorrente/avulso múltiplo)
+      const validExtras = extraProcs.filter((ex) => ex.procId && ex.proId);
+      let extrasCreated = 0;
+      if (validExtras.length > 0 && !useGuestName && client) {
+        // O próximo horário começa quando o principal termina
+        let cursor = new Date(first.getTime() + dur * 60_000);
+        const extraRows: Record<string, unknown>[] = [];
+        for (const ex of validExtras) {
+          const exDur = Number(ex.duration) || 60;
+          extraRows.push({
+            client_id: client.id,
+            procedure_id: ex.procId,
+            professional_id: ex.proId,
+            datetime: cursor.toISOString(),
+            duration_min: exDur,
+            status: "pending",
+            notes: null,
+            is_loose: false,
+            is_preference: false,
+            is_first_visit: false,
+          });
+          cursor = new Date(cursor.getTime() + exDur * 60_000);
+        }
+        const { error: exErr } = await withTimeout(supabase.from("appointments").insert(extraRows), 12000, "Criação dos procedimentos em sequência");
+        if (exErr) {
+          toast.error("Agendamento principal criado, mas houve erro nos procedimentos em sequência: " + exErr.message);
+        } else {
+          extrasCreated = extraRows.length;
+        }
+      }
+
+      const totalCreated = rows.length + extrasCreated;
+      toast.success(totalCreated > 1 ? `${totalCreated} agendamentos criados!` : "Agendamento criado!");
       onSaved();
     } catch (err) {
       console.error("[agenda] erro ao agendar:", err);
