@@ -528,7 +528,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [busy, setBusy] = useState(false);
   const [isPreference, setIsPreference] = useState(false);
   const [forceOverlap, setForceOverlap] = useState(false);
-  type ExtraProc = { procId: string; proId: string; duration: string };
+  type ExtraProc = { procId: string; proId: string; duration: string; time: string; edited: boolean };
   const [extraProcs, setExtraProcs] = useState<ExtraProc[]>([]);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
@@ -867,16 +867,23 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       const validExtras = extraProcs.filter((ex) => ex.procId && ex.proId);
       let extrasCreated = 0;
       if (validExtras.length > 0 && !useGuestName && client) {
-        // O próximo horário começa quando o principal termina
+        // Cada extra usa o horário editado, se houver; senão segue em sequência a partir do fim do anterior
         let cursor = new Date(first.getTime() + dur * 60_000);
         const extraRows: Record<string, unknown>[] = [];
         for (const ex of validExtras) {
           const exDur = Number(ex.duration) || 60;
+          let startAt = cursor;
+          if (ex.edited && ex.time) {
+            const [eh, em] = ex.time.split(":").map(Number);
+            const d = new Date(first);
+            d.setHours(eh || 0, em || 0, 0, 0);
+            startAt = d;
+          }
           extraRows.push({
             client_id: client.id,
             procedure_id: ex.procId,
             professional_id: ex.proId,
-            datetime: cursor.toISOString(),
+            datetime: startAt.toISOString(),
             duration_min: exDur,
             status: "pending",
             notes: null,
@@ -884,7 +891,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             is_preference: false,
             is_first_visit: false,
           });
-          cursor = new Date(cursor.getTime() + exDur * 60_000);
+          cursor = new Date(startAt.getTime() + exDur * 60_000);
         }
         const { error: exErr } = await withTimeout(supabase.from("appointments").insert(extraRows), 12000, "Criação dos procedimentos em sequência");
         if (exErr) {
@@ -1019,7 +1026,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                 <span className="text-xs font-semibold text-text2 uppercase tracking-wide">Procedimentos em sequência</span>
                 <button
                   type="button"
-                  onClick={() => setExtraProcs((l) => [...l, { procId: "", proId: pros[0]?.id ?? "", duration: "60" }])}
+                  onClick={() => setExtraProcs((l) => [...l, { procId: "", proId: pros[0]?.id ?? "", duration: "60", time: "", edited: false }])}
                   className="text-xs font-semibold text-gold hover:text-gold/80 flex items-center gap-1"
                 >
                   <IconPlus size={14} /> Adicionar procedimento
@@ -1029,7 +1036,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                 <div className="text-[11px] text-text3">Agende vários procedimentos seguidos (ex: massagem + botox). O horário de cada um começa quando o anterior termina.</div>
               )}
               {extraProcs.map((ex, idx) => {
-                // Calcula o horário de início deste extra: principal + soma das durações anteriores
+                // Horário sugerido: principal + soma das durações anteriores (só se o usuário não editou manualmente)
                 const baseMin = (() => {
                   const [hh, mm] = time.split(":").map(Number);
                   return (hh || 0) * 60 + (mm || 0);
@@ -1037,10 +1044,17 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                 const mainDur = Number(duration) || 60;
                 const prevExtrasDur = extraProcs.slice(0, idx).reduce((s, e) => s + (Number(e.duration) || 60), 0);
                 const startMin = baseMin + mainDur + prevExtrasDur;
-                const startLabel = `${String(Math.floor(startMin / 60) % 24).padStart(2, "0")}:${String(startMin % 60).padStart(2, "0")}`;
+                const suggested = `${String(Math.floor(startMin / 60) % 24).padStart(2, "0")}:${String(startMin % 60).padStart(2, "0")}`;
+                const shownTime = ex.edited && ex.time ? ex.time : suggested;
                 return (
-                  <div key={idx} className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[11px] font-mono text-gold w-11 shrink-0">{startLabel}</span>
+                  <div key={idx} className="flex items-center gap-2 mb-1.5 bg-bg2/50 rounded-xl px-2.5 py-2">
+                    <input
+                      type="time"
+                      value={shownTime}
+                      onChange={(e) => { const v = e.target.value; setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, time: v, edited: true } : it)); }}
+                      className="text-[11px] font-mono text-gold bg-transparent border-none focus:outline-none w-[52px] shrink-0 cursor-pointer"
+                      title="Horário de início (editável)"
+                    />
                     <select
                       value={ex.procId}
                       onChange={(e) => {
@@ -1048,7 +1062,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                         const p = procs.find((ap) => ap.id === v);
                         setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, procId: v, duration: p?.duration_min ? String(p.duration_min) : it.duration } : it));
                       }}
-                      className={`${inp} flex-1`}
+                      className={`${inp} flex-1 border-none bg-card`}
                     >
                       <option value="">Procedimento...</option>
                       {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -1056,7 +1070,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                     <select
                       value={ex.proId}
                       onChange={(e) => { const v = e.target.value; setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, proId: v } : it)); }}
-                      className={`${inp} flex-1`}
+                      className={`${inp} flex-1 border-none bg-card`}
                     >
                       <option value="">Profissional...</option>
                       {(() => {
@@ -1068,7 +1082,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
                     <button
                       type="button"
                       onClick={() => setExtraProcs((l) => l.filter((_, i) => i !== idx))}
-                      className="p-1.5 rounded text-danger hover:bg-danger/10 shrink-0"
+                      className="p-1.5 rounded-lg text-text3 hover:text-danger hover:bg-danger/10 shrink-0"
                       title="Remover"
                     >
                       <IconTrash size={15} />
