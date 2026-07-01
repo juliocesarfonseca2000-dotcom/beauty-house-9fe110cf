@@ -528,6 +528,8 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [busy, setBusy] = useState(false);
   const [isPreference, setIsPreference] = useState(false);
   const [forceOverlap, setForceOverlap] = useState(false);
+  type ExtraProc = { procId: string; proId: string; duration: string };
+  const [extraProcs, setExtraProcs] = useState<ExtraProc[]>([]);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
   const [procPros, setProcPros] = useState<Record<string, string[]>>({});
@@ -977,6 +979,77 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
             })()}
           </div>
           <Field label="Observações"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inp} /></Field>
+
+          {!isEditing && (client || useGuestName) && (
+            <div className="border-t pt-3 mt-1">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-text2 uppercase tracking-wide">Procedimentos em sequência</span>
+                <button
+                  type="button"
+                  onClick={() => setExtraProcs((l) => [...l, { procId: "", proId: pros[0]?.id ?? "", duration: "60" }])}
+                  className="text-xs font-semibold text-gold hover:text-gold/80 flex items-center gap-1"
+                >
+                  <IconPlus size={14} /> Adicionar procedimento
+                </button>
+              </div>
+              {extraProcs.length === 0 && (
+                <div className="text-[11px] text-text3">Agende vários procedimentos seguidos (ex: massagem + botox). O horário de cada um começa quando o anterior termina.</div>
+              )}
+              {extraProcs.map((ex, idx) => (
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2 items-end bg-bg2 rounded-lg p-2">
+                  <div>
+                    <label className="block text-[10px] text-text2 uppercase mb-1">Procedimento</label>
+                    <select
+                      value={ex.procId}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const p = allProcs.find((ap) => ap.id === v);
+                        setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, procId: v, duration: p?.duration_min ? String(p.duration_min) : it.duration } : it));
+                      }}
+                      className={inp}
+                    >
+                      <option value="">Selecionar...</option>
+                      {allProcs.map((p) => <option key={p.id} value={p.id}>{p.name}{p.duration_min ? ` · ${p.duration_min} min` : ""}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-text2 uppercase mb-1">Profissional</label>
+                    <select
+                      value={ex.proId}
+                      onChange={(e) => { const v = e.target.value; setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, proId: v } : it)); }}
+                      className={inp}
+                    >
+                      <option value="">Selecionar...</option>
+                      {(() => {
+                        const allowed = ex.procId ? procPros[ex.procId] : null;
+                        const list = (allowed && allowed.length > 0) ? pros.filter((p) => allowed.includes(p.id)) : pros;
+                        return list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>);
+                      })()}
+                    </select>
+                  </div>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="block text-[10px] text-text2 uppercase mb-1">Duração (min)</label>
+                      <input
+                        type="number" min="1"
+                        value={ex.duration}
+                        onChange={(e) => { const v = e.target.value; setExtraProcs((l) => l.map((it, i) => i === idx ? { ...it, duration: v } : it)); }}
+                        className={inp}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setExtraProcs((l) => l.filter((_, i) => i !== idx))}
+                      className="px-2 py-2 rounded-lg text-danger hover:bg-danger/10 shrink-0"
+                      title="Remover"
+                    >
+                      <IconTrash size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-4 px-1">
             {!isEditing && (
