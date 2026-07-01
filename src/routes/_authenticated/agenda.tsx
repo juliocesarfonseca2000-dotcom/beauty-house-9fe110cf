@@ -362,19 +362,33 @@ function AgendaPage() {
                     const height = Math.max(SLOT_PX, (dur / SLOT_MIN) * SLOT_PX) - 2;
                     const isGuest = !a.client_id;
                     const guestName = isGuest && a.notes?.startsWith("AVULSO: ") ? a.notes.slice(8) : null;
+                    // Cor de fundo por prioridade (primeiro que bater vence)
+                    let fillClass = STATUS_COLORS[a.status] ?? STATUS_COLORS.pending;
+                    if (a.status !== "cancelled" && a.status !== "blocked" && a.status !== "done") {
+                      if (a.attendance_status === "no_show") {
+                        fillClass = "bg-red-50 text-red-700 border-l-red-400";              // Falta = vermelho
+                      } else if (a.client_confirmed_at) {
+                        fillClass = "bg-gold/20 text-navy border-l-gold";                   // Confirmado com cliente = dourado
+                      } else if (a.attendance_status === "confirmed") {
+                        fillClass = "bg-success/20 text-navy border-l-success";             // Presença confirmada = verde (mesmo do Realizado)
+                      } else {
+                        fillClass = "bg-amber-50 text-navy border-l-amber-400";             // Pendente/Normal = amarelo
+                      }
+                    }
+
                     const extra: string[] = [];
                     if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
                     if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
-                    if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("!bg-blue-500/15 !border-l-blue-500 ring-2 ring-blue-300");
-                    if (a.client_confirmed_at && a.status !== "done" && a.status !== "cancelled") {
-                      extra.push("!bg-gold/20 !border-l-gold ring-2 ring-gold/50");
+                    // Cliente chegou = anel AZUL por fora (não apaga o fundo)
+                    if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") {
+                      extra.push("ring-2 ring-blue-400 ring-offset-1");
                     }
                     if (isGuest) extra.push("!bg-purple-50 !border-l-purple-400");
                     return (
                       <div
                         key={a.id}
                         onClick={(e) => { e.stopPropagation(); if (canManage) setViewing(a); }}
-                        className={`absolute left-0.5 right-0.5 rounded p-1 text-xs border-l-2 min-h-[20px] ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${STATUS_COLORS[a.status] ?? STATUS_COLORS.pending} ${extra.join(" ")}`}
+                        className={`absolute left-0.5 right-0.5 rounded p-1 text-xs border-l-2 min-h-[20px] ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${fillClass} ${extra.join(" ")}`}
                         style={{ top, height }}
                       >
                         {a.status === "blocked" ? (
@@ -408,7 +422,7 @@ function AgendaPage() {
 
       <div className="bh-card p-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text2">
         <span className="font-semibold text-navy uppercase tracking-wide text-[10px]">Legenda:</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 border-l-2 border-gold" /> Normal</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border-l-2 border-amber-400" /> Normal</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 ring-2 ring-gold" /> ⭐ Preferência da cliente</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gold/30 outline outline-2 outline-blue-400" /> 🆕 Primeira vez</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-blue-200 ring-2 ring-blue-400" /> 🏠 Cliente chegou</span>
