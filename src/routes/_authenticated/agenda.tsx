@@ -527,6 +527,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   const [recTime, setRecTime] = useState(`${String(initialHour).padStart(2, "0")}:${String(initialMin).padStart(2, "0")}`);
   const [busy, setBusy] = useState(false);
   const [isPreference, setIsPreference] = useState(false);
+  const [forceOverlap, setForceOverlap] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
   const [procPros, setProcPros] = useState<Record<string, string[]>>({});
@@ -759,17 +760,19 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
       type ExistingAppt = { datetime: string; duration_min: number | null; clients: { name: string } | { name: string }[] | null };
       const existingList = (existing as unknown as ExistingAppt[] | null) ?? [];
 
-      for (const dt of targets) {
-        const end = new Date(dt.getTime() + dur * 60_000);
-        const conflict = existingList.find((a) => {
-          const aStart = new Date(a.datetime);
-          const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
-          return aStart < end && aEnd > dt;
-        });
-        if (conflict) {
-          const hhmm = new Date(conflict.datetime).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-          toast.error(`Conflito em ${hhmm}. Ajuste e tente novamente.`);
-          return;
+      if (!forceOverlap) {
+        for (const dt of targets) {
+          const end = new Date(dt.getTime() + dur * 60_000);
+          const conflict = existingList.find((a) => {
+            const aStart = new Date(a.datetime);
+            const aEnd = new Date(aStart.getTime() + (a.duration_min ?? 60) * 60_000);
+            return aStart < end && aEnd > dt;
+          });
+          if (conflict) {
+            const hhmm = new Date(conflict.datetime).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+            toast.error(`Conflito em ${hhmm}. Marque "Forçar encaixe" para agendar no mesmo horário, ou ajuste.`);
+            return;
+          }
         }
       }
 
@@ -976,6 +979,12 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
           <Field label="Observações"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inp} /></Field>
 
           <div className="flex flex-wrap gap-4 px-1">
+            {!isEditing && (
+              <label className="flex items-center gap-2 text-sm cursor-pointer border border-gold/40 rounded-lg px-3 py-2 bg-gold/5">
+                <input type="checkbox" checked={forceOverlap} onChange={(e) => setForceOverlap(e.target.checked)} />
+                <span>🔗 Forçar encaixe (permitir dois clientes no mesmo horário)</span>
+              </label>
+            )}
             <label className="flex items-center gap-2 text-sm font-semibold text-navy cursor-pointer">
               <input type="checkbox" checked={isPreference} onChange={(e) => setIsPreference(e.target.checked)} />
               ⭐ Preferência da cliente por esta profissional
