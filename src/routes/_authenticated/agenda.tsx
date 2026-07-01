@@ -413,8 +413,8 @@ function AgendaPage() {
                     return (
                       <div
                         key={a.id}
-                        onClick={(e) => { e.stopPropagation(); if (canManage) setViewing(a); }}
-                        className={`absolute rounded p-1 text-xs border-l-2 min-h-[20px] ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${fillClass} ${extra.join(" ")}`}
+                        onClick={(e) => { e.stopPropagation(); setViewing(a); }}
+                        className={`absolute rounded p-1 text-xs border-l-2 min-h-[20px] cursor-pointer shadow-sm overflow-hidden ${fillClass} ${extra.join(" ")}`}
                         style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
                       >
                         {a.status === "blocked" ? (
@@ -469,7 +469,7 @@ function AgendaPage() {
         />
       )}
       {viewing && (
-        <ApptViewModal appt={viewing} pros={pros} onClose={() => setViewing(null)} onChanged={() => { setViewing(null); load(); }} />
+        <ApptViewModal appt={viewing} pros={pros} canManage={canManage} onClose={() => setViewing(null)} onChanged={() => { setViewing(null); load(); }} />
       )}
       {slotChoice && (
         <SlotChoiceModal
@@ -1162,7 +1162,7 @@ type TermModalData = {
   packageId: string | null;
 };
 
-function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: Professional[]; onClose: () => void; onChanged: () => void }) {
+function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Appt; pros: Professional[]; canManage: boolean; onClose: () => void; onChanged: () => void }) {
   const { user: me } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -1413,6 +1413,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
             </div>
           )}
 
+          {canManage && (
           <div className="flex flex-wrap gap-2 pt-3 border-t">
             {!appt.client_arrived_at && appt.status !== "cancelled" && (
               <button
@@ -1461,6 +1462,7 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
               <IconTrash size={14} /> Excluir
             </button>
       </div>
+          )}
       {editing && (
         <ApptModal
           initialDate={new Date(appt.datetime)}
