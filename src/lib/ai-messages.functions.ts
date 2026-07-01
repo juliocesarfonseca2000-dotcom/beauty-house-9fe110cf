@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 type GenInput = { audience: string; instruction: string };
 
 export const generateCampaignMessage = createServerFn({ method: "POST" })
-  .inputValidator((d: GenInput) => d)
+  .validator((d: GenInput) => d)
   .handler(async ({ data }): Promise<{ text: string }> => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("LOVABLE_API_KEY não configurada.");

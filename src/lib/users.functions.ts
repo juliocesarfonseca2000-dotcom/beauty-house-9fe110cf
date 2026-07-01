@@ -39,7 +39,7 @@ type CreateInput = {
 
 
 export const createAppUser = createServerFn({ method: "POST" })
-  .inputValidator((data: CreateInput) => data)
+  .validator((data: CreateInput) => data)
   .handler(async ({ data }) => {
     const { serviceKey } = await assertAdmin(data.accessToken);
 
@@ -98,7 +98,7 @@ type UpdateInput = {
 
 
 export const updateAppUser = createServerFn({ method: "POST" })
-  .inputValidator((data: UpdateInput) => data)
+  .validator((data: UpdateInput) => data)
   .handler(async ({ data }) => {
     const { serviceKey } = await assertAdmin(data.accessToken);
 
@@ -123,7 +123,7 @@ export const updateAppUser = createServerFn({ method: "POST" })
 type DeleteInput = { accessToken: string; id: string };
 
 export const deleteAppUser = createServerFn({ method: "POST" })
-  .inputValidator((data: DeleteInput) => data)
+  .validator((data: DeleteInput) => data)
   .handler(async ({ data }) => {
     const { serviceKey } = await assertAdmin(data.accessToken);
     const h = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };

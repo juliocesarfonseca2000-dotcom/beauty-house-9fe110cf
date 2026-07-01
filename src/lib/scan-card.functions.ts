@@ -29,7 +29,7 @@ function stripDataUrl(s: string) {
 }
 
 export const scanClientCard = createServerFn({ method: "POST" })
-  .inputValidator((d: ScanInput) => d)
+  .validator((d: ScanInput) => d)
   .handler(async ({ data }): Promise<ScanResult> => {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error("ANTHROPIC_API_KEY não configurada.");
