@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { withTimeout } from "@/lib/with-timeout";
+import { SignSessionModal, type SignSessionPackage, type SignSessionData } from "@/components/clients/SignSessionModal";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
   component: AgendaPage,
@@ -1171,6 +1172,7 @@ function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Ap
   const [termSource, setTermSource] = useState<"arrived" | "attendance">("arrived");
 
   const [termAsk, setTermAsk] = useState<TermModalData | null>(null);
+  const [signSession, setSignSession] = useState<{ pkg: SignSessionPackage; session: SignSessionData } | null>(null);
   const dt = new Date(appt.datetime);
   const [confirmedByName, setConfirmedByName] = useState<string | null>(null);
 
@@ -1272,6 +1274,36 @@ function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Ap
     onChanged();
   };
 
+  const openSignForAttendance = async (packageId: string) => {
+    const { data: pkgData } = await supabase
+      .from("packages")
+      .select("id,procedure_id,sess_total,sess_done,procedures(name,requires_term,term_text)")
+      .eq("id", packageId)
+      .maybeSingle();
+    if (!pkgData) { toast.error("Pacote não encontrado."); return; }
+    let { data: sess } = await supabase
+      .from("sessions")
+      .select("id,package_id,session_num")
+      .eq("appointment_id", appt.id)
+      .eq("status", "pending")
+      .order("session_num")
+      .limit(1)
+      .maybeSingle();
+    if (!sess) {
+      const r = await supabase
+        .from("sessions")
+        .select("id,package_id,session_num")
+        .eq("package_id", packageId)
+        .eq("status", "pending")
+        .order("session_num")
+        .limit(1)
+        .maybeSingle();
+      sess = r.data;
+    }
+    if (!sess) { toast.error("Não há sessão pendente para assinar."); return; }
+    setSignSession({ pkg: pkgData as unknown as SignSessionPackage, session: sess as unknown as SignSessionData });
+  };
+
   const doConfirmAttendance = async () => {
     setBusy(true);
     const { error } = await supabase.from("appointments").update({
@@ -1346,7 +1378,7 @@ function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Ap
       .eq("id", appt.procedure_id)
       .maybeSingle();
     if (!proc?.requires_term || !proc.term_text) {
-      await doConfirmAttendance();
+      await openSignForAttendance(pkg.id);
       return;
     }
     setTermAsk({
@@ -1540,7 +1572,7 @@ function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Ap
             }
             setTermModal(null);
             if (termSource === "attendance") {
-              await doConfirmAttendance();
+              await openSignForAttendance(termModal!.packageId!);
             } else {
               await finishMarkArrived();
             }
@@ -1613,7 +1645,7 @@ function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Ap
                       }
                     }
                   }
-                  await doConfirmAttendance();
+                  await openSignForAttendance(termAsk.packageId!);
                 }}
                 className="w-full px-3 py-2 rounded-md bg-success text-white text-sm font-bold hover:bg-success/90"
               >
@@ -1638,6 +1670,18 @@ function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Ap
         </div>
       )}
 
+      {signSession && (
+        <SignSessionModal
+          pkg={signSession.pkg}
+          session={signSession.session}
+          onClose={() => setSignSession(null)}
+          onSaved={async () => {
+            setSignSession(null);
+            await doConfirmAttendance();
+            onChanged();
+          }}
+        />
+      )}
 
     </div>
       </div>
