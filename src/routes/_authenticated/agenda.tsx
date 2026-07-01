@@ -36,6 +36,8 @@ type Appt = {
   is_first_visit: boolean | null;
   client_arrived_at: string | null;
   client_arrived_notified: boolean | null;
+  client_confirmed_at: string | null;
+  client_confirmed_by: string | null;
   clients: { name: string; cpf: string | null; phone: string | null } | null;
   procedures: { name: string } | null;
 };
@@ -134,7 +136,7 @@ function AgendaPage() {
 
 
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,clients(name,cpf,phone),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,client_confirmed_at,client_confirmed_by,clients(name,cpf,phone),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
@@ -364,6 +366,9 @@ function AgendaPage() {
                     if (a.is_preference) extra.push("ring-2 ring-gold ring-offset-1");
                     if (a.is_first_visit) extra.push("outline outline-2 outline-blue-400");
                     if (a.client_arrived_at && a.status !== "done" && a.status !== "cancelled") extra.push("!bg-blue-500/15 !border-l-blue-500 ring-2 ring-blue-300");
+                    if (a.client_confirmed_at && a.status !== "done" && a.status !== "cancelled") {
+                      extra.push("!bg-gold/20 !border-l-gold ring-2 ring-gold/50");
+                    }
                     if (isGuest) extra.push("!bg-purple-50 !border-l-purple-400");
                     return (
                       <div
@@ -1091,6 +1096,18 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
     }
   };
 
+  const confirmWithClient = async () => {
+    setBusy(true);
+    const { error } = await supabase.from("appointments").update({
+      client_confirmed_at: new Date().toISOString(),
+      client_confirmed_by: me?.id ?? null,
+    }).eq("id", appt.id);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Confirmado com a cliente");
+    onChanged();
+  };
+
   const doConfirmAttendance = async () => {
     setBusy(true);
     const { error } = await supabase.from("appointments").update({
@@ -1246,6 +1263,16 @@ function ApptViewModal({ appt, pros, onClose, onChanged }: { appt: Appt; pros: P
             {appt.client_arrived_at && (
               <div className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-1 border border-blue-200">
                 ✓ Chegou às {new Date(appt.client_arrived_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+              </div>
+            )}
+            {!appt.client_confirmed_at && appt.status !== "done" && appt.status !== "cancelled" && (
+              <button type="button" onClick={confirmWithClient} disabled={busy} className="px-3 py-1.5 rounded-md bg-gold text-white text-xs font-bold hover:bg-gold/90 flex items-center gap-1">
+                ★ Confirmado com cliente
+              </button>
+            )}
+            {appt.client_confirmed_at && (
+              <div className="px-3 py-1.5 rounded-md bg-gold/10 text-gold text-xs font-semibold flex items-center gap-1 border border-gold/30">
+                ★ Confirmado com a cliente
               </div>
             )}
             {appt.attendance_status !== "confirmed" && appt.attendance_status !== "no_show" && (
