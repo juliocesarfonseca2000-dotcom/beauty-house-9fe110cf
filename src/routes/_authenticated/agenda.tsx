@@ -240,14 +240,14 @@ function AgendaPage() {
         </div>
       </div>
 
-      <div className="bh-card overflow-x-auto -mx-4 px-0 sm:mx-0 [scroll-behavior:smooth]">
+      <div className="bh-card overflow-auto -mx-4 px-0 sm:mx-0 [scroll-behavior:smooth] max-h-[calc(100vh-180px)]">
         {loading ? (
           <TableSkeleton rows={5} cols={4} />
         ) : visiblePros.length === 0 ? (
           <div className="p-8 text-center text-text3">Nenhum profissional ativo.</div>
         ) : (
           <div style={{ minWidth: `${64 + visiblePros.length * 100}px` }}>
-            <div className="grid sticky top-14 bg-card z-10 border-b shadow-sm" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(96px, 160px))` }}>
+            <div className="grid sticky top-0 bg-card z-20 border-b shadow-sm" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(96px, 160px))` }}>
               <div className="px-2 py-3 bg-bg2 border-r" />
               {visiblePros.map((p) => {
                 const proAbsence = absences.find((a) => a.user_id === p.id);
