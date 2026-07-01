@@ -53,6 +53,8 @@ function ClosePackagePage() {
   const effectiveInstallments = showInstallments ? Math.max(1, installments) : 1;
   const payMethodLabel = showInstallments && effectiveInstallments > 1 ? `${payMethod} ${effectiveInstallments}x` : payMethod;
   const [discountPct, setDiscountPct] = useState(0);
+  const [discountType, setDiscountType] = useState<"pct" | "fixed">("pct");
+  const [discountFixed, setDiscountFixed] = useState(0);
   const [customMode, setCustomMode] = useState(false);
   const [customQty, setCustomQty] = useState(2);
   const [customPrice, setCustomPrice] = useState(0);
@@ -115,7 +117,10 @@ function ClosePackagePage() {
   }, [isAvulso]);
 
   const subtotal = useMemo(() => cart.reduce((s, i) => s + (i.is_courtesy ? 0 : i.price), 0), [cart]);
-  const discountVal = (subtotal * discountPct) / 100;
+  const discountVal = discountType === "fixed"
+    ? Math.min(discountFixed, subtotal)
+    : (subtotal * discountPct) / 100;
+  const discountFactor = subtotal > 0 ? (1 - discountVal / subtotal) : 1;
   const baseTotal = subtotal - discountVal;
   const cardFeeVal = isCard && cardFeePctNum > 0 ? baseTotal * (cardFeePctNum / 100) : 0;
   const total = baseTotal + (isCard && cardFeePayer === "cliente" ? cardFeeVal : 0);
@@ -182,7 +187,7 @@ function ClosePackagePage() {
                 .single();
             }
             const itemFull = item.price;
-            const itemPaid = itemFull * (1 - discountPct / 100);
+            const itemPaid = itemFull * discountFactor;
             return supabase
               .from("packages")
               .insert({
@@ -192,7 +197,7 @@ function ClosePackagePage() {
                 sess_done: 0,
                 price_full: itemFull,
                 price_paid: itemPaid,
-                discount_pct: discountPct,
+                discount_pct: subtotal > 0 ? Math.round((discountVal / subtotal) * 100) : 0,
                 pay_method: payMethodLabel,
                 status: "active",
               })
@@ -256,8 +261,8 @@ function ClosePackagePage() {
       const items = cart.map((it) => ({
         procedure_name: it.procedure.name,
         sessions: it.sessions,
-        unit_price: it.is_courtesy ? 0 : it.price * (1 - discountPct / 100) / it.sessions,
-        total: it.is_courtesy ? 0 : it.price * (1 - discountPct / 100),
+        unit_price: it.is_courtesy ? 0 : it.price * discountFactor / it.sessions,
+        total: it.is_courtesy ? 0 : it.price * discountFactor,
       }));
       // Invalida imediatamente para que a aba Sessões reflita o novo pacote sem aguardar o realtime
       queryClient.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && ["client-sessions", "packages", "sessions", "income", "dashboard"].includes(String(q.queryKey[0])) });
@@ -548,15 +553,38 @@ function ClosePackagePage() {
           {/* Desconto */}
           <div className="border-t pt-3">
             <label className="block text-xs font-semibold text-text2 uppercase tracking-wide mb-1.5">
-              Desconto (%) {!discountUnlocked && <IconLock size={12} className="inline ml-1" />}
+              Desconto {!discountUnlocked && <IconLock size={12} className="inline ml-1" />}
             </label>
             {discountUnlocked ? (
-              <input
-                type="number" min="0" max="100" step="1"
-                value={discountPct}
-                onChange={(e) => setDiscountPct(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                className="w-full px-3 py-2 rounded-lg border border-border text-sm"
-              />
+              <div className="space-y-2">
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => setDiscountType("pct")}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border ${discountType === "pct" ? "border-gold bg-gold/10 text-navy" : "border-border text-text2"}`}>
+                    % Porcentagem
+                  </button>
+                  <button type="button" onClick={() => setDiscountType("fixed")}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border ${discountType === "fixed" ? "border-gold bg-gold/10 text-navy" : "border-border text-text2"}`}>
+                    R$ Valor fixo
+                  </button>
+                </div>
+                {discountType === "pct" ? (
+                  <input
+                    type="number" min="0" max="100" step="1"
+                    value={discountPct}
+                    onChange={(e) => setDiscountPct(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm"
+                    placeholder="Ex: 10"
+                  />
+                ) : (
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={discountFixed}
+                    onChange={(e) => setDiscountFixed(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm"
+                    placeholder="Ex: 350,00"
+                  />
+                )}
+              </div>
             ) : (
               <div className="flex gap-2">
                 <PasswordInput
@@ -576,8 +604,8 @@ function ClosePackagePage() {
           {/* Totais */}
           <div className="space-y-1.5 text-sm border-t pt-3">
             <div className="flex justify-between"><span className="text-text2">Subtotal</span><span className="font-semibold">{subtotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></div>
-            {discountPct > 0 && (
-              <div className="flex justify-between"><span className="text-text2">Desconto ({discountPct}%)</span><span className="font-semibold text-danger">- {discountVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></div>
+            {discountVal > 0 && (
+              <div className="flex justify-between"><span className="text-text2">Desconto {discountType === "pct" ? `(${discountPct}%)` : "(valor fixo)"}</span><span className="font-semibold text-danger">- {discountVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></div>
             )}
             {cardFeeVal > 0 && (
               <div className="flex justify-between">
