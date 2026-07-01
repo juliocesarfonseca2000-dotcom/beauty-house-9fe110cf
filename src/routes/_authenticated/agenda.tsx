@@ -352,7 +352,30 @@ function AgendaPage() {
                     );
                   })}
 
-                  {(apptsByPro[p.id] ?? []).map((a) => {
+                  {(() => {
+                    const dayAppts = apptsByPro[p.id] ?? [];
+                    const layout = new Map<string, { col: number; cols: number }>();
+                    const sorted = [...dayAppts].sort((x, y) => new Date(x.datetime).getTime() - new Date(y.datetime).getTime());
+                    const getRange = (a: Appt) => {
+                      const s = new Date(a.datetime).getTime();
+                      const e = s + (a.duration_min ?? 60) * 60000;
+                      return [s, e] as const;
+                    };
+                    const used = new Set<string>();
+                    for (const a of sorted) {
+                      if (used.has(a.id)) continue;
+                      const [as_, ae] = getRange(a);
+                      const group = sorted.filter((b) => {
+                        const [bs, be] = getRange(b);
+                        return bs < ae && be > as_;
+                      });
+                      const cols = group.length;
+                      group.forEach((b, idx) => {
+                        if (!layout.has(b.id)) layout.set(b.id, { col: idx, cols });
+                        used.add(b.id);
+                      });
+                    }
+                    return dayAppts.map((a) => {
                     const dt = new Date(a.datetime);
                     const spDt = toSPDate(dt);
                     const minFromStart = (spDt.getHours() - START_HOUR) * 60 + spDt.getMinutes();
@@ -362,6 +385,9 @@ function AgendaPage() {
                     const height = Math.max(SLOT_PX, (dur / SLOT_MIN) * SLOT_PX) - 2;
                     const isGuest = !a.client_id;
                     const guestName = isGuest && a.notes?.startsWith("AVULSO: ") ? a.notes.slice(8) : null;
+                    const lay = layout.get(a.id) ?? { col: 0, cols: 1 };
+                    const widthPct = 100 / lay.cols;
+                    const leftPct = widthPct * lay.col;
                     // Cor de fundo por prioridade (primeiro que bater vence)
                     let fillClass = STATUS_COLORS[a.status] ?? STATUS_COLORS.pending;
                     if (a.status !== "cancelled" && a.status !== "blocked" && a.status !== "done") {
@@ -388,8 +414,8 @@ function AgendaPage() {
                       <div
                         key={a.id}
                         onClick={(e) => { e.stopPropagation(); if (canManage) setViewing(a); }}
-                        className={`absolute left-0.5 right-0.5 rounded p-1 text-xs border-l-2 min-h-[20px] ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${fillClass} ${extra.join(" ")}`}
-                        style={{ top, height }}
+                        className={`absolute rounded p-1 text-xs border-l-2 min-h-[20px] ${canManage ? "cursor-pointer" : "cursor-default"} shadow-sm overflow-hidden ${fillClass} ${extra.join(" ")}`}
+                        style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
                       >
                         {a.status === "blocked" ? (
                           <div className="font-semibold truncate text-[11px] flex items-center gap-1">
@@ -410,7 +436,8 @@ function AgendaPage() {
                         )}
                       </div>
                     );
-                  })}
+                    });
+                  })()}
                 </div>
                 );
               })}
