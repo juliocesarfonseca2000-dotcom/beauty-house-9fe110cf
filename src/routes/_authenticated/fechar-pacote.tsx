@@ -53,6 +53,9 @@ function ClosePackagePage() {
   const effectiveInstallments = showInstallments ? Math.max(1, installments) : 1;
   const payMethodLabel = showInstallments && effectiveInstallments > 1 ? `${payMethod} ${effectiveInstallments}x` : payMethod;
   const [discountPct, setDiscountPct] = useState(0);
+  const [customMode, setCustomMode] = useState(false);
+  const [customQty, setCustomQty] = useState(2);
+  const [customPrice, setCustomPrice] = useState(0);
   const [discountUnlocked, setDiscountUnlocked] = useState(false);
   const [adminPin, setAdminPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -100,7 +103,9 @@ function ClosePackagePage() {
   const currentProc = procs.find((p) => p.id === procId) ?? null;
   const isAvulso = ["avulso", "especial", "por_disparo"].includes(currentProc?.session_type ?? "");
   const currentPrice = currentProc
-    ? (isAvulso ? currentProc.price_single : (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20))
+    ? (customMode && !isAvulso
+        ? (customPrice > 0 ? customPrice : null)
+        : (isAvulso ? currentProc.price_single : (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20)))
     : null;
 
   useEffect(() => {
@@ -117,13 +122,16 @@ function ClosePackagePage() {
 
   const addItem = () => {
     if (!currentProc || !currentPrice) return toast.error("Selecione um procedimento com preço");
+    const effSessions = isAvulso ? 1 : (customMode ? customQty : sessions);
     setCart((c) => [...c, {
       uid: crypto.randomUUID(),
       procedure: currentProc,
-      sessions: isAvulso ? 1 : sessions,
+      sessions: effSessions,
       price: currentPrice,
     }]);
     setProcId("");
+    setCustomMode(false);
+    setCustomPrice(0);
   };
 
 
@@ -337,13 +345,13 @@ function ClosePackagePage() {
               <div className="text-[10px] text-text3 uppercase mt-1">Procedimento avulso</div>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2 mb-3">
+            <div className="grid grid-cols-5 gap-2 mb-3">
               {/* Botão Avulso */}
               <button
                 type="button"
-                onClick={() => setSessions(1)}
+                onClick={() => { setSessions(1); setCustomMode(false); }}
                 className={`p-3 rounded-lg border-2 transition ${
-                  sessions === 1 ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
+                  sessions === 1 && !customMode ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
                 }`}
               >
                 <div className="font-display text-base text-navy">1</div>
@@ -362,9 +370,9 @@ function ClosePackagePage() {
                     key={n}
                     type="button"
                     disabled={disabled}
-                    onClick={() => setSessions(n)}
+                    onClick={() => { setSessions(n); setCustomMode(false); }}
                     className={`p-3 rounded-lg border-2 transition ${
-                      sessions === n && !disabled ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
+                      sessions === n && !disabled && !customMode ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
                     } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
                   >
                     <div className="font-display text-xl text-navy">{n}</div>
@@ -375,9 +383,43 @@ function ClosePackagePage() {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => { setCustomMode(true); setSessions(customQty); }}
+                className={`p-3 rounded-lg border-2 transition ${
+                  customMode ? "border-gold bg-gold/10" : "border-border hover:border-gold/40"
+                }`}
+              >
+                <div className="font-display text-base text-navy">★</div>
+                <div className="text-[10px] text-text2 uppercase">personalizado</div>
+                <div className="text-xs font-semibold text-gold mt-1">livre</div>
+              </button>
             </div>
           )}
 
+          {customMode && !isAvulso && (
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <label className="block text-[10px] text-text2 uppercase mb-1">Qtd. sessões</label>
+                <input
+                  type="number" min="1" step="1"
+                  value={customQty}
+                  onChange={(e) => { const v = Math.max(1, Number(e.target.value) || 1); setCustomQty(v); setSessions(v); }}
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-text2 uppercase mb-1">Valor total (R$)</label>
+                <input
+                  type="number" min="0" step="0.01"
+                  value={customPrice}
+                  onChange={(e) => setCustomPrice(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full px-3 py-2 rounded-lg border border-border text-sm"
+                  placeholder="Ex: 1500,00"
+                />
+              </div>
+            </div>
+          )}
 
           <button
             type="button"
