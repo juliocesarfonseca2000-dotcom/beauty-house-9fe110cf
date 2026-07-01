@@ -38,7 +38,7 @@ type Appt = {
   client_arrived_notified: boolean | null;
   client_confirmed_at: string | null;
   client_confirmed_by: string | null;
-  clients: { name: string; cpf: string | null; phone: string | null } | null;
+  clients: { name: string; cpf: string | null; phone: string | null; record_num: number | null } | null;
   procedures: { name: string } | null;
 };
 type Absence = { id: string; user_id: string; type: "vacation"|"absent"|"dayoff"|"leave"; date_start: string; date_end: string; };
@@ -136,7 +136,7 @@ function AgendaPage() {
 
 
       supabase.from("appointments")
-        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,client_confirmed_at,client_confirmed_by,clients(name,cpf,phone),procedures(name)")
+        .select("id,client_id,procedure_id,professional_id,datetime,duration_min,status,notes,attendance_status,attendance_confirmed_at,attendance_confirmed_by,is_preference,is_first_visit,client_arrived_at,client_arrived_notified,client_confirmed_at,client_confirmed_by,clients(name,cpf,phone,record_num),procedures(name)")
         .gte("datetime", dayStart.toISOString())
         .lt("datetime", dayEnd.toISOString())
         .order("datetime"),
@@ -403,7 +403,7 @@ function AgendaPage() {
                               {a.is_preference && <span title="Preferência da cliente">⭐ </span>}
                               {a.is_first_visit && <span title="Primeira vez">🆕 </span>}
                               {isGuest && <span title="Avulso sem cadastro">👤 </span>}
-                              {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {guestName ?? a.clients?.name ?? "—"}
+                              {a.clients?.record_num ? `#${a.clients.record_num} ` : ""}{guestName ?? a.clients?.name ?? dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                             </div>
 
                             <div className="text-[10px] opacity-70 truncate">{a.procedures?.name ?? "—"}</div>
