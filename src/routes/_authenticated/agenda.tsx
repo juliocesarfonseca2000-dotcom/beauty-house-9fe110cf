@@ -367,10 +367,10 @@ function AgendaPage() {
                     if (a.status !== "cancelled" && a.status !== "blocked" && a.status !== "done") {
                       if (a.attendance_status === "no_show") {
                         fillClass = "bg-red-50 text-red-700 border-l-red-400";              // Falta = vermelho
+                      } else if (a.attendance_status === "confirmed") {
+                        fillClass = "bg-green-100 text-emerald-900 border-l-emerald-400";   // Presença confirmada = verde forte (vence o dourado)
                       } else if (a.client_confirmed_at) {
                         fillClass = "bg-gold/20 text-navy border-l-gold";                   // Confirmado com cliente = dourado
-                      } else if (a.attendance_status === "confirmed") {
-                        fillClass = "bg-green-100 text-emerald-900 border-l-emerald-400";   // Presença confirmada = verde forte
                       } else {
                         fillClass = "bg-pink-100 text-navy border-l-pink-400";              // Pendente/Normal = rosa forte
                       }
