@@ -415,9 +415,23 @@ function AgendaPage() {
                       <div
                         key={a.id}
                         onClick={(e) => { e.stopPropagation(); setViewing(a); }}
-                        className={`absolute rounded p-1 text-xs border-l-2 min-h-[20px] cursor-pointer shadow-sm overflow-hidden ${fillClass} ${extra.join(" ")}`}
+                        className={`group absolute rounded p-1 text-xs border-l-2 min-h-[20px] cursor-pointer shadow-sm ${fillClass} ${extra.join(" ")}`}
                         style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
                       >
+                        {a.status !== "blocked" && (
+                          <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity absolute left-1/2 -translate-x-1/2 bottom-full mb-1 z-50 w-52 rounded-lg bg-navy text-white text-[11px] leading-snug p-2.5 shadow-xl">
+                            <div className="font-semibold mb-1">
+                              {a.clients?.record_num ? `#${a.clients.record_num} · ` : ""}{guestName ?? a.clients?.name ?? "Avulso"}
+                            </div>
+                            <div className="opacity-90">{a.procedures?.name ?? "—"}</div>
+                            <div className="opacity-70 mt-1">
+                              {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.duration_min ?? 60} min
+                            </div>
+                            {a.client_confirmed_at && <div className="text-gold mt-1">★ Confirmado com cliente</div>}
+                            {a.attendance_status === "confirmed" && <div className="text-emerald-300 mt-1">✓ Presença confirmada</div>}
+                            {a.client_arrived_at && <div className="text-blue-300 mt-1">🏠 Cliente chegou</div>}
+                          </div>
+                        )}
                         {a.status === "blocked" ? (
                           <div className="font-semibold truncate text-[11px] flex items-center gap-1">
                             <IconLock size={11} /> {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {a.notes?.trim() ? a.notes : "Bloqueado"}
