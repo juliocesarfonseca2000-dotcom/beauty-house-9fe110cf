@@ -123,6 +123,31 @@ function AgendaPage() {
   const [loading, setLoading] = useState(true);
   const [absences, setAbsences] = useState<Absence[]>([]);
 
+  const [moveSaving, setMoveSaving] = useState(false);
+
+  const confirmMove = async () => {
+    if (!pendingMove) return;
+    setMoveSaving(true);
+    try {
+      const { error } = await withTimeout(
+        supabase.from("appointments").update({
+          professional_id: pendingMove.toProId,
+          datetime: pendingMove.newDatetime.toISOString(),
+        }).eq("id", pendingMove.appt.id),
+        10000,
+        "Mover agendamento"
+      );
+      if (error) throw error;
+      toast.success("Agendamento movido!");
+      setPendingMove(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao mover agendamento");
+    } finally {
+      setMoveSaving(false);
+    }
+  };
+
   const dayStart = useMemo(() => { const d = new Date(date); d.setHours(0,0,0,0); return d; }, [date]);
   const dayEnd = useMemo(() => addDays(dayStart, 1), [dayStart]);
   const dayYmd = useMemo(() => fmtDate(dayStart), [dayStart]);
@@ -535,6 +560,46 @@ function AgendaPage() {
           onClose={() => setBlockingDay(null)}
           onSaved={() => { setBlockingDay(null); load(); }}
         />
+      )}
+      {pendingMove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setPendingMove(null)}>
+          <div className="bg-card rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-navy mb-4">Confirmar reagendamento</h3>
+            <div className="space-y-2 text-sm text-text2 mb-5">
+              <div><span className="font-semibold text-navy">{pendingMove.appt.clients?.name ?? "Avulso"}</span></div>
+              <div>{pendingMove.appt.procedures?.name ?? "—"}</div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="line-through opacity-60">
+                  {new Date(pendingMove.appt.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  {" · "}{pros.find((p) => p.id === pendingMove.appt.professional_id)?.name ?? "—"}
+                </span>
+                <span className="text-gold font-semibold">→</span>
+                <span className="font-semibold text-navy">
+                  {pendingMove.newDatetime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  {" · "}{pendingMove.toProName}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingMove(null)}
+                className="flex-1 py-2 rounded-xl border border-border text-sm text-text2 hover:bg-bg2"
+                disabled={moveSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmMove()}
+                className="flex-1 py-2 rounded-xl bg-gold text-white text-sm font-semibold hover:bg-gold/90 disabled:opacity-50"
+                disabled={moveSaving}
+              >
+                {moveSaving ? "Salvando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
