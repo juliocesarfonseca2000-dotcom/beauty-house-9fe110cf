@@ -249,7 +249,7 @@ function AgendaPage() {
         ) : (
           <div style={{ minWidth: `${64 + visiblePros.length * 100}px` }}>
             <div className="grid sticky top-0 bg-card z-20 border-b shadow-sm" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(96px, 160px))` }}>
-              <div className="px-2 py-3 bg-bg2 border-r" />
+              <div className="px-2 py-3 bg-bg2 border-r sticky left-0 z-30" />
               {visiblePros.map((p) => {
                 const proAbsence = absences.find((a) => a.user_id === p.id);
                 return (
@@ -296,7 +296,7 @@ function AgendaPage() {
             <div className="sm:hidden text-center text-[10px] text-text3 py-0.5 border-b bg-bg2/50 select-none">← deslize →</div>
 
             <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${visiblePros.length}, minmax(96px, 160px))` }}>
-              <div className="border-r bg-bg2/50">
+              <div className="border-r bg-bg2/50 sticky left-0 z-10">
                 {slots.map((s, i) => {
                   const label = `${String(s.h).padStart(2, "0")}:${String(s.m).padStart(2, "0")}`;
                   const isHour = s.m === 0;
