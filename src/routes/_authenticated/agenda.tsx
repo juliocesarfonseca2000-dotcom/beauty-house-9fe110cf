@@ -114,6 +114,8 @@ function AgendaPage() {
   const [proFilter, setProFilter] = useState<string>(isProfessional && me?.id ? me.id : "all");
   const [appts, setAppts] = useState<Appt[]>([]);
   const [slotChoice, setSlotChoice] = useState<{ proId: string; hour: number; min: number } | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ appt: Appt; toProId: string; toProName: string; newDatetime: Date } | null>(null);
   const [creating, setCreating] = useState<{ proId?: string; hour: number; min: number } | null>(null);
   const [blocking, setBlocking] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [blockingDay, setBlockingDay] = useState<{ proId: string; proName: string } | null>(null);
@@ -318,6 +320,23 @@ function AgendaPage() {
                 <div
                   key={p.id}
                   className={`relative border-r last:border-r-0 ${canManage ? "cursor-pointer" : "cursor-default"}`}
+                  onDragOver={(e) => { if (canManage && draggingId) e.preventDefault(); }}
+                  onDrop={(e) => {
+                    if (!canManage || !draggingId) return;
+                    e.preventDefault();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    const totalMinutes = Math.max(0, Math.floor(y / PIXELS_PER_MIN));
+                    const slotMin = Math.floor((START_HOUR * 60 + totalMinutes) / SLOT_MIN) * SLOT_MIN;
+                    const nh = Math.floor(slotMin / 60);
+                    const nm = slotMin % 60;
+                    const dragged = Object.values(apptsByPro).flat().find((x) => x.id === draggingId);
+                    if (!dragged) { setDraggingId(null); return; }
+                    const nd = new Date(dragged.datetime);
+                    nd.setHours(nh, nm, 0, 0);
+                    setPendingMove({ appt: dragged, toProId: p.id, toProName: p.name, newDatetime: nd });
+                    setDraggingId(null);
+                  }}
                   onClick={(e) => {
                     if (!canManage) return;
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -414,8 +433,11 @@ function AgendaPage() {
                     return (
                       <div
                         key={a.id}
+                        draggable={canManage && a.status !== "cancelled"}
+                        onDragStart={(e) => { setDraggingId(a.id); e.dataTransfer.effectAllowed = "move"; }}
+                        onDragEnd={() => setDraggingId(null)}
                         onClick={(e) => { e.stopPropagation(); setViewing(a); }}
-                        className={`group absolute rounded p-1 text-xs border-l-2 min-h-[20px] cursor-pointer shadow-sm ${fillClass} ${extra.join(" ")}`}
+                        className={`group absolute rounded p-1 text-xs border-l-2 min-h-[20px] cursor-pointer shadow-sm ${fillClass} ${extra.join(" ")} ${draggingId === a.id ? "opacity-40" : ""}`}
                         style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
                       >
                         {a.status !== "blocked" && (
