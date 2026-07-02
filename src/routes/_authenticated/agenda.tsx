@@ -562,40 +562,39 @@ function AgendaPage() {
         />
       )}
       {pendingMove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setPendingMove(null)}>
-          <div className="bg-card rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-navy mb-4">Confirmar reagendamento</h3>
-            <div className="space-y-2 text-sm text-text2 mb-5">
-              <div><span className="font-semibold text-navy">{pendingMove.appt.clients?.name ?? "Avulso"}</span></div>
-              <div>{pendingMove.appt.procedures?.name ?? "—"}</div>
-              <div className="flex items-center gap-2 text-xs">
-                <span className="line-through opacity-60">
-                  {new Date(pendingMove.appt.datetime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                  {" · "}{pros.find((p) => p.id === pendingMove.appt.professional_id)?.name ?? "—"}
-                </span>
-                <span className="text-gold font-semibold">→</span>
-                <span className="font-semibold text-navy">
-                  {pendingMove.newDatetime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                  {" · "}{pendingMove.toProName}
-                </span>
-              </div>
+        <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4" onClick={() => setPendingMove(null)}>
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <div className="font-display text-xl text-navy">Mover agendamento</div>
             </div>
-            <div className="flex gap-2">
+            <div className="p-6 space-y-3 text-sm">
+              <p className="text-text2">
+                Mover <b className="text-navy">{pendingMove.appt.clients?.name ?? "agendamento"}</b> para:
+              </p>
+              <div className="bh-card p-3 bg-bg2/50 space-y-1">
+                <div><span className="text-text3">Profissional:</span> <b className="text-navy">{pendingMove.toProName}</b></div>
+                <div><span className="text-text3">Data:</span> <b className="text-navy">{pendingMove.newDatetime.toLocaleDateString("pt-BR")}</b></div>
+                <div><span className="text-text3">Horário:</span> <b className="text-navy">{pendingMove.newDatetime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</b></div>
+              </div>
+              <p className="text-text3 text-xs">Confirma a mudança?</p>
+            </div>
+            <div className="flex justify-end gap-2 px-6 pb-6">
+              <button onClick={() => setPendingMove(null)} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
               <button
-                type="button"
-                onClick={() => setPendingMove(null)}
-                className="flex-1 py-2 rounded-xl border border-border text-sm text-text2 hover:bg-bg2"
-                disabled={moveSaving}
+                onClick={async () => {
+                  const mv = pendingMove;
+                  setPendingMove(null);
+                  const { error } = await supabase.from("appointments").update({
+                    professional_id: mv.toProId,
+                    datetime: mv.newDatetime.toISOString(),
+                  }).eq("id", mv.appt.id);
+                  if (error) { toast.error(error.message); return; }
+                  toast.success("Agendamento movido!");
+                  load();
+                }}
+                className="px-5 py-2 rounded-lg bg-navy text-white font-semibold hover:bg-navy/90"
               >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmMove()}
-                className="flex-1 py-2 rounded-xl bg-gold text-white text-sm font-semibold hover:bg-gold/90 disabled:opacity-50"
-                disabled={moveSaving}
-              >
-                {moveSaving ? "Salvando…" : "Confirmar"}
+                Confirmar mudança
               </button>
             </div>
           </div>
