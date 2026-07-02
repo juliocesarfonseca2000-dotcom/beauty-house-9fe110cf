@@ -2079,7 +2079,7 @@ function BlockSlotModal({ date, hour, min, proId, proName, onClose, onSaved }: {
             <b className="text-navy">{proName}</b> · {date.toLocaleDateString("pt-BR")} às {String(hour).padStart(2,"0")}:{String(min).padStart(2,"0")}
           </div>
           <Field label="Duração (min)*">
-            <input type="number" min={15} step={15} value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} required />
+            <input type="number" min={1} step={1} value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} required />
           </Field>
           <Field label="Motivo">
             <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex: almoço, reunião, indisponível" className={inp} />
