@@ -12,6 +12,7 @@ import {
   IconEye,
   IconEyeOff,
   IconFileText,
+  IconCircleCheck,
 } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ type Income = {
   discount_val: number | null;
   pay_method: string | null;
   date: string;
+  status?: string | null;
 };
 
 type Expense = {
@@ -326,6 +328,13 @@ function ReceitasTab() {
     load();
   }
 
+  const markPaid = async (id: string) => {
+    const { error } = await supabase.from("income").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Marcado como pago!");
+    load();
+  };
+
   return (
     <>
       <div className="bh-card p-4 flex flex-wrap items-end gap-3">
@@ -382,16 +391,26 @@ function ReceitasTab() {
               </tr>
             ) : (
               items.map((i) => (
-                <tr key={i.id} className="border-t border-border hover:bg-bg2/50">
+                <tr key={i.id} className={`border-t border-border hover:bg-bg2/50 ${i.status === "pending" ? "bg-danger/5" : ""}`}>
                   <td className="p-3">{new Date(i.date).toLocaleDateString("pt-BR")}</td>
-                  <td className="p-3">{i.description || "—"}</td>
+                  <td className="p-3">{i.description || "—"}{i.status === "pending" && <span className="ml-2 text-[10px] font-bold text-danger bg-danger/10 px-1.5 py-0.5 rounded">PENDENTE</span>}</td>
                   <td className="p-3">{i.pay_method || "—"}</td>
                   <td className="p-3 text-right text-text3">{fmtMoney(Number(i.discount_val ?? 0))}</td>
-                  <td className="p-3 text-right font-semibold text-success">
+                  <td className={`p-3 text-right font-semibold ${i.status === "pending" ? "text-danger" : "text-success"}`}>
                     {fmtMoney(Number(i.amount))}
                   </td>
                   <td className="p-3">
                     <div className="flex items-center justify-end gap-1">
+                      {i.status === "pending" && (
+                        <button
+                          type="button"
+                          onClick={() => markPaid(i.id)}
+                          className="text-success hover:text-success/80 p-1 flex items-center gap-1 text-xs font-semibold"
+                          title="Marcar como pago"
+                        >
+                          <IconCircleCheck size={16} /> Pagar
+                        </button>
+                      )}
                       {i.package_id && contractsByPkg[i.package_id] && (
                         <button
                           type="button"
