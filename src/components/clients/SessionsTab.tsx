@@ -119,6 +119,29 @@ export function SessionsTab({ clientId }: { clientId: string }) {
     refetchOnWindowFocus: true,
   });
   const { packages, sessions } = data;
+
+  const { data: pendings = [], refetch: refetchPendings } = useQuery({
+    queryKey: ["client-pending-income", clientId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("income")
+        .select("id,description,amount,pay_method,status")
+        .eq("client_id", clientId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+      return (data ?? []) as { id: string; description: string | null; amount: number; pay_method: string | null; status: string }[];
+    },
+    staleTime: 0,
+  });
+
+  const markPendingPaid = async (id: string) => {
+    const { error } = await supabase.from("income").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Pagamento confirmado!");
+    refetchPendings();
+    queryClient.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && ["income", "dashboard"].includes(String(q.queryKey[0])) });
+  };
+
   const reload = () => {
     queryClient.invalidateQueries({ queryKey: ["client-sessions", clientId] });
     refetch();
@@ -242,6 +265,30 @@ export function SessionsTab({ clientId }: { clientId: string }) {
   return (
     <div className="space-y-5">
       <div className="flex justify-end">{headerAddButton}</div>
+      {pendings.length > 0 && (
+        <div className="bh-card p-4 border-2 border-danger/30 bg-danger/5 mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-danger font-semibold text-sm">⚠️ Pagamento(s) pendente(s)</span>
+          </div>
+          <div className="space-y-2">
+            {pendings.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                <div>
+                  <span className="text-navy font-medium">{p.pay_method || "—"}</span>
+                  <span className="text-danger font-semibold ml-2">{Number(p.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => markPendingPaid(p.id)}
+                  className="px-3 py-1.5 rounded-lg bg-success text-white text-xs font-semibold hover:bg-success/90 flex items-center gap-1"
+                >
+                  ✓ Marcar como pago
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {packages.map((pkg) => {
         const pkgSess = sessions.filter((s) => s.package_id === pkg.id).sort((a, b) => a.session_num - b.session_num);
         const firstTermId = pkgSess.find((s) => s.signed_term_id)?.signed_term_id ?? null;
