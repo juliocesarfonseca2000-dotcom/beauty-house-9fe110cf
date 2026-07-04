@@ -49,6 +49,11 @@ function ClosePackagePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [payMethod, setPayMethod] = useState(PAY_METHODS[0]);
   const [installments, setInstallments] = useState(1);
+  type SplitEntry = { method: string; amount: string; pending: boolean };
+  const [splitMode, setSplitMode] = useState(false);
+  const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([
+    { method: "Pix", amount: "", pending: false },
+  ]);
   const showInstallments = INSTALLMENT_METHODS.includes(payMethod);
   const effectiveInstallments = showInstallments ? Math.max(1, installments) : 1;
   const payMethodLabel = showInstallments && effectiveInstallments > 1 ? `${payMethod} ${effectiveInstallments}x` : payMethod;
@@ -124,6 +129,8 @@ function ClosePackagePage() {
   const baseTotal = subtotal - discountVal;
   const cardFeeVal = isCard && cardFeePctNum > 0 ? baseTotal * (cardFeePctNum / 100) : 0;
   const total = baseTotal + (isCard && cardFeePayer === "cliente" ? cardFeeVal : 0);
+  const splitSum = splitEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const splitRemaining = total - splitSum;
 
   const addItem = () => {
     if (!currentProc || !currentPrice) return toast.error("Selecione um procedimento com preço");
@@ -461,55 +468,109 @@ function ClosePackagePage() {
             <span className="w-6 h-6 rounded-full bg-gold text-white text-xs font-bold flex items-center justify-center">3</span>
             <div className="font-display text-lg text-navy">Forma de pagamento</div>
           </div>
-          <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border">
-            {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-          {showInstallments && (
-            <div className="mt-3">
-              <label className="block text-xs font-semibold text-text2 uppercase mb-1">Parcelas</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  max={24}
-                  value={installments}
-                  onChange={(e) => setInstallments(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
-                  className="w-24 px-3 py-2 rounded-lg border border-border"
-                />
-                <span className="text-sm text-text2">
-                  {effectiveInstallments}x de {(total / effectiveInstallments).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                </span>
-              </div>
-            </div>
-          )}
-          {isCard && (
-            <div className="mt-3 border-t pt-3 space-y-2">
-              <label className="block text-xs font-semibold text-text2 uppercase">Taxa de cartão</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={0}
-                  max={20}
-                  step={0.1}
-                  value={cardFeePct}
-                  onChange={(e) => setCardFeePct(e.target.value)}
-                  className="w-24 px-3 py-2 rounded-lg border border-border"
-                  placeholder="%"
-                />
-                <span className="text-xs text-text2">% sobre o total</span>
-              </div>
-              {cardFeePctNum > 0 && (
-                <div className="flex gap-3 text-xs">
-                  <label className="flex items-center gap-1">
-                    <input type="radio" checked={cardFeePayer === "empresa"} onChange={() => setCardFeePayer("empresa")} />
-                    Empresa absorve (lança despesa)
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input type="radio" checked={cardFeePayer === "cliente"} onChange={() => setCardFeePayer("cliente")} />
-                    Cliente paga (acrescenta no recebido)
-                  </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer mb-3 border border-gold/40 rounded-lg px-3 py-2 bg-gold/5">
+            <input type="checkbox" checked={splitMode} onChange={(e) => setSplitMode(e.target.checked)} />
+            <span>💳 Dividir pagamento em vários métodos</span>
+          </label>
+          {!splitMode && (
+            <>
+              <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border">
+                {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+              {showInstallments && (
+                <div className="mt-3">
+                  <label className="block text-xs font-semibold text-text2 uppercase mb-1">Parcelas</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      value={installments}
+                      onChange={(e) => setInstallments(Math.max(1, Math.min(24, Number(e.target.value) || 1)))}
+                      className="w-24 px-3 py-2 rounded-lg border border-border"
+                    />
+                    <span className="text-sm text-text2">
+                      {effectiveInstallments}x de {(total / effectiveInstallments).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                  </div>
                 </div>
               )}
+              {isCard && (
+                <div className="mt-3 border-t pt-3 space-y-2">
+                  <label className="block text-xs font-semibold text-text2 uppercase">Taxa de cartão</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={20}
+                      step={0.1}
+                      value={cardFeePct}
+                      onChange={(e) => setCardFeePct(e.target.value)}
+                      className="w-24 px-3 py-2 rounded-lg border border-border"
+                      placeholder="%"
+                    />
+                    <span className="text-xs text-text2">% sobre o total</span>
+                  </div>
+                  {cardFeePctNum > 0 && (
+                    <div className="flex gap-3 text-xs">
+                      <label className="flex items-center gap-1">
+                        <input type="radio" checked={cardFeePayer === "empresa"} onChange={() => setCardFeePayer("empresa")} />
+                        Empresa absorve (lança despesa)
+                      </label>
+                      <label className="flex items-center gap-1">
+                        <input type="radio" checked={cardFeePayer === "cliente"} onChange={() => setCardFeePayer("cliente")} />
+                        Cliente paga (acrescenta no recebido)
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+          {splitMode && (
+            <div className="space-y-2">
+              {splitEntries.map((entry, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-bg2/50 rounded-lg p-2">
+                  <select
+                    value={entry.method}
+                    onChange={(e) => { const v = e.target.value; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, method: v } : it)); }}
+                    className="flex-1 px-2 py-2 rounded-lg border border-border text-sm"
+                  >
+                    {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={entry.amount}
+                    onChange={(e) => { const v = e.target.value; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, amount: v } : it)); }}
+                    placeholder="Valor R$"
+                    className="w-28 px-2 py-2 rounded-lg border border-border text-sm"
+                  />
+                  <label className="flex items-center gap-1 text-xs text-danger whitespace-nowrap" title="Marcar como ainda não pago">
+                    <input type="checkbox" checked={entry.pending} onChange={(e) => { const v = e.target.checked; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, pending: v } : it)); }} />
+                    Pendente
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSplitEntries((l) => l.length > 1 ? l.filter((_, i) => i !== idx) : l)}
+                    className="p-1.5 rounded text-text3 hover:text-danger hover:bg-danger/10"
+                    title="Remover"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setSplitEntries((l) => [...l, { method: "Dinheiro", amount: "", pending: false }])}
+                className="text-xs font-semibold text-gold hover:text-gold/80"
+              >
+                + Adicionar método
+              </button>
+              <div className={`text-xs mt-1 ${Math.abs(splitRemaining) < 0.01 ? "text-success" : "text-danger"}`}>
+                {Math.abs(splitRemaining) < 0.01
+                  ? "✓ Soma bate com o total"
+                  : `Falta distribuir: ${splitRemaining.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (total ${total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`}
+              </div>
             </div>
           )}
         </div>
