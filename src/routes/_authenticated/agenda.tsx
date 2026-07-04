@@ -1527,7 +1527,7 @@ function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Ap
     <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div className="font-display text-2xl text-navy flex items-center gap-2"><IconCalendarEvent size={22} /> Agendamento</div>
+          <div className="font-display text-2xl text-navy flex items-center gap-2"><IconCalendarEvent size={22} /> Agendamento{appt.clients?.record_num ? <span className="text-lg text-gold font-semibold">#{appt.clients.record_num}</span> : null}</div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-bg2"><IconX size={18} /></button>
         </div>
         <div className="p-6 space-y-3 text-sm">
