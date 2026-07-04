@@ -49,10 +49,10 @@ function ClosePackagePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [payMethod, setPayMethod] = useState(PAY_METHODS[0]);
   const [installments, setInstallments] = useState(1);
-  type SplitEntry = { method: string; amount: string; pending: boolean };
+  type SplitEntry = { method: string; amount: string; pending: boolean; installments: number; feePct: string };
   const [splitMode, setSplitMode] = useState(false);
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([
-    { method: "Pix", amount: "", pending: false },
+    { method: "Pix", amount: "", pending: false, installments: 1, feePct: "" },
   ]);
   const showInstallments = INSTALLMENT_METHODS.includes(payMethod);
   const effectiveInstallments = showInstallments ? Math.max(1, installments) : 1;
@@ -530,38 +530,66 @@ function ClosePackagePage() {
           {splitMode && (
             <div className="space-y-2">
               {splitEntries.map((entry, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-bg2/50 rounded-lg p-2">
-                  <select
-                    value={entry.method}
-                    onChange={(e) => { const v = e.target.value; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, method: v } : it)); }}
-                    className="flex-1 px-2 py-2 rounded-lg border border-border text-sm"
-                  >
-                    {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                  <input
-                    type="number" min="0" step="0.01"
-                    value={entry.amount}
-                    onChange={(e) => { const v = e.target.value; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, amount: v } : it)); }}
-                    placeholder="Valor R$"
-                    className="w-28 px-2 py-2 rounded-lg border border-border text-sm"
-                  />
-                  <label className="flex items-center gap-1 text-xs text-danger whitespace-nowrap" title="Marcar como ainda não pago">
-                    <input type="checkbox" checked={entry.pending} onChange={(e) => { const v = e.target.checked; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, pending: v } : it)); }} />
-                    Pendente
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setSplitEntries((l) => l.length > 1 ? l.filter((_, i) => i !== idx) : l)}
-                    className="p-1.5 rounded text-text3 hover:text-danger hover:bg-danger/10"
-                    title="Remover"
-                  >
-                    ✕
-                  </button>
+                <div key={idx} className="bg-bg2/50 rounded-lg p-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={entry.method}
+                      onChange={(e) => { const v = e.target.value; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, method: v } : it)); }}
+                      className="flex-1 px-2 py-2 rounded-lg border border-border text-sm"
+                    >
+                      {PAY_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={entry.amount}
+                      onChange={(e) => { const v = e.target.value; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, amount: v } : it)); }}
+                      placeholder="Valor R$"
+                      className="w-28 px-2 py-2 rounded-lg border border-border text-sm"
+                    />
+                    <label className="flex items-center gap-1 text-xs text-danger whitespace-nowrap" title="Marcar como ainda não pago">
+                      <input type="checkbox" checked={entry.pending} onChange={(e) => { const v = e.target.checked; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, pending: v } : it)); }} />
+                      Pendente
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setSplitEntries((l) => l.length > 1 ? l.filter((_, i) => i !== idx) : l)}
+                      className="p-1.5 rounded text-text3 hover:text-danger hover:bg-danger/10"
+                      title="Remover"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {entry.method === "Cartão Crédito" && (
+                    <div className="flex items-center gap-3 pl-1 flex-wrap">
+                      <label className="flex items-center gap-1 text-xs text-text2">
+                        Parcelas:
+                        <input
+                          type="number" min="1" max="24"
+                          value={entry.installments}
+                          onChange={(e) => { const v = Math.max(1, Math.min(24, Number(e.target.value) || 1)); setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, installments: v } : it)); }}
+                          className="w-16 px-2 py-1 rounded border border-border text-sm"
+                        />
+                      </label>
+                      {entry.installments > 1 && Number(entry.amount) > 0 && (
+                        <span className="text-xs text-text2">{entry.installments}x de {(Number(entry.amount) / entry.installments).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                      )}
+                      <label className="flex items-center gap-1 text-xs text-text2">
+                        Taxa %:
+                        <input
+                          type="number" min="0" max="20" step="0.1"
+                          value={entry.feePct}
+                          onChange={(e) => { const v = e.target.value; setSplitEntries((l) => l.map((it, i) => i === idx ? { ...it, feePct: v } : it)); }}
+                          placeholder="0"
+                          className="w-16 px-2 py-1 rounded border border-border text-sm"
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
               ))}
               <button
                 type="button"
-                onClick={() => setSplitEntries((l) => [...l, { method: "Dinheiro", amount: "", pending: false }])}
+                onClick={() => setSplitEntries((l) => [...l, { method: "Dinheiro", amount: "", pending: false, installments: 1, feePct: "" }])}
                 className="text-xs font-semibold text-gold hover:text-gold/80"
               >
                 + Adicionar método
