@@ -166,6 +166,11 @@ function ClosePackagePage() {
     if (!client) return toast.error("Selecione uma cliente");
     if (cart.length === 0) return toast.error("Adicione pelo menos um procedimento");
     if (!payMethod) return toast.error("Selecione forma de pagamento");
+    if (splitMode) {
+      const validEntries = splitEntries.filter((e) => Number(e.amount) > 0);
+      if (validEntries.length === 0) return toast.error("Informe ao menos um valor no pagamento dividido");
+      if (Math.abs(splitRemaining) >= 0.01) return toast.error(`A soma dos pagamentos não bate com o total. Falta distribuir ${splitRemaining.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
+    }
 
     setBusy(true);
     try {
@@ -262,6 +267,41 @@ function ClosePackagePage() {
           }
         } catch (e) {
           console.warn("Taxa de cartão — pós-processo falhou:", e);
+        }
+      }
+
+      // Pagamento dividido: substitui os income automáticos por um lançamento por método
+      if (splitMode) {
+        const validEntries = splitEntries.filter((e) => Number(e.amount) > 0);
+        try {
+          // Remove os income criados automaticamente pelo trigger para estes pacotes
+          if (paidPkgIds.length > 0) {
+            await supabase.from("income").delete().in("package_id", paidPkgIds);
+          }
+          // Cria um lançamento por método de pagamento
+          const firstPkgId = paidPkgIds[0] ?? pkgIds[0];
+          const incomeRows = validEntries.map((e) => {
+            const amt = Number(e.amount) || 0;
+            const isCredit = e.method === "Cartão Crédito";
+            const feePct = isCredit ? (Number(e.feePct) || 0) : 0;
+            const methodLabel = isCredit && e.installments > 1 ? `${e.method} ${e.installments}x` : e.method;
+            return {
+              client_id: client.id,
+              package_id: firstPkgId,
+              description: `${e.pending ? "PENDENTE — " : ""}${methodLabel} · ${client.name}`,
+              amount: amt,
+              discount_val: 0,
+              pay_method: methodLabel,
+              status: e.pending ? "pending" : "paid",
+              card_fee_pct: feePct || null,
+              card_fee_payer: feePct > 0 ? "cliente" : null,
+              date: new Date().toISOString().slice(0, 10),
+            };
+          });
+          const { error: incErr } = await supabase.from("income").insert(incomeRows);
+          if (incErr) { console.error("Erro ao gravar pagamento dividido:", incErr); toast.error("Erro ao gravar pagamento dividido: " + incErr.message); }
+        } catch (e) {
+          console.error("Pagamento dividido falhou:", e);
         }
       }
 
@@ -728,7 +768,7 @@ function ClosePackagePage() {
           client={{ id: client.id, name: client.name, cpf: (client as { cpf?: string | null }).cpf ?? null, phone: client.phone ?? null, address: (client as { address?: string | null }).address ?? null, record_num: client.record_num ?? null }}
           onClose={() => {
             setContractInput(null);
-            navigate({ to: "/clientes/$id", params: { id: client.id } });
+            navigate({ to: "/clientes/$id", params: { id: client.id }, search: { tab: undefined } });
           }}
         />
       )}
