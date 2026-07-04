@@ -295,7 +295,7 @@ function ClosePackagePage() {
               status: e.pending ? "pending" : "paid",
               card_fee_pct: feePct || null,
               card_fee_payer: feePct > 0 ? "cliente" : null,
-              date: new Date().toISOString().slice(0, 10),
+              date: new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
             };
           });
           const { error: incErr } = await supabase.from("income").insert(incomeRows);
