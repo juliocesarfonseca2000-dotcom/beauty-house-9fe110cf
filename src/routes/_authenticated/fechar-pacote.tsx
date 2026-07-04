@@ -280,6 +280,7 @@ function ClosePackagePage() {
           }
           // Cria um lançamento por método de pagamento
           const firstPkgId = paidPkgIds[0] ?? pkgIds[0];
+          const saleId = crypto.randomUUID();
           const incomeRows = validEntries.map((e) => {
             const amt = Number(e.amount) || 0;
             const isCredit = e.method === "Cartão Crédito";
@@ -288,6 +289,7 @@ function ClosePackagePage() {
             return {
               client_id: client.id,
               package_id: firstPkgId,
+              sale_id: saleId,
               description: `${e.pending ? "PENDENTE — " : ""}${methodLabel} · ${client.name}`,
               amount: amt,
               discount_val: 0,

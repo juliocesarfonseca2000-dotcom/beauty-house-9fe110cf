@@ -223,8 +223,14 @@ export function SessionsTab({ clientId }: { clientId: string }) {
         await decrementContractNumber();
       }
       // 2) Income, sessões, pacote
+      // Primeiro descobre se há sale_id vinculado a este pacote (pagamento dividido)
+      const { data: linkedIncome } = await supabase.from("income").select("sale_id").eq("package_id", pkg.id).not("sale_id", "is", null).limit(1).maybeSingle();
       const incomeRes = await supabase.from("income").delete().eq("package_id", pkg.id);
       if (incomeRes.error) throw new Error(`Erro ao remover receita: ${incomeRes.error.message}`);
+      // Se havia pagamento dividido, apaga todos os lançamentos da mesma venda
+      if (linkedIncome?.sale_id) {
+        await supabase.from("income").delete().eq("sale_id", linkedIncome.sale_id);
+      }
       const sessRes = await supabase.from("sessions").delete().eq("package_id", pkg.id);
       if (sessRes.error) throw new Error(`Erro ao remover sessões: ${sessRes.error.message}`);
       const pkgRes = await supabase.from("packages").delete().eq("id", pkg.id);
