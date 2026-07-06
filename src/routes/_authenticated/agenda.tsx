@@ -1536,7 +1536,7 @@ function ApptViewModal({ appt, pros, canManage, onClose, onChanged }: { appt: Ap
           <Row label="Quando" value={dt.toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short" })} />
           <Row label="Duração" value={`${appt.duration_min ?? 60} min`} />
           <Row label="Status" value={<span className="bh-badge bg-navy/10 text-navy">{appt.status}</span>} />
-          {appt.notes && <Row label="Observações" value={appt.notes} />}
+          <Row label="Observações" value={appt.notes?.trim() ? appt.notes : "Sem observação"} />
           {appt.attendance_status === "confirmed" && (
             <div className="bh-card p-2.5 bg-success/10 border border-success/30 text-success text-xs">
               ✓ Presença confirmada{confirmedByName ? ` por ${confirmedByName}` : ""}
