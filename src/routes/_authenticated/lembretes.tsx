@@ -32,6 +32,7 @@ function ymd(d: Date): string {
 }
 
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function LembretesPage() {
   const { user } = useAuth();
@@ -124,11 +125,37 @@ function LembretesPage() {
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [reminders, cursor]);
 
+  const monthGrid = useMemo(() => {
+    const y = cursor.getFullYear();
+    const m = cursor.getMonth();
+    const firstDow = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const byDate: Record<string, Reminder[]> = {};
+    reminders.forEach((r) => {
+      const [ry, rm] = r.remind_date.split("-").map(Number);
+      if (ry === y && rm === m + 1) {
+        (byDate[r.remind_date] ??= []).push(r);
+      }
+    });
+    const cells: { date: string | null; day: number | null; items: Reminder[] }[] = [];
+    for (let i = 0; i < firstDow; i++) cells.push({ date: null, day: null, items: [] });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const items = (byDate[date] ?? []).slice().sort((a, b) => (a.remind_time ?? "").localeCompare(b.remind_time ?? ""));
+      cells.push({ date, day: d, items });
+    }
+    const remainder = cells.length % 7;
+    if (remainder !== 0) {
+      for (let i = 0; i < 7 - remainder; i++) cells.push({ date: null, day: null, items: [] });
+    }
+    return cells;
+  }, [reminders, cursor]);
+
   const navDay = (delta: number) => { const d = new Date(cursor); d.setDate(d.getDate() + delta); setCursor(d); };
   const navMonth = (delta: number) => { const d = new Date(cursor); d.setMonth(d.getMonth() + delta); setCursor(d); };
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
+    <div className={`p-4 md:p-6 mx-auto ${view === "mes" ? "max-w-5xl" : "max-w-3xl"}`}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <IconBell size={24} className="text-gold" />
@@ -195,18 +222,51 @@ function LembretesPage() {
       )}
 
       {view === "mes" && (
-        <div className="space-y-4">
-          {monthList.length === 0 && <div className="text-center text-text3 py-10 text-sm">Nenhum lembrete neste mês.</div>}
-          {monthList.map(([date, list]) => (
-            <div key={date}>
-              <div className="text-xs font-semibold text-gold uppercase tracking-wide mb-2">
-                {new Date(date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
-              </div>
-              <div className="space-y-2">
-                {list.map((r) => <ReminderCard key={r.id} r={r} overdue={isOverdue(r)} nameById={nameById} onToggle={toggleDone} onRemove={remove} />)}
-              </div>
-            </div>
-          ))}
+        <div>
+          <div className="grid grid-cols-7 mb-1">
+            {DIAS_SEMANA.map((d) => (
+              <div key={d} className="text-center text-[11px] font-semibold text-text2 uppercase tracking-wide py-1">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {monthGrid.map((cell, i) => {
+              if (!cell.date) {
+                return <div key={i} className="rounded-lg bg-bg2/30 min-h-[92px]" />;
+              }
+              const today = cell.date === todaySP();
+              const hasOverdue = cell.items.some(isOverdue);
+              const borderCls = today
+                ? "border-gold bg-gold/5"
+                : hasOverdue
+                ? "border-danger/30 bg-danger/5"
+                : "border-border bg-card";
+              const visible = cell.items.slice(0, 3);
+              const extra = cell.items.length - 3;
+              return (
+                <button
+                  key={cell.date}
+                  onClick={() => { setCursor(new Date(cell.date! + "T12:00:00")); setView("dia"); }}
+                  className={`bh-card border rounded-lg p-1.5 min-h-[92px] text-left flex flex-col gap-0.5 hover:border-gold/50 transition-colors ${borderCls}`}
+                >
+                  <span className={`text-xs font-semibold mb-0.5 ${today ? "text-gold" : "text-text2"}`}>{cell.day}</span>
+                  {visible.map((r) => {
+                    const ov = isOverdue(r);
+                    const pillCls = r.done
+                      ? "bg-bg2/60 text-text3 line-through"
+                      : ov
+                      ? "bg-danger/15 text-danger"
+                      : "bg-navy/10 text-navy";
+                    return (
+                      <span key={r.id} className={`text-[10px] rounded px-1 py-0.5 truncate leading-tight ${pillCls}`}>
+                        {r.remind_time ? r.remind_time.slice(0, 5) + " " : ""}{r.text}
+                      </span>
+                    );
+                  })}
+                  {extra > 0 && <span className="text-[10px] text-text3 mt-0.5">+{extra} mais</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
