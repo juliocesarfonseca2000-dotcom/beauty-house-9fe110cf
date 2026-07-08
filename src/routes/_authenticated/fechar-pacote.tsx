@@ -112,7 +112,9 @@ function ClosePackagePage() {
   const currentPrice = currentProc
     ? (customMode && !isAvulso
         ? (customPrice > 0 ? customPrice : null)
-        : (isAvulso ? currentProc.price_single : (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20)))
+        : (isAvulso || sessions === 1
+            ? currentProc.price_single
+            : (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20)))
     : null;
 
   useEffect(() => {
