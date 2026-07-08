@@ -35,6 +35,8 @@ type CreateInput = {
   is_evaluator: boolean;
   permissions: Record<string, boolean>;
   show_in_agenda?: boolean;
+  agenda_order?: number | null;
+  work_schedule?: Record<string, unknown> | null;
 };
 
 
@@ -92,6 +94,8 @@ type UpdateInput = {
     permissions?: Record<string, boolean>;
     active?: boolean;
     show_in_agenda?: boolean;
+    agenda_order?: number | null;
+    work_schedule?: Record<string, unknown> | null;
   };
   password?: string;
 };
