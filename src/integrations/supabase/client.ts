@@ -14,6 +14,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 export type Permissions = {
   dash: boolean;
   agenda: boolean;
+  lembretes?: boolean;
   clientes: boolean;
   ficha: boolean;
   fechar: boolean;
