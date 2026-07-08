@@ -32,6 +32,8 @@ type CreateInput = {
   name: string;
   role: "admin" | "receptionist" | "professional";
   cargo: string | null;
+  crm?: string | null;
+  specialty?: string | null;
   is_evaluator: boolean;
   permissions: Record<string, boolean>;
   show_in_agenda?: boolean;
@@ -72,6 +74,8 @@ export const createAppUser = createServerFn({ method: "POST" })
         email: data.email,
         role: data.role,
         cargo: data.cargo,
+        crm: data.crm ?? null,
+        specialty: data.specialty ?? null,
         is_evaluator: data.is_evaluator,
         permissions: data.permissions,
         active: true,
@@ -90,6 +94,8 @@ type UpdateInput = {
     name?: string;
     role?: "admin" | "receptionist" | "professional";
     cargo?: string | null;
+    crm?: string | null;
+    specialty?: string | null;
     is_evaluator?: boolean;
     permissions?: Record<string, boolean>;
     active?: boolean;

@@ -180,6 +180,8 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<AppUser["role"]>(initial?.role ?? "professional");
   const [cargo, setCargo] = useState(initial?.cargo ?? "");
+  const [crm, setCrm] = useState(initial?.crm ?? "");
+  const [specialty, setSpecialty] = useState(initial?.specialty ?? "");
   const [isEval, setIsEval] = useState(initial?.is_evaluator ?? false);
   const [active, setActive] = useState(initial?.active ?? true);
   const [showInAgenda, setShowInAgenda] = useState<boolean>(initial?.show_in_agenda ?? true);
@@ -215,7 +217,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token,
             id: initial.id,
-            patch: { name, role, cargo: cargo || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda, agenda_order: agendaOrder, work_schedule: workSchedule },
+            patch: { name, role, cargo: cargo || null, crm: crm || null, specialty: specialty || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda, agenda_order: agendaOrder, work_schedule: workSchedule },
             password: password || undefined,
           },
         });
@@ -223,7 +225,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
         await createFn({
           data: {
             accessToken: token, email, password, name,
-            role, cargo: cargo || null, is_evaluator: isEval, permissions: perms,
+            role, cargo: cargo || null, crm: crm || null, specialty: specialty || null, is_evaluator: isEval, permissions: perms,
             show_in_agenda: showInAgenda, agenda_order: agendaOrder, work_schedule: workSchedule,
           },
         });
@@ -275,6 +277,12 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
             </Field>
             <Field label="Cargo">
               <input value={cargo} onChange={(e) => setCargo(e.target.value)} className={inp} placeholder="Massagista, Esteticista..." />
+            </Field>
+            <Field label="CRM (para carimbo médico)">
+              <input value={crm} onChange={(e) => setCrm(e.target.value)} className={inp} placeholder="CRM/SP 123456" />
+            </Field>
+            <Field label="Especialidade (para carimbo médico)">
+              <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} className={inp} placeholder="Dermatologia, Clínica Médica..." />
             </Field>
             <Field label="Papel">
               <select value={role} onChange={(e) => onRoleChange(e.target.value as AppUser["role"])} className={inp}>

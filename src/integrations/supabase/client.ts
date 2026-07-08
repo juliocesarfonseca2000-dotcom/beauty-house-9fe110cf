@@ -33,6 +33,8 @@ export type AppUser = {
   email: string;
   role: "admin" | "receptionist" | "professional";
   cargo: string | null;
+  crm: string | null;
+  specialty: string | null;
   is_evaluator: boolean;
   is_kiosk?: boolean;
   cpf?: string | null;
