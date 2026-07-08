@@ -14,6 +14,7 @@ import {
   IconLogout,
   IconClock,
   IconMessageDots,
+  IconBell,
 } from "@tabler/icons-react";
 import { useAuth } from "@/lib/auth";
 import type { Permissions } from "@/integrations/supabase/client";
@@ -28,6 +29,7 @@ const SECTIONS: Section[] = [
     items: [
       { to: "/", label: "Dashboard", icon: <IconLayoutDashboard size={18} />, key: "dash" },
       { to: "/agenda", label: "Agenda", icon: <IconCalendar size={18} />, key: "agenda" },
+      { to: "/lembretes", label: "Lembretes", icon: <IconBell size={18} />, key: "lembretes" },
     ],
   },
   {
