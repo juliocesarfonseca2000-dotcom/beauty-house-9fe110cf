@@ -26,6 +26,7 @@ import { Route as AuthenticatedFecharPacoteRouteImport } from './routes/_authent
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
 import { Route as AuthenticatedEscalaRouteImport } from './routes/_authenticated/escala'
 import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
+import { Route as AuthenticatedLembretesRouteImport } from './routes/_authenticated/lembretes'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedClientesIdRouteImport } from './routes/_authenticated/clientes.$id'
 
@@ -117,6 +118,11 @@ const AuthenticatedClientesRoute = AuthenticatedClientesRouteImport.update({
   path: '/clientes',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedLembretesRoute = AuthenticatedLembretesRouteImport.update({
+  id: '/lembretes',
+  path: '/lembretes',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/agenda': typeof AuthenticatedAgendaRoute
+  '/lembretes': typeof AuthenticatedLembretesRoute
   '/clientes': typeof AuthenticatedClientesRouteWithChildren
   '/escala': typeof AuthenticatedEscalaRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/agenda': typeof AuthenticatedAgendaRoute
+  '/lembretes': typeof AuthenticatedLembretesRoute
   '/clientes': typeof AuthenticatedClientesRouteWithChildren
   '/escala': typeof AuthenticatedEscalaRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
+  '/_authenticated/lembretes': typeof AuthenticatedLembretesRoute
   '/_authenticated/clientes': typeof AuthenticatedClientesRouteWithChildren
   '/_authenticated/escala': typeof AuthenticatedEscalaRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/agenda'
+    | '/lembretes'
     | '/clientes'
     | '/escala'
     | '/estoque'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/agenda'
+    | '/lembretes'
     | '/clientes'
     | '/escala'
     | '/estoque'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/agenda'
+    | '/_authenticated/lembretes'
     | '/_authenticated/clientes'
     | '/_authenticated/escala'
     | '/_authenticated/estoque'
@@ -387,6 +399,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgendaRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/lembretes': {
+      id: '/_authenticated/lembretes'
+      path: '/lembretes'
+      fullPath: '/lembretes'
+      preLoaderRoute: typeof AuthenticatedLembretesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/clientes/$id': {
       id: '/_authenticated/clientes/$id'
       path: '/$id'
@@ -412,6 +431,7 @@ const AuthenticatedClientesRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
+  AuthenticatedLembretesRoute: typeof AuthenticatedLembretesRoute
   AuthenticatedClientesRoute: typeof AuthenticatedClientesRouteWithChildren
   AuthenticatedEscalaRoute: typeof AuthenticatedEscalaRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
@@ -431,6 +451,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
+  AuthenticatedLembretesRoute: AuthenticatedLembretesRoute,
   AuthenticatedClientesRoute: AuthenticatedClientesRouteWithChildren,
   AuthenticatedEscalaRoute: AuthenticatedEscalaRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
