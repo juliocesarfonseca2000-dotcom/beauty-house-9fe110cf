@@ -1,9 +1,10 @@
 // Aba Prontuário — sessão a sessão. Cada registro salvo em session_notes.
 import { useEffect, useState } from "react";
-import { IconPlus, IconTrash, IconEdit, IconCheck, IconX } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconEdit, IconCheck, IconX, IconWriting, IconLock } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { SignProntuarioModal } from "./SignProntuarioModal";
 
 type Proc = { id: string; name: string };
 type Note = {
@@ -15,11 +16,18 @@ type Note = {
   notes: string | null;
   created_by: string | null;
   procedures: { name: string } | null;
+  doctor_signature: string | null;
+  patient_signature: string | null;
+  doctor_name: string | null;
+  doctor_crm: string | null;
+  doctor_specialty: string | null;
+  signed_at: string | null;
+  locked: boolean | null;
 };
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
-export function ProntuarioTab({ clientId }: { clientId: string }) {
+export function ProntuarioTab({ clientId, clientName }: { clientId: string; clientName: string }) {
   const { user } = useAuth();
   const canEdit = user?.role === "admin" || user?.role === "receptionist" || user?.is_evaluator === true;
   const [notes, setNotes] = useState<Note[]>([]);
@@ -27,11 +35,12 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
   const [editing, setEditing] = useState<Note | null>(null);
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [signing, setSigning] = useState<Note | null>(null);
 
   const load = async () => {
     setLoading(true);
     const [n, p] = await Promise.all([
-      supabase.from("session_notes").select("id,date,procedure_id,equipment,parameters,notes,created_by,procedures(name)")
+      supabase.from("session_notes").select("id,date,procedure_id,equipment,parameters,notes,created_by,doctor_signature,patient_signature,doctor_name,doctor_crm,doctor_specialty,signed_at,locked,procedures(name)")
         .eq("client_id", clientId).order("date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("packages").select("procedure_id,procedures(id,name)").eq("client_id", clientId),
     ]);
@@ -53,6 +62,8 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
   const onSaved = () => { setEditing(null); setCreating(false); load(); };
 
   const remove = async (id: string) => {
+    const note = notes.find((n) => n.id === id);
+    if (note?.locked) { toast.error("Prontuário assinado não pode ser excluído."); return; }
     if (!confirm("Excluir este registro?")) return;
     const { error } = await supabase.from("session_notes").delete().eq("id", id);
     if (error) return toast.error(error.message);
@@ -87,7 +98,7 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
         <div className="bh-card p-10 text-center text-text3 text-sm">Nenhum registro de prontuário ainda.</div>
       ) : (
         notes.map((n) => (
-          canEdit && editing?.id === n.id ? (
+          canEdit && !n.locked && editing?.id === n.id ? (
             <NoteForm
               key={n.id}
               clientId={clientId}
@@ -105,8 +116,15 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
                   <div className="text-xs text-text3">{new Date(n.date).toLocaleDateString("pt-BR")}</div>
                   <div className="font-display text-lg text-navy">{n.procedures?.name ?? "Procedimento"}</div>
                 </div>
-                {canEdit && (
+                {n.locked ? (
+                  <div className="flex items-center gap-1 text-xs text-success font-semibold">
+                    <IconLock size={14} /> Assinado
+                  </div>
+                ) : canEdit && (
                   <div className="flex gap-1">
+                    <button onClick={() => setSigning(n)} className="px-2 py-1.5 rounded-md bg-navy text-white text-xs font-semibold flex items-center gap-1 hover:bg-navy/90" title="Assinar prontuário">
+                      <IconWriting size={14} /> Assinar
+                    </button>
                     <button onClick={() => setEditing(n)} className="p-1.5 rounded-md hover:bg-bg2 text-navy"><IconEdit size={14} /></button>
                     <button onClick={() => remove(n.id)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger"><IconTrash size={14} /></button>
                   </div>
@@ -117,9 +135,38 @@ export function ProntuarioTab({ clientId }: { clientId: string }) {
                 {n.parameters && <div><span className="text-text3 text-xs uppercase">Parâmetros:</span> <span className="text-text2">{n.parameters}</span></div>}
               </div>
               {n.notes && <div className="mt-2 text-sm text-text2 whitespace-pre-wrap">{n.notes}</div>}
+              {n.locked && n.signed_at && (
+                <div className="mt-4 pt-3 border-t grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-text3 mb-1">Assinatura do médico</div>
+                    {n.doctor_signature && <img src={n.doctor_signature} alt="Assinatura do médico" className="h-16 object-contain" />}
+                    <div className="mt-1 inline-block border border-navy/30 rounded px-2 py-1 text-[10px] leading-tight text-navy">
+                      <div className="font-semibold">{n.doctor_name}</div>
+                      {n.doctor_crm && <div>{n.doctor_crm}</div>}
+                      {n.doctor_specialty && <div>{n.doctor_specialty}</div>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-text3 mb-1">Assinatura do paciente</div>
+                    {n.patient_signature && <img src={n.patient_signature} alt="Assinatura do paciente" className="h-16 object-contain" />}
+                    <div className="text-[10px] text-text3 mt-1">
+                      Assinado em {new Date(n.signed_at).toLocaleString("pt-BR")}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )
         ))
+      )}
+
+      {signing && (
+        <SignProntuarioModal
+          note={{ id: signing.id, date: signing.date, procedures: signing.procedures }}
+          clientName={clientName}
+          onClose={() => setSigning(null)}
+          onSaved={() => { setSigning(null); load(); }}
+        />
       )}
     </div>
   );

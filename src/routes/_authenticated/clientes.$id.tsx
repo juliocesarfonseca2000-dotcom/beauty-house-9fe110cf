@@ -142,7 +142,7 @@ export function ClientRecordContent({ id, backTo = "/clientes", initialTab }: { 
       )}
       {tab === "prontuario" && (
         <Suspense fallback={<TableSkeleton rows={3} cols={2} />}>
-          <ProntuarioTab clientId={client.id} />
+          <ProntuarioTab clientId={client.id} clientName={client.name} />
         </Suspense>
       )}
       {tab === "sessoes" && (
