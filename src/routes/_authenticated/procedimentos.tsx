@@ -22,6 +22,7 @@ type Proc = {
   price_20: number | null;
   active: boolean;
   requires_term: boolean | null;
+  is_medical: boolean | null;
   term_text: string | null;
   resource_id: string | null;
   room_id: string | null;
@@ -341,6 +342,7 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
   const [p10, setP10] = useState(initial?.price_10?.toString() ?? "");
   const [p20, setP20] = useState(initial?.price_20?.toString() ?? "");
   const [requiresTerm, setRequiresTerm] = useState<boolean>(initial?.requires_term ?? false);
+  const [isMedical, setIsMedical] = useState<boolean>(initial?.is_medical ?? false);
   const [termText, setTermText] = useState(initial?.term_text ?? "");
   const [roomId, setRoomId] = useState(initial?.room_id ?? "");
   const [sessionType, setSessionType] = useState<SessionType>((initial?.session_type as SessionType) ?? "sessoes");
@@ -410,6 +412,7 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
       price_10: p10 ? Number(p10) : null,
       price_20: p20 ? Number(p20) : null,
       requires_term: requiresTerm,
+      is_medical: isMedical,
       term_text: requiresTerm ? (termText.trim() || null) : null,
       room_id: roomId || null,
       session_type: sessionType,
@@ -546,6 +549,10 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
                 />
               </Field>
             )}
+            <label className="flex items-center gap-2 text-sm font-semibold text-navy">
+              <input type="checkbox" checked={isMedical} onChange={(e) => setIsMedical(e.target.checked)} />
+              <span>Exige prontuário médico assinado (médico + paciente)</span>
+            </label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2">Cancelar</button>
