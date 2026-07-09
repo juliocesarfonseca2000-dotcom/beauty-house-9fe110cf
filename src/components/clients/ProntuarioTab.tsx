@@ -30,6 +30,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 export function ProntuarioTab({ clientId, clientName }: { clientId: string; clientName: string }) {
   const { user } = useAuth();
   const canEdit = user?.role === "admin" || user?.role === "receptionist" || user?.is_evaluator === true;
+  const canDeleteSigned = user?.role === "admin" || user?.role === "receptionist";
   const [notes, setNotes] = useState<Note[]>([]);
   const [procs, setProcs] = useState<Proc[]>([]);
   const [editing, setEditing] = useState<Note | null>(null);
@@ -63,8 +64,20 @@ export function ProntuarioTab({ clientId, clientName }: { clientId: string; clie
 
   const remove = async (id: string) => {
     const note = notes.find((n) => n.id === id);
-    if (note?.locked) { toast.error("Prontuário assinado não pode ser excluído."); return; }
-    if (!confirm("Excluir este registro?")) return;
+    if (note?.locked) {
+      if (!canDeleteSigned) {
+        toast.error("Prontuário assinado só pode ser excluído por admin ou recepção.");
+        return;
+      }
+      if (!confirm("ATENÇÃO: este prontuário está ASSINADO e tem valor legal.\n\nA exclusão é permanente. Deseja mesmo continuar?")) return;
+      const senha = window.prompt("Digite a senha mestra para confirmar a exclusão do prontuário assinado:");
+      if (!senha) return;
+      const { data } = await supabase.from("settings").select("admin_password").limit(1).maybeSingle();
+      const expected = (data as { admin_password: string } | null)?.admin_password;
+      if (!expected || senha !== expected) { toast.error("Senha incorreta. Exclusão cancelada."); return; }
+    } else {
+      if (!confirm("Excluir este registro?")) return;
+    }
     const { error } = await supabase.from("session_notes").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Registro excluído");
@@ -117,8 +130,15 @@ export function ProntuarioTab({ clientId, clientName }: { clientId: string; clie
                   <div className="font-display text-lg text-navy">{n.procedures?.name ?? "Procedimento"}</div>
                 </div>
                 {n.locked ? (
-                  <div className="flex items-center gap-1 text-xs text-success font-semibold">
-                    <IconLock size={14} /> Assinado
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 text-xs text-success font-semibold">
+                      <IconLock size={14} /> Assinado
+                    </div>
+                    {canDeleteSigned && (
+                      <button onClick={() => remove(n.id)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger" title="Excluir prontuário assinado (exige senha mestra)">
+                        <IconTrash size={14} />
+                      </button>
+                    )}
                   </div>
                 ) : canEdit && (
                   <div className="flex gap-1">
