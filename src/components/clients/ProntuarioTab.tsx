@@ -1,6 +1,7 @@
 // Aba Prontuário — sessão a sessão. Cada registro salvo em session_notes.
 import { useEffect, useState } from "react";
-import { IconPlus, IconTrash, IconEdit, IconCheck, IconX, IconWriting, IconLock } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconEdit, IconCheck, IconX, IconWriting, IconLock, IconDownload } from "@tabler/icons-react";
+import { generateProntuarioPdf } from "@/lib/prontuario-pdf";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -61,6 +62,44 @@ export function ProntuarioTab({ clientId, clientName }: { clientId: string; clie
   useEffect(() => { load(); }, [clientId]);
 
   const onSaved = () => { setEditing(null); setCreating(false); load(); };
+
+  const downloadPdf = async (n: Note) => {
+    try {
+      // busca dados extras da cliente para o cabeçalho do PDF
+      const { data: cli } = await supabase
+        .from("clients")
+        .select("cpf,record_num")
+        .eq("id", clientId)
+        .maybeSingle();
+      const blob = await generateProntuarioPdf({
+        clientName,
+        clientCpf: (cli as { cpf?: string | null } | null)?.cpf ?? null,
+        clientRecordNum: (cli as { record_num?: number | null } | null)?.record_num ?? null,
+        procName: n.procedures?.name ?? "Procedimento",
+        date: n.date,
+        equipment: n.equipment,
+        parameters: n.parameters,
+        notes: n.notes,
+        doctorSignature: n.doctor_signature,
+        patientSignature: n.patient_signature,
+        doctorName: n.doctor_name,
+        doctorCrm: n.doctor_crm,
+        doctorSpecialty: n.doctor_specialty,
+        signedAt: n.signed_at,
+      });
+      // download direto via blob (não depende de URL externa)
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `prontuario_${clientName.replace(/\s+/g, "_")}_${n.date}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao gerar PDF");
+    }
+  };
 
   const remove = async (id: string) => {
     const note = notes.find((n) => n.id === id);
@@ -134,6 +173,9 @@ export function ProntuarioTab({ clientId, clientName }: { clientId: string; clie
                     <div className="flex items-center gap-1 text-xs text-success font-semibold">
                       <IconLock size={14} /> Assinado
                     </div>
+                    <button onClick={() => downloadPdf(n)} className="px-2 py-1.5 rounded-md bg-gold text-white text-xs font-semibold flex items-center gap-1 hover:bg-gold2" title="Baixar PDF do prontuário">
+                      <IconDownload size={14} /> PDF
+                    </button>
                     {canDeleteSigned && (
                       <button onClick={() => remove(n.id)} className="p-1.5 rounded-md hover:bg-danger/10 text-danger" title="Excluir prontuário assinado (exige senha mestra)">
                         <IconTrash size={14} />
