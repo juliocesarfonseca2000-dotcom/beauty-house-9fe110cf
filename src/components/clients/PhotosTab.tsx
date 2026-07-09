@@ -20,6 +20,17 @@ type Procedure = { id: string; name: string };
 
 const BUCKET = "client-photos";
 
+function extractPath(urlOrPath: string): string | null {
+  if (!urlOrPath) return null;
+  // já é um path puro (ex: "clientId/foto.jpg")
+  if (!urlOrPath.startsWith("http")) return urlOrPath;
+  // URL antiga: pega o que vem depois de "/client-photos/" e remove o token
+  const marker = `/${BUCKET}/`;
+  const idx = urlOrPath.indexOf(marker);
+  if (idx < 0) return null;
+  return urlOrPath.slice(idx + marker.length).split("?")[0];
+}
+
 export function PhotosTab({ clientId }: { clientId: string }) {
   const { user: me } = useAuth();
   const canEdit = me?.role === "admin" || me?.role === "receptionist" || me?.is_evaluator === true;
@@ -39,7 +50,15 @@ export function PhotosTab({ clientId }: { clientId: string }) {
         .eq("client_id", clientId)
         .order("created_at", { ascending: false }), 10000, "Carregamento das fotos");
       if (error) throw error;
-      return (data as unknown as Photo[]) ?? [];
+      const rows = (data as unknown as Photo[]) ?? [];
+      // Gera signed URLs frescas a partir do path (corrige fotos antigas com URL expirada)
+      const withUrls = await Promise.all(rows.map(async (p) => {
+        const path = extractPath(p.url);
+        if (!path) return p;
+        const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
+        return { ...p, url: signed?.signedUrl ?? p.url };
+      }));
+      return withUrls;
     },
   });
 
@@ -69,11 +88,10 @@ export function PhotosTab({ clientId }: { clientId: string }) {
         const path = `${clientId}/${photoId}.jpg`;
         const up = await withTimeout(supabase.storage.from(BUCKET).upload(path, file, { upsert: false }), 12000, "Upload da foto");
         if (up.error) throw up.error;
-        const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
         const ins = await withTimeout(supabase.from("client_photos").insert({
           id: photoId,
           client_id: clientId,
-          url: signed?.signedUrl ?? path,
+          url: path,
           category,
           procedure_id: procedureId || null,
           date: new Date().toISOString().split("T")[0],
@@ -92,10 +110,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
 
   const remove = async (p: Photo) => {
     if (!confirm("Excluir esta foto?")) return;
-    // Extract storage path from URL
-    const marker = `/${BUCKET}/`;
-    const idx = p.url.indexOf(marker);
-    const path = idx >= 0 ? p.url.slice(idx + marker.length) : null;
+    const path = extractPath(p.url);
     if (path) await supabase.storage.from(BUCKET).remove([path]);
     const { error } = await supabase.from("client_photos").delete().eq("id", p.id);
     if (error) return toast.error(error.message);
