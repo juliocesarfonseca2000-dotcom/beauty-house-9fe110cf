@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { SignProntuarioModal } from "./SignProntuarioModal";
 
-type Proc = { id: string; name: string };
+type Proc = { id: string; name: string; is_medical?: boolean | null };
 type Note = {
   id: string;
   date: string;
@@ -44,12 +44,12 @@ export function ProntuarioTab({ clientId, clientName }: { clientId: string; clie
     const [n, p] = await Promise.all([
       supabase.from("session_notes").select("id,date,procedure_id,equipment,parameters,notes,created_by,doctor_signature,patient_signature,doctor_name,doctor_crm,doctor_specialty,signed_at,locked,procedures(name)")
         .eq("client_id", clientId).order("date", { ascending: false }).order("created_at", { ascending: false }),
-      supabase.from("packages").select("procedure_id,procedures(id,name)").eq("client_id", clientId),
+      supabase.from("packages").select("procedure_id,procedures(id,name,is_medical)").eq("client_id", clientId),
     ]);
     setNotes(((n.data as unknown as Note[]) ?? []));
     const seen = new Set<string>();
     const procList: Proc[] = [];
-    for (const row of ((p.data as unknown as Array<{ procedure_id: string | null; procedures: { id: string; name: string } | null }>) ?? [])) {
+    for (const row of ((p.data as unknown as Array<{ procedure_id: string | null; procedures: { id: string; name: string; is_medical?: boolean | null } | null }>) ?? [])) {
       const pr = row.procedures;
       if (pr && !seen.has(pr.id)) { seen.add(pr.id); procList.push({ id: pr.id, name: pr.name }); }
     }
@@ -62,6 +62,11 @@ export function ProntuarioTab({ clientId, clientName }: { clientId: string; clie
   useEffect(() => { load(); }, [clientId]);
 
   const onSaved = () => { setEditing(null); setCreating(false); load(); };
+
+  const requiresSignature = (n: Note) => {
+    const proc = procs.find((p) => p.id === n.procedure_id);
+    return proc?.is_medical === true;
+  };
 
   const downloadPdf = async (n: Note) => {
     try {
@@ -192,6 +197,12 @@ export function ProntuarioTab({ clientId, clientName }: { clientId: string; clie
                   </div>
                 )}
               </div>
+              {!n.locked && requiresSignature(n) && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+                  <span className="font-semibold">⚠️ Pendente de assinatura</span>
+                  <span className="text-text2">— este procedimento exige prontuário assinado pelo médico e pelo paciente.</span>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
                 {n.equipment && <div><span className="text-text3 text-xs uppercase">Aparelho:</span> <span className="text-text2">{n.equipment}</span></div>}
                 {n.parameters && <div><span className="text-text3 text-xs uppercase">Parâmetros:</span> <span className="text-text2">{n.parameters}</span></div>}
