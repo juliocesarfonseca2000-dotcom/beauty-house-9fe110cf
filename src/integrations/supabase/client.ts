@@ -34,6 +34,7 @@ export type AppUser = {
   role: "admin" | "receptionist" | "professional";
   cargo: string | null;
   crm: string | null;
+  council_type: string | null;
   specialty: string | null;
   is_evaluator: boolean;
   is_kiosk?: boolean;

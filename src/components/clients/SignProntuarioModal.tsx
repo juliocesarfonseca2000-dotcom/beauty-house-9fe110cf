@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { withTimeout } from "@/lib/with-timeout";
 
-type Doctor = { id: string; name: string; crm: string | null; specialty: string | null };
+type Doctor = { id: string; name: string; crm: string | null; specialty: string | null; council_type: string | null };
 
 export type SignNoteData = {
   id: string;
@@ -33,7 +33,7 @@ export function SignProntuarioModal({
     let active = true;
     supabase
       .from("app_users")
-      .select("id,name,crm,specialty")
+      .select("id,name,crm,specialty,council_type")
       .eq("active", true)
       .order("name")
       .then(({ data }) => {
@@ -59,6 +59,7 @@ export function SignProntuarioModal({
           doctor_id: doctorId,
           doctor_name: selectedDoctor?.name ?? null,
           doctor_crm: selectedDoctor?.crm ?? null,
+          doctor_council_type: selectedDoctor?.council_type ?? null,
           doctor_specialty: selectedDoctor?.specialty ?? null,
           signed_at: new Date().toISOString(),
           locked: true,
@@ -105,7 +106,7 @@ export function SignProntuarioModal({
               ))}
             </select>
             {selectedDoctor && !selectedDoctor.crm && (
-              <div className="text-xs text-danger mt-1">Este profissional não tem CRM cadastrado. Preencha em Usuários.</div>
+              <div className="text-xs text-danger mt-1">Este profissional não tem registro do conselho cadastrado. Preencha em Usuários.</div>
             )}
           </div>
 
