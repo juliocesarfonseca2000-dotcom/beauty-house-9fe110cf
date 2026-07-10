@@ -24,7 +24,7 @@ function FichaSearchPage() {
         .from("clients")
         .select("id,name,phone,record_num")
         .eq("active", true)
-        .or(`name.ilike.%${q}%,record_num.eq.${isNaN(Number(q)) ? 0 : Number(q)}`)
+        .or(`name.ilike.%${q}%,record_num.ilike.%${q}%`)
         .limit(8);
       setResults((data as never) ?? []);
     }, 250);

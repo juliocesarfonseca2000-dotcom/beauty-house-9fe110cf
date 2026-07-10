@@ -86,11 +86,11 @@ export function ClientFormModal({
     }
     setBusy(true);
     try {
-      let recordNumToSave: number;
+      let recordNumToSave: string;
       if (fichaNumManual.trim()) {
-        recordNumToSave = Number(fichaNumManual.trim());
+        recordNumToSave = fichaNumManual.trim().toUpperCase();
       } else {
-        recordNumToSave = await getNextFichaNumber();
+        recordNumToSave = String(await getNextFichaNumber());
       }
 
       const { data: existing } = await supabase
@@ -210,11 +210,10 @@ export function ClientFormModal({
               Número da ficha <span className="text-text3 font-normal normal-case">(opcional — gerado automaticamente se vazio)</span>
             </label>
             <input
-              type="number"
-              min={1}
+              type="text"
               value={fichaNumManual}
               onChange={(e) => setFichaNumManual(e.target.value)}
-              placeholder="Ex: 44612"
+              placeholder="Ex: 44641 ou 1234M (deixe vazio para automático)"
               className={input}
             />
           </div>

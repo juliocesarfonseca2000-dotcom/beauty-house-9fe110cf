@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/clientes/$id")({
 
 type Client = {
   id: string;
-  record_num: number;
+  record_num: string;
   name: string;
   phone: string | null;
   email: string | null;
@@ -187,7 +187,7 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
     try {
       const { error } = await withTimeout(supabase.from("clients").update({
         ...f,
-        record_num: Number(f.record_num),
+        record_num: String(f.record_num).trim().toUpperCase(),
         birthdate: f.birthdate || null,
         evaluator_id: f.evaluator_id || null,
         referral: f.referral || null,
@@ -210,7 +210,7 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
         ))}
       </div>
       <Grid>
-        <RO label="Número da ficha" v={f.record_num} edit={edit} type="number" onChange={(v) => setF({ ...f, record_num: v })} />
+        <RO label="Número da ficha" v={f.record_num} edit={edit} type="text" onChange={(v) => setF({ ...f, record_num: v })} />
         <RO label="Nome" v={f.name} edit={edit} onChange={(v) => setF({ ...f, name: v })} />
         <RO label="WhatsApp" v={f.phone} edit={edit} onChange={(v) => setF({ ...f, phone: v })} />
         <RO label="Email" v={f.email} edit={edit} onChange={(v) => setF({ ...f, email: v })} />

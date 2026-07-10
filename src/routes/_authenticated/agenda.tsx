@@ -696,7 +696,7 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
         .eq("active", true)
         .limit(8);
       if (isNum) {
-        query = query.or(`record_num.eq.${parseInt(search)},phone.ilike.%${search}%`);
+        query = query.or(`record_num.ilike.%${search}%,phone.ilike.%${search}%`);
       } else {
         query = query.ilike("name", `%${search}%`);
       }

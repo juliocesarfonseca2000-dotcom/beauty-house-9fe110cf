@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/clientes")({
 
 type Row = {
   id: string;
-  record_num: number;
+  record_num: string;
   name: string;
   phone: string | null;
   cpf: string | null;
@@ -51,9 +51,9 @@ function ClientsPage() {
       const term = q.trim();
       let query = supabase.from("clients").select("id,record_num,name,phone,cpf,active,created_at");
       if (term) {
-        if (/^\d+$/.test(term)) {
-          // Número — busca por número da ficha
-          query = query.eq("record_num", parseInt(term, 10));
+        if (/^[\dA-Za-z]+$/.test(term)) {
+          // Número ou código alfanumérico — busca por número da ficha
+          query = query.eq("record_num", term.toUpperCase());
         } else {
           // Texto — busca por nome
           query = query.ilike("name", `%${term}%`);
