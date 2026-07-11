@@ -9,6 +9,7 @@ import { ClientFormModal } from "@/components/clients/ClientFormModal";
 import { ScanClientCardModal } from "@/components/clients/ScanClientCardModal";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
+import { applyClientSearch } from "@/lib/client-search";
 
 // SUPABASE RLS: a política SELECT da tabela "clients" deve permitir role=professional.
 // Se profissionais virem lista vazia, verifique em Supabase > Authentication > Policies > clients
@@ -51,13 +52,7 @@ function ClientsPage() {
       const term = q.trim();
       let query = supabase.from("clients").select("id,record_num,name,phone,cpf,active,created_at");
       if (term) {
-        if (/^[\dA-Za-z]+$/.test(term)) {
-          // Número ou código alfanumérico — busca por número da ficha
-          query = query.eq("record_num", term.toUpperCase());
-        } else {
-          // Texto — busca por nome
-          query = query.ilike("name", `%${term}%`);
-        }
+        query = applyClientSearch(query, term);
       }
       if (filter === "active") query = query.eq("active", true);
       if (filter === "inactive") query = query.eq("active", false);

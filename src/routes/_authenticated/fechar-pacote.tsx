@@ -7,6 +7,7 @@ import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
 import { ContractModal, type ContractInput } from "@/components/contracts/ContractModal";
 import { PasswordInput } from "@/components/ui/password-input";
+import { applyClientSearch } from "@/lib/client-search";
 
 export const Route = createFileRoute("/_authenticated/fechar-pacote")({
   component: ClosePackagePage,
@@ -99,9 +100,10 @@ function ClosePackagePage() {
   useEffect(() => {
     if (search.length < 2 || client) { setResults([]); return; }
     const t = setTimeout(async () => {
-      const { data } = await supabase
-        .from("clients").select("id,name,record_num,phone,cpf,address,birthdate")
-        .ilike("name", `%${search}%`).eq("active", true).limit(8);
+      let q = supabase
+        .from("clients").select("id,name,record_num,phone,cpf,address,birthdate");
+      q = applyClientSearch(q, search);
+      const { data } = await q.eq("active", true).limit(8);
       setResults((data as Client[]) ?? []);
     }, 250);
     return () => clearTimeout(t);

@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { withTimeout } from "@/lib/with-timeout";
+import { applyClientSearch } from "@/lib/client-search";
 import { SignSessionModal, type SignSessionPackage, type SignSessionData } from "@/components/clients/SignSessionModal";
 
 export const Route = createFileRoute("/_authenticated/agenda")({
@@ -689,17 +690,11 @@ function ApptModal({ initialDate, initialHour, initialMin, initialProId, pros, o
   useEffect(() => {
     if (search.length < 2 || client) { setResults([]); setSearched(false); return; }
     const t = setTimeout(async () => {
-      const isNum = /^\d+$/.test(search.trim());
       let query = supabase
         .from("clients")
-        .select("id,name,record_num,phone")
-        .eq("active", true)
-        .limit(8);
-      if (isNum) {
-        query = query.or(`record_num.ilike.%${search}%,phone.ilike.%${search}%`);
-      } else {
-        query = query.ilike("name", `%${search}%`);
-      }
+        .select("id,name,record_num,phone");
+      query = applyClientSearch(query, search);
+      query = query.eq("active", true).limit(8);
       const { data } = await query;
       setResults((data as Client[]) ?? []);
       setSearched(true);
