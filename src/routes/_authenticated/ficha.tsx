@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { IconSearch } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
+import { applyClientSearch } from "@/lib/client-search";
 import { ClientRecordContent } from "@/routes/_authenticated/clientes.$id";
 
 export const Route = createFileRoute("/_authenticated/ficha")({
@@ -20,12 +21,8 @@ function FichaSearchPage() {
   useEffect(() => {
     if (q.length < 2) { setResults([]); return; }
     const t = setTimeout(async () => {
-      const { data } = await supabase
-        .from("clients")
-        .select("id,name,phone,record_num")
-        .eq("active", true)
-        .or(`name.ilike.%${q}%,record_num.ilike.%${q}%`)
-        .limit(8);
+      const baseQuery = supabase.from("clients").select("id,name,phone,record_num").eq("active", true);
+      const { data } = await applyClientSearch(baseQuery, q).limit(8);
       setResults((data as never) ?? []);
     }, 250);
     return () => clearTimeout(t);

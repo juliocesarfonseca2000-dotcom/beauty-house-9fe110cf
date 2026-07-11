@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
 import { getNextFichaNumber } from "@/lib/contract-pdf";
+import { applyClientSearch } from "@/lib/client-search";
 
 type Evaluator = { id: string; name: string; is_evaluator?: boolean };
 
@@ -64,12 +65,9 @@ export function ClientFormModal({
     }
     const t = setTimeout(async () => {
       try {
-        const { data } = await withTimeout(supabase
-          .from("clients")
-          .select("id,name")
-          .ilike("name", `%${refSearch}%`)
-          .eq("active", true)
-          .limit(5), 8000, "Busca de indicação");
+        let refQuery = supabase.from("clients").select("id,name");
+        refQuery = applyClientSearch(refQuery, refSearch);
+        const { data } = await withTimeout(refQuery.eq("active", true).limit(5), 8000, "Busca de indicação");
         setRefResults((data as Evaluator[]) ?? []);
       } catch {
         setRefResults([]);
