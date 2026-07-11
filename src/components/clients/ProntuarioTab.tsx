@@ -30,7 +30,7 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export function ProntuarioTab({ clientId, clientName }: { clientId: string; clientName: string }) {
   const { user } = useAuth();
-  const canEdit = user?.role === "admin" || user?.role === "receptionist" || user?.is_evaluator === true;
+  const canEdit = user?.role === "admin" || user?.role === "receptionist" || user?.is_evaluator === true || user?.permissions?.ficha === true;
   const canDeleteSigned = user?.role === "admin" || user?.role === "receptionist";
   const [notes, setNotes] = useState<Note[]>([]);
   const [procs, setProcs] = useState<Proc[]>([]);
