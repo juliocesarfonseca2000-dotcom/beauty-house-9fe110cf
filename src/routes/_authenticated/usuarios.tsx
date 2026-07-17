@@ -283,10 +283,11 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
               <select value={councilType} onChange={(e) => setCouncilType(e.target.value)} className={inp}>
                 <option value="CRM">CRM — Médico</option>
                 <option value="CRBM">CRBM — Biomédico</option>
+                <option value="CREFITO">CREFITO — Fisioterapeuta</option>
               </select>
             </Field>
             <Field label="Número do registro (para carimbo)">
-              <input value={crm} onChange={(e) => setCrm(e.target.value)} className={inp} placeholder="CRM/SP 123456 ou CRBM/SP 12345" />
+              <input value={crm} onChange={(e) => setCrm(e.target.value)} className={inp} placeholder="Ex: CRM/SP 123456, CRBM/SP 12345, CREFITO-3/12345-F" />
             </Field>
             <Field label="Especialidade (para carimbo médico)">
               <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} className={inp} placeholder="Dermatologia, Clínica Médica..." />
