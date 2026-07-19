@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
+import { compressImage } from "@/lib/compress-image";
 
 type Photo = {
   id: string;
@@ -84,9 +85,10 @@ export function PhotosTab({ clientId }: { clientId: string }) {
     setUploading(true);
     try {
       for (const file of files) {
+        const compressed = await compressImage(file);
         const photoId = crypto.randomUUID();
         const path = `${clientId}/${photoId}.jpg`;
-        const up = await withTimeout(supabase.storage.from(BUCKET).upload(path, file, { upsert: false }), 12000, "Upload da foto");
+        const up = await withTimeout(supabase.storage.from(BUCKET).upload(path, compressed, { upsert: false }), 12000, "Upload da foto");
         if (up.error) throw up.error;
         const ins = await withTimeout(supabase.from("client_photos").insert({
           id: photoId,
