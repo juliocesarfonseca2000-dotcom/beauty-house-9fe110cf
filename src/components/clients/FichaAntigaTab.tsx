@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { IconTrash, IconUpload } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { withTimeout } from "@/lib/with-timeout";
+import { compressImage } from "@/lib/compress-image";
 
 const BUCKET = "client-photos";
 const PREFIX = (clientId: string) => `ficha-antiga/${clientId}/`;
@@ -66,10 +67,11 @@ export function FichaAntigaTab({ clientId }: { clientId: string }) {
     setUploading(true);
     try {
       for (const file of files) {
+        const compressed = await compressImage(file);
         const ext = file.name.split(".").pop();
         const path = `${PREFIX(clientId)}${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const { error } = await withTimeout(
-          supabase.storage.from(BUCKET).upload(path, file, { upsert: false }),
+          supabase.storage.from(BUCKET).upload(path, compressed, { upsert: false }),
           12000,
           "Upload da ficha"
         );
