@@ -34,7 +34,7 @@ function extractPath(urlOrPath: string): string | null {
 
 export function PhotosTab({ clientId }: { clientId: string }) {
   const { user: me } = useAuth();
-  const canEdit = me?.role === "admin" || me?.role === "receptionist" || me?.is_evaluator === true;
+  const canEdit = !!me;
   const [uploading, setUploading] = useState(false);
   const [category, setCategory] = useState<"antes" | "depois" | "evolucao">("antes");
   const [procedureId, setProcedureId] = useState("");
