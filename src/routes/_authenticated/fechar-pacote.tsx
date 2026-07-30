@@ -64,6 +64,7 @@ function ClosePackagePage() {
   const [customMode, setCustomMode] = useState(false);
   const [customQty, setCustomQty] = useState(2);
   const [customPrice, setCustomPrice] = useState(0);
+  const [disparos, setDisparos] = useState<number>(1);
   const [discountUnlocked, setDiscountUnlocked] = useState(false);
   const [adminPin, setAdminPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -111,12 +112,17 @@ function ClosePackagePage() {
 
   const currentProc = procs.find((p) => p.id === procId) ?? null;
   const isAvulso = ["avulso", "especial", "por_disparo"].includes(currentProc?.session_type ?? "");
+  const isPorDisparo = currentProc?.session_type === "por_disparo";
+  const disparoUnit = currentProc?.price_single ?? 1;
+  const disparoAuto = disparos > 0 ? disparos * disparoUnit : 0;
   const currentPrice = currentProc
-    ? (customMode && !isAvulso
-        ? (customPrice > 0 ? customPrice : null)
-        : (isAvulso || sessions === 1
-            ? currentProc.price_single
-            : (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20)))
+    ? (isPorDisparo
+        ? ((customPrice > 0 ? customPrice : disparoAuto) || null)
+        : (customMode && !isAvulso
+            ? (customPrice > 0 ? customPrice : null)
+            : (isAvulso || sessions === 1
+                ? currentProc.price_single
+                : (sessions === 5 ? currentProc.price_5 : sessions === 10 ? currentProc.price_10 : currentProc.price_20))))
     : null;
 
   useEffect(() => {
@@ -148,6 +154,7 @@ function ClosePackagePage() {
     setProcId("");
     setCustomMode(false);
     setCustomPrice(0);
+    setDisparos(1);
   };
 
 
@@ -394,7 +401,29 @@ function ClosePackagePage() {
             {procs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
 
-          {isAvulso ? (
+          {isPorDisparo ? (
+            <div className="mb-3 p-3 rounded-lg border-2 border-gold bg-gold/10 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] text-text2 uppercase mb-1">Qtd. de disparos</label>
+                  <input type="number" min="1" step="1" value={disparos}
+                    onChange={(e) => setDisparos(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-text2 uppercase mb-1">Valor total a cobrar (R$)</label>
+                  <input type="number" min="0" step="0.01" value={customPrice || ""}
+                    onChange={(e) => setCustomPrice(Math.max(0, Number(e.target.value) || 0))}
+                    placeholder={disparoAuto ? disparoAuto.toFixed(2) : "0,00"}
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm" />
+                </div>
+              </div>
+              <div className="text-[11px] text-text3 text-center">
+                Valor por disparo: {disparoUnit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} · Sugerido: {disparoAuto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                {customPrice > 0 ? " · usando valor personalizado" : " · deixe o valor em branco para usar o sugerido"}
+              </div>
+            </div>
+          ) : isAvulso ? (
             <div className="mb-3 p-3 rounded-lg border-2 border-gold bg-gold/10 text-center">
               <div className="font-display text-xl text-navy">1 sessão</div>
               <div className="text-sm font-semibold text-gold mt-1">
