@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
+import { todayISO } from "@/lib/timeUtils";
 import { ContractModal } from "@/components/contracts/ContractModal";
 import { SignSessionModal } from "./SignSessionModal";
 
@@ -1264,7 +1265,7 @@ function EditSessionModal({
   onSaved: () => void;
 }) {
   const [doneAt, setDoneAt] = useState(
-    session.done_at ? new Date(session.done_at).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
+    session.done_at ? new Date(session.done_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }) : todayISO()
   );
   const [notes, setNotes] = useState(session.notes ?? "");
   const [status, setStatus] = useState<"done" | "pending">(session.status === "done" ? "done" : "pending");

@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { todayISO } from "@/lib/timeUtils";
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   component: EstoquePage,
@@ -458,7 +459,7 @@ function MovementModal({
     // 1) Se for entrada e o checkbox estiver marcado, cria a despesa primeiro
     let expenseId: string | null = null;
     if (type === "in" && createExpense) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayISO();
       const desc = `Compra de estoque: ${q} ${product.unit ?? ""} de ${product.name}`.trim();
       const exp = await supabase.from("expenses").insert({
         category: "Estoque",

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { withTimeout } from "@/lib/with-timeout";
 import { compressImage } from "@/lib/compress-image";
+import { todayISO } from "@/lib/timeUtils";
 
 type Photo = {
   id: string;
@@ -96,7 +97,7 @@ export function PhotosTab({ clientId }: { clientId: string }) {
           url: path,
           category,
           procedure_id: procedureId || null,
-          date: new Date().toISOString().split("T")[0],
+          date: todayISO(),
         }), 12000, "Registro da foto");
         if (ins.error) throw ins.error;
       }

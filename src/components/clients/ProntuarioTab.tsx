@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { SignProntuarioModal } from "./SignProntuarioModal";
+import { todayISO } from "@/lib/timeUtils";
 
 type Proc = { id: string; name: string; is_medical?: boolean | null };
 type Note = {
@@ -26,7 +27,7 @@ type Note = {
   locked: boolean | null;
 };
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => todayISO();
 
 export function ProntuarioTab({ clientId, clientName }: { clientId: string; clientName: string }) {
   const { user } = useAuth();
