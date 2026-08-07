@@ -234,7 +234,7 @@ export async function peekNextContractNumber(): Promise<number> {
     .eq("key", "contract_counter")
     .maybeSingle();
   const current = (data?.value as { num?: number } | null)?.num ?? 44626;
-  return current + 1;
+  return Math.max(current + 1, 44716);
 }
 
 export async function getNextContractNumber(): Promise<number> {
@@ -244,7 +244,7 @@ export async function getNextContractNumber(): Promise<number> {
     .eq("key", "contract_counter")
     .maybeSingle();
   const current = (data?.value as { num?: number } | null)?.num ?? 44626;
-  const next = current + 1;
+  const next = Math.max(current + 1, 44716);
   await supabase
     .from("system_settings")
     .upsert({ key: "contract_counter", value: { num: next } });

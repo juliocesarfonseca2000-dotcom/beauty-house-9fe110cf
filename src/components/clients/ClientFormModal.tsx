@@ -3,7 +3,6 @@ import { IconX } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/with-timeout";
 import { toast } from "sonner";
-import { getNextFichaNumber } from "@/lib/contract-pdf";
 import { applyClientSearch } from "@/lib/client-search";
 
 type Evaluator = { id: string; name: string; is_evaluator?: boolean };
@@ -16,6 +15,7 @@ export function ClientFormModal({
   onCreated: (id: string) => void;
 }) {
   const [fichaNumManual, setFichaNumManual] = useState<string>("");
+  const [lastFicha, setLastFicha] = useState<string | null>(null);
   const [name, setName] = useState("");
 
   const [phone, setPhone] = useState("");
@@ -33,6 +33,16 @@ export function ClientFormModal({
   const [refResults, setRefResults] = useState<Evaluator[]>([]);
   const [busy, setBusy] = useState(false);
   const [bonusMsg, setBonusMsg] = useState("pacote bônus");
+
+  useEffect(() => {
+    supabase
+      .from("clients")
+      .select("record_num")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setLastFicha(data?.record_num != null ? String(data.record_num) : null));
+  }, []);
 
   useEffect(() => {
     import("@/components/system/SystemSettingsModal").then(({ getBonusConfig }) =>
@@ -84,12 +94,12 @@ export function ClientFormModal({
     }
     setBusy(true);
     try {
-      let recordNumToSave: string;
-      if (fichaNumManual.trim()) {
-        recordNumToSave = fichaNumManual.trim().toUpperCase();
-      } else {
-        recordNumToSave = String(await getNextFichaNumber());
+      if (!fichaNumManual.trim()) {
+        toast.error("Digite o número da ficha");
+        setBusy(false);
+        return;
       }
+      const recordNumToSave = fichaNumManual.trim().toUpperCase();
 
       const { data: existing } = await supabase
         .from("clients")
@@ -205,13 +215,13 @@ export function ClientFormModal({
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-text2 uppercase mb-1.5">
-              Número da ficha <span className="text-text3 font-normal normal-case">(opcional — gerado automaticamente se vazio)</span>
+              Número da ficha <span className="text-text3 font-normal normal-case">(digite o número)</span>
             </label>
             <input
               type="text"
               value={fichaNumManual}
               onChange={(e) => setFichaNumManual(e.target.value)}
-              placeholder="Ex: 44641 ou 1234M (deixe vazio para automático)"
+              placeholder={lastFicha ? `Último: ${lastFicha} — digite o próximo` : "Digite o número da ficha"}
               className={input}
             />
           </div>
