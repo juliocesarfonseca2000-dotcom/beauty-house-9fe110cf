@@ -23,6 +23,7 @@ type Procedure = {
   id: string; name: string; duration_min: number | null;
   price_single: number | null; price_5: number | null; price_10: number | null; price_20: number | null;
   session_type: string | null;
+  companion_proc_id: string | null;
 };
 
 type CartItem = {
@@ -79,7 +80,7 @@ function ClosePackagePage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("procedures").select("id,name,duration_min,price_single,price_5,price_10,price_20,session_type").eq("active", true).order("name");
+      const { data } = await supabase.from("procedures").select("id,name,duration_min,price_single,price_5,price_10,price_20,session_type,companion_proc_id").eq("active", true).order("name");
       setProcs((data as Procedure[]) ?? []);
 
     })();
@@ -253,6 +254,41 @@ function ClosePackagePage() {
         "Criação das sessões",
       );
       if (sErr) throw sErr;
+
+      // Pacotes acompanhantes (cortesia automática por companion_proc_id)
+      try {
+        const companionItems = cart.filter((item) => !item.is_courtesy && item.procedure.companion_proc_id);
+        for (const item of companionItems) {
+          const { data: compPkg, error: compPkgErr } = await supabase
+            .from("packages")
+            .insert({
+              client_id: client.id,
+              procedure_id: item.procedure.companion_proc_id,
+              sess_total: 1,
+              sess_done: 0,
+              price_full: 0,
+              price_paid: 0,
+              discount_pct: 100,
+              pay_method: "Cortesia",
+              status: "active",
+              is_bonus: true,
+              bonus_validated: true,
+              bonus_validated_at: new Date().toISOString(),
+            })
+            .select("id")
+            .single();
+          if (compPkgErr || !compPkg) { console.error("Erro ao criar pacote acompanhante:", compPkgErr); continue; }
+          const { error: compSessErr } = await supabase.from("sessions").insert({
+            package_id: (compPkg as { id: string }).id,
+            client_id: client.id,
+            session_num: 1,
+            status: "pending",
+          });
+          if (compSessErr) console.error("Erro ao criar sessão acompanhante:", compSessErr);
+        }
+      } catch (e) {
+        console.error("Pacote acompanhante — pós-processo falhou:", e);
+      }
 
       const pkgIds = pkgResults.map((r) => r.data!.id);
       const paidPkgIds = pkgResults.filter((_, idx) => !cart[idx].is_courtesy).map((r) => r.data!.id);
