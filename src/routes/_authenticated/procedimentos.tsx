@@ -27,6 +27,7 @@ type Proc = {
   resource_id: string | null;
   room_id: string | null;
   session_type: SessionType | null;
+  companion_proc_id: string | null;
 };
 
 type Room = { id: string; name: string; purpose: string | null; active: boolean };
@@ -346,6 +347,8 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
   const [termText, setTermText] = useState(initial?.term_text ?? "");
   const [roomId, setRoomId] = useState(initial?.room_id ?? "");
   const [sessionType, setSessionType] = useState<SessionType>((initial?.session_type as SessionType) ?? "sessoes");
+  const [companionId, setCompanionId] = useState(initial?.companion_proc_id ?? "");
+  const [allProcs, setAllProcs] = useState<{ id: string; name: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [pros, setPros] = useState<{ id: string; name: string }[]>([]);
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
@@ -355,14 +358,16 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
 
   useEffect(() => {
     (async () => {
-      const [{ data: prosData }, { data: roomsData }, { data: eqData }] = await Promise.all([
+      const [{ data: prosData }, { data: roomsData }, { data: eqData }, { data: procsData }] = await Promise.all([
         supabase.from("app_users").select("id,name").eq("active", true).eq("role", "professional").order("name"),
         supabase.from("rooms").select("*").eq("active", true).order("name"),
         supabase.from("equipment").select("*").eq("active", true).order("name"),
+        supabase.from("procedures").select("id,name").eq("active", true).order("name"),
       ]);
       setPros((prosData as { id: string; name: string }[]) ?? []);
       setRooms((roomsData as Room[]) ?? []);
       setEquipments((eqData as Equipment[]) ?? []);
+      setAllProcs((procsData as { id: string; name: string }[]) ?? []);
       if (initial) {
         const [{ data: links }, { data: eqLinks }] = await Promise.all([
           supabase.from("procedure_professionals").select("professional_id").eq("procedure_id", initial.id),
@@ -416,6 +421,7 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
       term_text: requiresTerm ? (termText.trim() || null) : null,
       room_id: roomId || null,
       session_type: sessionType,
+      companion_proc_id: companionId || null,
     };
     let procId = initial?.id;
     if (initial) {
@@ -469,6 +475,14 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
               </select>
             </Field>
           </FieldRow>
+          <Field label="Procedimento que acompanha (bônus / cortesia)">
+            <select value={companionId} onChange={(e) => setCompanionId(e.target.value)} className={inp}>
+              <option value="">Nenhum</option>
+              {allProcs.filter((pr) => pr.id !== initial?.id).map((pr) => (
+                <option key={pr.id} value={pr.id}>{pr.name}</option>
+              ))}
+            </select>
+          </Field>
           <FieldRow>
             <Field label="Duração (min)*">
               <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={inp} required />
