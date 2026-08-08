@@ -16,7 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { exportFinanceiroPdf } from "@/lib/pdf-export";
+import { exportFinanceiroPdf, exportContratosPdf } from "@/lib/pdf-export";
 import { ContractModal } from "@/components/contracts/ContractModal";
 import { useAuth } from "@/lib/auth";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -826,8 +826,8 @@ function ContratosTab() {
     const { data, error } = await supabase
       .from("contracts")
       .select("id,contract_number,total,created_at,client_id,clients(name,record_num)")
-      .gte("created_at", from + "T00:00:00")
-      .lte("created_at", to + "T23:59:59")
+      .gte("created_at", new Date(from + "T00:00:00-03:00").toISOString())
+      .lte("created_at", new Date(to + "T23:59:59-03:00").toISOString())
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setItems((data as unknown as ContractRow[]) ?? []);
@@ -867,6 +867,25 @@ function ContratosTab() {
           <div className="text-xs text-text3">{items.length} contrato(s)</div>
           <div className="font-display text-2xl text-gold">{fmtMoney(total)}</div>
         </div>
+        <button
+          onClick={() =>
+            exportContratosPdf({
+              fromLabel: new Date(from + "T12:00:00-03:00").toLocaleDateString("pt-BR"),
+              toLabel: new Date(to + "T12:00:00-03:00").toLocaleDateString("pt-BR"),
+              contracts: filtered.map((i) => ({
+                contract_number: i.contract_number,
+                created_at: i.created_at,
+                client_name: i.clients?.name ?? "—",
+                total: Number(i.total ?? 0),
+              })),
+            })
+          }
+          disabled={filtered.length === 0}
+          className="bh-btn bh-btn-primary disabled:opacity-50"
+          title="Exportar PDF dos contratos"
+        >
+          <IconFileDownload size={16} /> Exportar PDF
+        </button>
       </div>
 
       <div className="bh-card p-4">

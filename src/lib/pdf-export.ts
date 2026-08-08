@@ -83,3 +83,47 @@ export function exportFinanceiroPdf(opts: {
   const safe = `${fromLabel}_${toLabel}`.replace(/[^\dA-Za-z_-]/g, "_");
   doc.save(`financeiro_beauty_house_${safe}.pdf`);
 }
+
+type ContractEntry = {
+  contract_number: number | string | null;
+  created_at: string;
+  client_name: string;
+  total: number;
+};
+
+export function exportContratosPdf(opts: {
+  fromLabel: string;
+  toLabel: string;
+  contracts: ContractEntry[];
+}) {
+  const { fromLabel, toLabel, contracts } = opts;
+  const doc = new jsPDF();
+  const totalVal = contracts.reduce((s, c) => s + Number(c.total || 0), 0);
+
+  doc.setFontSize(18);
+  doc.setTextColor(18, 40, 63);
+  doc.text("Beauty House — Relatório de Contratos", 14, 18);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Período: ${fromLabel} → ${toLabel}`, 14, 26);
+  doc.text(`${contracts.length} contrato(s)`, 14, 32);
+
+  autoTable(doc, {
+    startY: 38,
+    head: [["Contrato", "Data", "Cliente", "Valor"]],
+    body: contracts.map((c) => [
+      c.contract_number != null ? `#${c.contract_number}` : "—",
+      new Date(c.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+      c.client_name,
+      `R$ ${Number(c.total).toFixed(2)}`,
+    ]),
+    foot: [["", "", "Total", `R$ ${totalVal.toFixed(2)}`]],
+    theme: "striped",
+    headStyles: { fillColor: [18, 40, 63] },
+    footStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: "bold" },
+    styles: { fontSize: 9 },
+  });
+
+  const safe = `${fromLabel}_${toLabel}`.replace(/[^\dA-Za-z_-]/g, "_");
+  doc.save(`contratos-${safe}.pdf`);
+}
