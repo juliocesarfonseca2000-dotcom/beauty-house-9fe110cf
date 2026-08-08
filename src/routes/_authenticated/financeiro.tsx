@@ -46,7 +46,7 @@ type Expense = {
   date: string;
 };
 
-type Tab = "receitas" | "despesas" | "fechamento";
+type Tab = "receitas" | "despesas" | "fechamento" | "contratos";
 
 const PAY_METHODS = ["Dinheiro", "PIX", "Débito", "Crédito 1x", "Crédito Parcelado", "Transferência"];
 const EXPENSE_CATEGORIES = [
@@ -243,6 +243,7 @@ function FinanceiroUnlocked() {
             { id: "receitas", label: "Receitas", icon: <IconCash size={16} /> },
             { id: "despesas", label: "Despesas", icon: <IconReceipt2 size={16} /> },
             { id: "fechamento", label: "Fechamento", icon: <IconChartPie size={16} /> },
+            { id: "contratos", label: "Contratos", icon: <IconFileText size={16} /> },
           ] as { id: Tab; label: string; icon: React.ReactNode }[]
         ).map((t) => (
           <button
@@ -262,6 +263,7 @@ function FinanceiroUnlocked() {
       <div className={tab === "receitas" ? "" : "hidden"}><ReceitasTab /></div>
       <div className={tab === "despesas" ? "" : "hidden"}><DespesasTab /></div>
       <div className={tab === "fechamento" ? "" : "hidden"}><FechamentoTab /></div>
+      <div className={tab === "contratos" ? "" : "hidden"}><ContratosTab /></div>
     </div>
   );
 }
@@ -798,6 +800,121 @@ function ExpenseFormModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         </div>
       </form>
     </div>
+  );
+}
+
+// ============= CONTRATOS =============
+
+type ContractRow = {
+  id: string;
+  contract_number: number | null;
+  total: number | null;
+  created_at: string;
+  client_id: string | null;
+  clients: { name: string; record_num: string | null } | null;
+};
+
+function ContratosTab() {
+  const [from, setFrom] = useState(firstDayOfMonth());
+  const [to, setTo] = useState(todayStr());
+  const [items, setItems] = useState<ContractRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  async function load() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("contracts")
+      .select("id,contract_number,total,created_at,client_id,clients(name,record_num)")
+      .gte("created_at", from + "T00:00:00")
+      .lte("created_at", to + "T23:59:59")
+      .order("created_at", { ascending: false });
+    if (error) toast.error(error.message);
+    setItems((data as unknown as ContractRow[]) ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
+
+  const total = useMemo(() => items.reduce((s, i) => s + Number(i.total ?? 0), 0), [items]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.trim().toLowerCase();
+    return items.filter(
+      (i) =>
+        String(i.contract_number ?? "").includes(q) ||
+        (i.clients?.name ?? "").toLowerCase().includes(q),
+    );
+  }, [items, search]);
+
+  return (
+    <>
+      <div className="bh-card p-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-xs text-text3 mb-1">De</label>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bh-input" />
+        </div>
+        <div>
+          <label className="block text-xs text-text3 mb-1">Até</label>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bh-input" />
+        </div>
+        <div className="flex-1" />
+        <div className="text-right">
+          <div className="text-xs text-text3">{items.length} contrato(s)</div>
+          <div className="font-display text-2xl text-gold">{fmtMoney(total)}</div>
+        </div>
+      </div>
+
+      <div className="bh-card p-4">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="bh-input w-full"
+          placeholder="Buscar por número ou cliente…"
+        />
+      </div>
+
+      <div className="bh-card p-0 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-bg2 text-text3">
+            <tr>
+              <th className="text-left p-3">Contrato</th>
+              <th className="text-left p-3">Data</th>
+              <th className="text-left p-3">Cliente</th>
+              <th className="text-right p-3">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={4} className="p-6 text-center text-text3">Carregando…</td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="p-6 text-center text-text3">Nenhum contrato no período.</td>
+              </tr>
+            ) : (
+              filtered.map((i) => (
+                <tr key={i.id} className="border-t border-border hover:bg-bg2/50">
+                  <td className="p-3 font-semibold text-gold">
+                    {i.contract_number != null ? `#${i.contract_number}` : "—"}
+                  </td>
+                  <td className="p-3">
+                    {new Date(i.created_at).toLocaleDateString("pt-BR")}
+                  </td>
+                  <td className="p-3 text-text2">{i.clients?.name ?? "—"}</td>
+                  <td className="p-3 text-right font-semibold">{fmtMoney(i.total)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
