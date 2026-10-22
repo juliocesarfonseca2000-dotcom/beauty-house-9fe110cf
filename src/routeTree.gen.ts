@@ -19,6 +19,7 @@ import { Route as AuthenticatedProcedimentosRouteImport } from './routes/_authen
 import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated/notificacoes'
 import { Route as AuthenticatedMeuPontoRouteImport } from './routes/_authenticated/meu-ponto'
 import { Route as AuthenticatedMensagensRouteImport } from './routes/_authenticated/mensagens'
+import { Route as AuthenticatedLembretesRouteImport } from './routes/_authenticated/lembretes'
 import { Route as AuthenticatedKioskPontoRouteImport } from './routes/_authenticated/kiosk-ponto'
 import { Route as AuthenticatedFinanceiroRouteImport } from './routes/_authenticated/financeiro'
 import { Route as AuthenticatedFichaRouteImport } from './routes/_authenticated/ficha'
@@ -26,7 +27,6 @@ import { Route as AuthenticatedFecharPacoteRouteImport } from './routes/_authent
 import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticated/estoque'
 import { Route as AuthenticatedEscalaRouteImport } from './routes/_authenticated/escala'
 import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
-import { Route as AuthenticatedLembretesRouteImport } from './routes/_authenticated/lembretes'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedClientesIdRouteImport } from './routes/_authenticated/clientes.$id'
 
@@ -82,6 +82,11 @@ const AuthenticatedMensagensRoute = AuthenticatedMensagensRouteImport.update({
   path: '/mensagens',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedLembretesRoute = AuthenticatedLembretesRouteImport.update({
+  id: '/lembretes',
+  path: '/lembretes',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedKioskPontoRoute = AuthenticatedKioskPontoRouteImport.update({
   id: '/kiosk-ponto',
   path: '/kiosk-ponto',
@@ -118,11 +123,6 @@ const AuthenticatedClientesRoute = AuthenticatedClientesRouteImport.update({
   path: '/clientes',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedLembretesRoute = AuthenticatedLembretesRouteImport.update({
-  id: '/lembretes',
-  path: '/lembretes',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
@@ -138,7 +138,6 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/agenda': typeof AuthenticatedAgendaRoute
-  '/lembretes': typeof AuthenticatedLembretesRoute
   '/clientes': typeof AuthenticatedClientesRouteWithChildren
   '/escala': typeof AuthenticatedEscalaRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
@@ -146,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/ficha': typeof AuthenticatedFichaRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
+  '/lembretes': typeof AuthenticatedLembretesRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
@@ -158,7 +158,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/agenda': typeof AuthenticatedAgendaRoute
-  '/lembretes': typeof AuthenticatedLembretesRoute
   '/clientes': typeof AuthenticatedClientesRouteWithChildren
   '/escala': typeof AuthenticatedEscalaRoute
   '/estoque': typeof AuthenticatedEstoqueRoute
@@ -166,6 +165,7 @@ export interface FileRoutesByTo {
   '/ficha': typeof AuthenticatedFichaRoute
   '/financeiro': typeof AuthenticatedFinanceiroRoute
   '/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
+  '/lembretes': typeof AuthenticatedLembretesRoute
   '/mensagens': typeof AuthenticatedMensagensRoute
   '/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
@@ -181,7 +181,6 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
-  '/_authenticated/lembretes': typeof AuthenticatedLembretesRoute
   '/_authenticated/clientes': typeof AuthenticatedClientesRouteWithChildren
   '/_authenticated/escala': typeof AuthenticatedEscalaRoute
   '/_authenticated/estoque': typeof AuthenticatedEstoqueRoute
@@ -189,6 +188,7 @@ export interface FileRoutesById {
   '/_authenticated/ficha': typeof AuthenticatedFichaRoute
   '/_authenticated/financeiro': typeof AuthenticatedFinanceiroRoute
   '/_authenticated/kiosk-ponto': typeof AuthenticatedKioskPontoRoute
+  '/_authenticated/lembretes': typeof AuthenticatedLembretesRoute
   '/_authenticated/mensagens': typeof AuthenticatedMensagensRoute
   '/_authenticated/meu-ponto': typeof AuthenticatedMeuPontoRoute
   '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
@@ -205,7 +205,6 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/agenda'
-    | '/lembretes'
     | '/clientes'
     | '/escala'
     | '/estoque'
@@ -213,6 +212,7 @@ export interface FileRouteTypes {
     | '/ficha'
     | '/financeiro'
     | '/kiosk-ponto'
+    | '/lembretes'
     | '/mensagens'
     | '/meu-ponto'
     | '/notificacoes'
@@ -225,7 +225,6 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/agenda'
-    | '/lembretes'
     | '/clientes'
     | '/escala'
     | '/estoque'
@@ -233,6 +232,7 @@ export interface FileRouteTypes {
     | '/ficha'
     | '/financeiro'
     | '/kiosk-ponto'
+    | '/lembretes'
     | '/mensagens'
     | '/meu-ponto'
     | '/notificacoes'
@@ -247,7 +247,6 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/agenda'
-    | '/_authenticated/lembretes'
     | '/_authenticated/clientes'
     | '/_authenticated/escala'
     | '/_authenticated/estoque'
@@ -255,6 +254,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ficha'
     | '/_authenticated/financeiro'
     | '/_authenticated/kiosk-ponto'
+    | '/_authenticated/lembretes'
     | '/_authenticated/mensagens'
     | '/_authenticated/meu-ponto'
     | '/_authenticated/notificacoes'
@@ -343,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMensagensRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/lembretes': {
+      id: '/_authenticated/lembretes'
+      path: '/lembretes'
+      fullPath: '/lembretes'
+      preLoaderRoute: typeof AuthenticatedLembretesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/kiosk-ponto': {
       id: '/_authenticated/kiosk-ponto'
       path: '/kiosk-ponto'
@@ -399,13 +406,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgendaRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/lembretes': {
-      id: '/_authenticated/lembretes'
-      path: '/lembretes'
-      fullPath: '/lembretes'
-      preLoaderRoute: typeof AuthenticatedLembretesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/clientes/$id': {
       id: '/_authenticated/clientes/$id'
       path: '/$id'
@@ -431,7 +431,6 @@ const AuthenticatedClientesRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
-  AuthenticatedLembretesRoute: typeof AuthenticatedLembretesRoute
   AuthenticatedClientesRoute: typeof AuthenticatedClientesRouteWithChildren
   AuthenticatedEscalaRoute: typeof AuthenticatedEscalaRoute
   AuthenticatedEstoqueRoute: typeof AuthenticatedEstoqueRoute
@@ -439,6 +438,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFichaRoute: typeof AuthenticatedFichaRoute
   AuthenticatedFinanceiroRoute: typeof AuthenticatedFinanceiroRoute
   AuthenticatedKioskPontoRoute: typeof AuthenticatedKioskPontoRoute
+  AuthenticatedLembretesRoute: typeof AuthenticatedLembretesRoute
   AuthenticatedMensagensRoute: typeof AuthenticatedMensagensRoute
   AuthenticatedMeuPontoRoute: typeof AuthenticatedMeuPontoRoute
   AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
@@ -451,7 +451,6 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
-  AuthenticatedLembretesRoute: AuthenticatedLembretesRoute,
   AuthenticatedClientesRoute: AuthenticatedClientesRouteWithChildren,
   AuthenticatedEscalaRoute: AuthenticatedEscalaRoute,
   AuthenticatedEstoqueRoute: AuthenticatedEstoqueRoute,
@@ -459,6 +458,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFichaRoute: AuthenticatedFichaRoute,
   AuthenticatedFinanceiroRoute: AuthenticatedFinanceiroRoute,
   AuthenticatedKioskPontoRoute: AuthenticatedKioskPontoRoute,
+  AuthenticatedLembretesRoute: AuthenticatedLembretesRoute,
   AuthenticatedMensagensRoute: AuthenticatedMensagensRoute,
   AuthenticatedMeuPontoRoute: AuthenticatedMeuPontoRoute,
   AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
