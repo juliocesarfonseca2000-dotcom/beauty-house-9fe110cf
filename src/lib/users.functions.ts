@@ -39,6 +39,7 @@ type CreateInput = {
   permissions: Record<string, boolean>;
   show_in_agenda?: boolean;
   can_view_all_agendas?: boolean;
+  can_edit_agenda?: boolean;
   agenda_order?: number | null;
   work_schedule?: Record<string, unknown> | null;
 };
@@ -84,6 +85,7 @@ export const createAppUser = createServerFn({ method: "POST" })
         active: true,
         show_in_agenda: data.show_in_agenda ?? false,
         can_view_all_agendas: data.can_view_all_agendas ?? false,
+        can_edit_agenda: data.can_edit_agenda ?? false,
       }),
 
     });
@@ -106,6 +108,7 @@ type UpdateInput = {
     active?: boolean;
     show_in_agenda?: boolean;
     can_view_all_agendas?: boolean;
+    can_edit_agenda?: boolean;
     agenda_order?: number | null;
     work_schedule?: Record<string, unknown> | null;
   };

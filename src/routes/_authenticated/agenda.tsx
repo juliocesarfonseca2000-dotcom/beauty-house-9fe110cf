@@ -106,7 +106,7 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 function AgendaPage() {
   const { user: me } = useAuth();
   const navigate = useNavigate();
-  const canManage = me?.role === "admin" || me?.role === "receptionist";
+  const canManage = me?.role === "admin" || me?.role === "receptionist" || (me as { can_edit_agenda?: boolean | null }).can_edit_agenda === true;
   const isProfessional = me?.role === "professional";
   const canSeeAllAgendas = me?.role === "admin" || me?.role === "receptionist" || (me as { can_view_all_agendas?: boolean | null }).can_view_all_agendas === true;
   const isProWithoutAgenda = me?.role === "professional" && (me as { show_in_agenda?: boolean | null }).show_in_agenda !== true;

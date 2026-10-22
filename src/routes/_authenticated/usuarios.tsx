@@ -187,6 +187,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
   const [active, setActive] = useState(initial?.active ?? true);
   const [showInAgenda, setShowInAgenda] = useState<boolean>(initial?.show_in_agenda ?? true);
   const [canViewAllAgendas, setCanViewAllAgendas] = useState<boolean>((initial as AppUser & { can_view_all_agendas?: boolean | null })?.can_view_all_agendas ?? false);
+  const [canEditAgenda, setCanEditAgenda] = useState<boolean>((initial as AppUser & { can_edit_agenda?: boolean | null })?.can_edit_agenda ?? false);
   const [agendaOrder, setAgendaOrder] = useState<number>(initial?.agenda_order ?? 999);
   const [perms, setPerms] = useState<Permissions>(initial?.permissions ?? DEFAULT_PERMS_BY_ROLE.professional);
   const [workSchedule, setWorkSchedule] = useState<WorkSchedule>(
@@ -219,7 +220,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token,
             id: initial.id,
-            patch: { name, role, cargo: cargo || null, crm: crm || null, council_type: councilType, specialty: specialty || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda, can_view_all_agendas: canViewAllAgendas, agenda_order: agendaOrder, work_schedule: workSchedule },
+            patch: { name, role, cargo: cargo || null, crm: crm || null, council_type: councilType, specialty: specialty || null, is_evaluator: isEval, permissions: perms, active, show_in_agenda: showInAgenda, can_view_all_agendas: canViewAllAgendas, can_edit_agenda: canEditAgenda, agenda_order: agendaOrder, work_schedule: workSchedule },
             password: password || undefined,
           },
         });
@@ -228,7 +229,7 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
           data: {
             accessToken: token, email, password, name,
             role, cargo: cargo || null, crm: crm || null, council_type: councilType, specialty: specialty || null, is_evaluator: isEval, permissions: perms,
-            show_in_agenda: showInAgenda, can_view_all_agendas: canViewAllAgendas, agenda_order: agendaOrder, work_schedule: workSchedule,
+            show_in_agenda: showInAgenda, can_view_all_agendas: canViewAllAgendas, can_edit_agenda: canEditAgenda, agenda_order: agendaOrder, work_schedule: workSchedule,
           },
         });
       }
@@ -346,6 +347,21 @@ function UserModal({ initial, onClose, onSaved }: { initial: AppUser | null; onC
               <div>
                 <div className="font-semibold text-navy">👁️ Vê todas as agendas</div>
                 <div className="text-xs text-text3">Marque para que esta profissional enxergue a agenda de todas as colegas (além da dela)</div>
+              </div>
+            </label>
+          )}
+
+          {role === "professional" && (
+            <label className="flex items-center gap-3 text-sm cursor-pointer p-3 bg-bg2 rounded-lg border border-border">
+              <input
+                type="checkbox"
+                checked={canEditAgenda}
+                onChange={(e) => setCanEditAgenda(e.target.checked)}
+                className="w-4 h-4 accent-gold"
+              />
+              <div>
+                <div className="font-semibold text-navy">✏️ Editor da agenda</div>
+                <div className="text-xs text-text3">Marque para que esta profissional possa criar, mover e editar agendamentos (não só visualizar)</div>
               </div>
             </label>
           )}
