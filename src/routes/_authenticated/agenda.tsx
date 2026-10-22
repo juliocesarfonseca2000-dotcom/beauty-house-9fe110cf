@@ -108,11 +108,12 @@ function AgendaPage() {
   const navigate = useNavigate();
   const canManage = me?.role === "admin" || me?.role === "receptionist";
   const isProfessional = me?.role === "professional";
+  const canSeeAllAgendas = me?.role === "admin" || me?.role === "receptionist" || (me as { can_view_all_agendas?: boolean | null }).can_view_all_agendas === true;
   const isProWithoutAgenda = me?.role === "professional" && (me as { show_in_agenda?: boolean | null }).show_in_agenda !== true;
 
   const [date, setDate] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [pros, setPros] = useState<Professional[]>([]);
-  const [proFilter, setProFilter] = useState<string>(isProfessional && me?.id ? me.id : "all");
+  const [proFilter, setProFilter] = useState<string>(isProfessional && !canSeeAllAgendas && me?.id ? me.id : "all");
   const [appts, setAppts] = useState<Appt[]>([]);
   const [slotChoice, setSlotChoice] = useState<{ proId: string; hour: number; min: number } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -155,7 +156,7 @@ function AgendaPage() {
 
   const load = async () => {
     setLoading(true);
-    const prosQuery = isProfessional && me?.id
+    const prosQuery = isProfessional && !canSeeAllAgendas && me?.id
       ? supabase.from("app_users").select("id,name,work_schedule").eq("active", true)
           .eq("role", "professional").eq("id", me.id).order("name")
       : supabase.from("app_users").select("id,name,work_schedule").eq("active", true)
