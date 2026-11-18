@@ -811,6 +811,7 @@ type ContractRow = {
   total: number | null;
   created_at: string;
   client_id: string | null;
+  pdf_path: string | null;
   clients: { name: string; record_num: string | null } | null;
 };
 
@@ -825,7 +826,7 @@ function ContratosTab() {
     setLoading(true);
     const { data, error } = await supabase
       .from("contracts")
-      .select("id,contract_number,total,created_at,client_id,clients(name,record_num)")
+      .select("id,contract_number,total,created_at,client_id,pdf_path,clients(name,record_num)")
       .gte("created_at", new Date(from + "T00:00:00-03:00").toISOString())
       .lte("created_at", new Date(to + "T23:59:59-03:00").toISOString())
       .order("created_at", { ascending: false });
@@ -838,6 +839,13 @@ function ContratosTab() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to]);
+
+  async function openContractPdf(contract: ContractRow) {
+    if (!contract.pdf_path) { toast.error("PDF deste contrato não está disponível."); return; }
+    const { data } = await supabase.storage.from("contracts").createSignedUrl(contract.pdf_path, 3600);
+    if (data?.signedUrl) { window.open(data.signedUrl, "_blank"); }
+    else { toast.error("PDF deste contrato não está disponível."); }
+  }
 
   const total = useMemo(() => items.reduce((s, i) => s + Number(i.total ?? 0), 0), [items]);
 
@@ -905,16 +913,17 @@ function ContratosTab() {
               <th className="text-left p-3">Data</th>
               <th className="text-left p-3">Cliente</th>
               <th className="text-right p-3">Valor</th>
+              <th className="p-3 w-24">Ação</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={4} className="p-6 text-center text-text3">Carregando…</td>
+                <td colSpan={5} className="p-6 text-center text-text3">Carregando…</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="p-6 text-center text-text3">Nenhum contrato no período.</td>
+                <td colSpan={5} className="p-6 text-center text-text3">Nenhum contrato no período.</td>
               </tr>
             ) : (
               filtered.map((i) => (
@@ -927,6 +936,15 @@ function ContratosTab() {
                   </td>
                   <td className="p-3 text-text2">{i.clients?.name ?? "—"}</td>
                   <td className="p-3 text-right font-semibold">{fmtMoney(i.total)}</td>
+                  <td className="p-3">
+                    <button
+                      type="button"
+                      onClick={() => openContractPdf(i)}
+                      className="text-xs text-gold hover:text-gold/80 font-semibold"
+                    >
+                      📄 Ver PDF
+                    </button>
+                  </td>
                 </tr>
               ))
             )}

@@ -171,6 +171,7 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
   const canEdit = me?.role === "admin" || me?.role === "receptionist" || me?.is_evaluator === true;
   const [edit, setEdit] = useState(false);
   const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
+  const [upcoming, setUpcoming] = useState<Array<{ id: string; datetime: string; status: string | null; attendance_status: string | null; procedures: { name: string } | null }>>([]);
   const [f, setF] = useState({
     record_num: String(client.record_num ?? ""), name: client.name, phone: client.phone ?? "", email: client.email ?? "",
     birthdate: client.birthdate ?? "", cpf: client.cpf ?? "", referral: client.referral ?? "", evaluator_id: client.evaluator_id ?? "", notes: client.notes ?? "",
@@ -183,6 +184,17 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
+  useEffect(() => {
+    supabase
+      .from("appointments")
+      .select("id,datetime,status,attendance_status,procedures(name)")
+      .eq("client_id", client.id)
+      .gte("datetime", new Date().toISOString())
+      .not("status", "in", "(cancelled,blocked)")
+      .order("datetime", { ascending: true })
+      .limit(20)
+      .then(({ data }) => setUpcoming((data as unknown as typeof upcoming) ?? []));
+  }, [client.id]);
   const save = async () => {
     try {
       const { error } = await withTimeout(supabase.from("clients").update({
@@ -201,9 +213,34 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
     }
   };
   return (
-    <div className="bh-card p-6 space-y-4">
-      <div className="flex justify-end">
-        {canEdit && (edit ? (
+    <>
+      <div className="bh-card p-4 mb-4">
+        <div className="font-semibold text-navy mb-2 text-sm">📅 Próximos agendamentos</div>
+        {upcoming.length === 0 ? (
+          <div className="text-sm text-text3">Nenhum agendamento futuro.</div>
+        ) : (
+          <div className="space-y-1">
+            {upcoming.map((a) => (
+              <div key={a.id} className="flex items-center gap-3 text-sm py-1 border-b border-border last:border-0">
+                <span className="text-text2 w-36 shrink-0">
+                  {new Date(a.datetime).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className="text-text2 flex-1">{a.procedures?.name ?? "—"}</span>
+                {a.attendance_status === "confirmed" ? (
+                  <span className="text-xs font-semibold text-success">✓ Confirmado</span>
+                ) : a.attendance_status === "no_show" ? (
+                  <span className="text-xs font-semibold text-danger">Falta</span>
+                ) : (
+                  <span className="text-xs text-text3">Agendado</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="bh-card p-6 space-y-4">
+        <div className="flex justify-end">
+          {canEdit && (edit ? (
           <button onClick={save} className="px-4 py-2 rounded-lg bg-success text-white text-sm font-semibold flex items-center gap-2"><IconCheck size={16} /> Salvar</button>
         ) : (
           <button onClick={() => setEdit(true)} className="px-4 py-2 rounded-lg border border-border text-text2 hover:bg-bg2 text-sm flex items-center gap-2"><IconEdit size={16} /> Editar</button>
@@ -229,7 +266,8 @@ function DadosTab({ client, onSaved }: { client: Client; onSaved: () => void }) 
           <div className="text-text2 text-sm">{f.notes || "—"}</div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
