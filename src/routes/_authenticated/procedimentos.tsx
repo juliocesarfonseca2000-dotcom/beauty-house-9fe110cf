@@ -438,7 +438,7 @@ function ProcModal({ initial, onClose, onSaved }: { initial: Proc | null; onClos
         supabase.from("procedure_professionals").delete().eq("procedure_id", pid),
         supabase.from("procedure_equipment").delete().eq("procedure_id", pid),
       ]);
-      const inserts: Promise<unknown>[] = [];
+      const inserts: PromiseLike<unknown>[] = [];
       if (selectedPros.size > 0) {
         inserts.push(supabase.from("procedure_professionals").insert(
           Array.from(selectedPros).map((proId) => ({ procedure_id: pid, professional_id: proId })),

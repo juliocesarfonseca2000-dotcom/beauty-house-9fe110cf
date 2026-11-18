@@ -116,7 +116,7 @@ export function NotificationBell() {
     qc.invalidateQueries({ queryKey: ["notifications"] });
     setOpen(false);
     if (n.client_id) {
-      navigate({ to: "/clientes/$id", params: { id: n.client_id }, search: { tab: n.deep_tab || "sessoes" } });
+      navigate({ to: "/clientes/$id", params: { id: n.client_id }, search: { tab: (n.deep_tab || "sessoes") as any } });
     } else if (n.action_url) {
       navigate({ to: n.action_url });
     }

@@ -88,7 +88,7 @@ function NotificationsPage() {
     qc.invalidateQueries({ queryKey: ["notifications-all"] });
     qc.invalidateQueries({ queryKey: ["notifications"] });
     if (n.client_id) {
-      navigate({ to: "/clientes/$id", params: { id: n.client_id }, search: { tab: n.deep_tab || "sessoes" } });
+      navigate({ to: "/clientes/$id", params: { id: n.client_id }, search: { tab: (n.deep_tab || "sessoes") as any } });
     } else if (n.action_url) {
       navigate({ to: n.action_url });
     }
